@@ -1,0 +1,18 @@
+{
+  "name": "smart-pantry",
+  "version": "1.0.0",
+  "description": "Smart Pantry - Inventory & Expiry Tracker with AI Bill Scanning",
+  "scripts": {
+    "build": "node build.js",
+    "build:dist": "node build.js",
+    "preview": "npx serve dist"
+  },
+  "keywords": [
+    "pantry",
+    "inventory",
+    "tracker",
+    "ocr"
+  ],
+  "author": "Shabab",
+  "license": "MIT"
+}
