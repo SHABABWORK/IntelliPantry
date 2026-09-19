@@ -15,12 +15,6 @@
       if (params.get('logout') === '1') {
         localStorage.removeItem('smartpantry_token');
         localStorage.removeItem('smartpantry_user');
-        return;
-      }
-      const token = localStorage.getItem('smartpantry_token');
-      const user = localStorage.getItem('smartpantry_user');
-      if (token && user) {
-        window.location.href = 'dashboard.html';
       }
     })();
   </script>
