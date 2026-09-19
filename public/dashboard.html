@@ -1232,12 +1232,12 @@ function formatNameFromEmail(email) {
     
     // Determine friendly display name
     let displayName = user.name;
-    if (!displayName || displayName === 'User' || displayName === 'Shabab') {
+    if (!displayName || displayName === 'User') {
       if (user.email) {
         displayName = formatNameFromEmail(user.email);
       }
     }
-    if (!displayName) displayName = 'User';
+    if (!displayName) displayName = 'Pantry Chef';
 
     // Dynamic Time-of-Day Greeting
     const hour = new Date().getHours();
