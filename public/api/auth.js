@@ -1,5 +1,5 @@
 /**
- * Netlify Serverless Function: auth.js
+ * Vercel Serverless Function: api/auth.js
  * Master Production Authentication, Security, OTP Verification & Session Engine
  * 
  * Features:
@@ -137,8 +137,8 @@ async function sendEmailViaResend({ to, subject, html, text }) {
   }
 }
 
-// Netlify Function Handler
-exports.handler = async function (event, context) {
+// Core Auth Request Handler
+async function handleAuth(event, context) {
   const headers = {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Headers": "Content-Type, Authorization",
@@ -757,4 +757,48 @@ Official Contact: smartpantry.notify@gmail.com`;
       body: JSON.stringify({ success: false, error: "Server processing error" })
     };
   }
+}
+
+// Vercel Serverless Handler
+module.exports = async function handler(req, res) {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+
+  if (req.method === "OPTIONS") {
+    return res.status(200).json({ ok: true });
+  }
+
+  let body = req.body;
+  if (typeof body === "object" && body !== null) {
+    body = JSON.stringify(body);
+  }
+
+  const event = {
+    httpMethod: req.method,
+    headers: req.headers || {},
+    queryStringParameters: req.query || {},
+    body: body || null,
+    path: req.url
+  };
+
+  try {
+    const result = await handleAuth(event, {});
+    const code = result.statusCode || 200;
+    if (result.headers) {
+      Object.entries(result.headers).forEach(([k, v]) => {
+        res.setHeader(k, v);
+      });
+    }
+    try {
+      const json = JSON.parse(result.body);
+      return res.status(code).json(json);
+    } catch (e) {
+      return res.status(code).send(result.body);
+    }
+  } catch (err) {
+    console.error("[Vercel Auth Error]", err);
+    return res.status(500).json({ success: false, error: "Server processing error" });
+  }
 };
+

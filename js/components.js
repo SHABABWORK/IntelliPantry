@@ -435,7 +435,7 @@ async function triggerTestEmailAlert() {
   showToast(`Sending test alert to ${email}... ✉️`);
 
   try {
-    const response = await fetch("/.netlify/functions/send-pantry-alert", {
+    const response = await fetch("/api/send-pantry-alert", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -449,13 +449,13 @@ async function triggerTestEmailAlert() {
     if (result.success && result.id) {
       showToast(`✓ Test email delivered to ${email}! (ID: ${result.id.slice(0, 8)}...)`);
     } else if (result.status === "pending_config") {
-      showToast("Settings saved. Add RESEND_API_KEY in Netlify to deliver live emails.");
+      showToast("Settings saved. Add RESEND_API_KEY in Vercel to deliver live emails.");
     } else {
       showToast(`Test alert processed: ${result.message || result.error || 'Done'}`);
     }
   } catch (err) {
     console.warn("Test alert notice:", err);
-    showToast(`Test alert notice: Backend functions active upon Netlify deployment.`);
+    showToast(`Test alert notice: Backend functions active upon Vercel deployment.`);
   }
 }
 

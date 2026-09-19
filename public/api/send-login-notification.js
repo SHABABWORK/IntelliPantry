@@ -1,52 +1,28 @@
 /**
- * Netlify Serverless Function: send-login-notification
+ * Vercel Serverless Function: api/send-login-notification.js
  * Securely sends real-time login alerts via Resend API
- * 
- * SECURITY:
- * - RESEND_API_KEY is read strictly server-side from process.env
- * - Never returns or leaks the API key to the client
- * - Validates email and payload
  */
 
-exports.handler = async function (event, context) {
-  // CORS Headers
-  const headers = {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Headers": "Content-Type",
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Content-Type": "application/json"
-  };
+module.exports = async function handler(req, res) {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
 
-  // Handle preflight OPTIONS request
-  if (event.httpMethod === "OPTIONS") {
-    return {
-      statusCode: 200,
-      headers,
-      body: JSON.stringify({ ok: true })
-    };
+  if (req.method === "OPTIONS") {
+    return res.status(200).json({ ok: true });
   }
 
-  // Only allow POST
-  if (event.httpMethod !== "POST") {
-    return {
-      statusCode: 405,
-      headers,
-      body: JSON.stringify({ success: false, error: "Method Not Allowed" })
-    };
+  if (req.method !== "POST") {
+    return res.status(405).json({ success: false, error: "Method Not Allowed" });
   }
 
   try {
-    const data = JSON.parse(event.body || "{}");
+    const data = typeof req.body === "string" ? JSON.parse(req.body || "{}") : (req.body || {});
     const { email, name, loginDate, loginTime, browser, device } = data;
 
-    // 1. Validate Email
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!email || !emailRegex.test(email)) {
-      return {
-        statusCode: 400,
-        headers,
-        body: JSON.stringify({ success: false, error: "Valid email address required" })
-      };
+      return res.status(400).json({ success: false, error: "Valid email address required" });
     }
 
     const userName = name || email.split("@")[0] || "User";
@@ -55,24 +31,18 @@ exports.handler = async function (event, context) {
     const userBrowser = browser || "Web Browser";
     const userDevice = device || "Desktop / Mobile";
 
-    // 2. Read Server-side Environment Variables
     const apiKey = process.env.RESEND_API_KEY;
     const fromAddress = process.env.RESEND_FROM_EMAIL || "Smart Pantry <onboarding@resend.dev>";
 
     if (!apiKey) {
-      console.warn("[Smart Pantry Backend] RESEND_API_KEY is not set in Netlify environment variables.");
-      return {
-        statusCode: 200,
-        headers,
-        body: JSON.stringify({
-          success: true,
-          status: "pending_config",
-          message: "Login recorded. Configure RESEND_API_KEY in Netlify to deliver real emails."
-        })
-      };
+      console.warn("[Smart Pantry Backend] RESEND_API_KEY is not set in Vercel environment variables.");
+      return res.status(200).json({
+        success: true,
+        status: "pending_config",
+        message: "Login recorded. Configure RESEND_API_KEY in Vercel to deliver real emails."
+      });
     }
 
-    // 3. Construct Email Content
     const emailSubject = "Smart Pantry - New Login Detected";
 
     const textContent = `Hello ${userName},
@@ -160,7 +130,6 @@ Inventory & Expiry Management`;
 </body>
 </html>`;
 
-    // 4. Send Request to Resend REST API
     const resendResponse = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
@@ -180,39 +149,26 @@ Inventory & Expiry Management`;
 
     if (!resendResponse.ok) {
       console.error("[Resend API Error]", resendData);
-      return {
-        statusCode: 200, // Return 200 so frontend login is never blocked
-        headers,
-        body: JSON.stringify({
-          success: false,
-          error: "Email delivery failed on server",
-          details: resendData.message || "Resend error"
-        })
-      };
+      return res.status(200).json({
+        success: false,
+        error: "Email delivery failed on server",
+        details: resendData.message || "Resend error"
+      });
     }
 
     console.log(`[Smart Pantry] Login notification email sent successfully to ${email} (ID: ${resendData.id})`);
 
-    return {
-      statusCode: 200,
-      headers,
-      body: JSON.stringify({
-        success: true,
-        id: resendData.id,
-        message: "Login notification sent"
-      })
-    };
+    return res.status(200).json({
+      success: true,
+      id: resendData.id,
+      message: "Login notification sent"
+    });
 
   } catch (err) {
     console.error("[Server Error in send-login-notification]", err);
-    // Return safe response without internal trace or API keys
-    return {
-      statusCode: 200,
-      headers,
-      body: JSON.stringify({
-        success: false,
-        error: "Server processing error"
-      })
-    };
+    return res.status(200).json({
+      success: false,
+      error: "Server processing error"
+    });
   }
 };

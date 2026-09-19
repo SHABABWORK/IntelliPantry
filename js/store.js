@@ -394,7 +394,7 @@ class PantryStore {
 
       // Dispatch expiry alerts if any
       if (expiringItems.length > 0) {
-        fetch("/.netlify/functions/send-pantry-alert", {
+        fetch("/api/send-pantry-alert", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -410,7 +410,7 @@ class PantryStore {
 
       // Dispatch low stock alerts if any
       if (lowStockItems.length > 0) {
-        fetch("/.netlify/functions/send-pantry-alert", {
+        fetch("/api/send-pantry-alert", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({

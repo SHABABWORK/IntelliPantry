@@ -838,7 +838,7 @@
       btn.textContent = 'Creating Account...';
 
       try {
-        const res = await fetch('/.netlify/functions/auth', {
+        const res = await fetch('/api/auth', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -899,7 +899,7 @@
       btn.textContent = 'Verifying Code...';
 
       try {
-        const res = await fetch('/.netlify/functions/auth', {
+        const res = await fetch('/api/auth', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -952,7 +952,7 @@
       resendBtn.textContent = 'Sending...';
 
       try {
-        const res = await fetch('/.netlify/functions/auth', {
+        const res = await fetch('/api/auth', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -996,7 +996,7 @@
 
       try {
         const clientInfo = detectClientInfo();
-        const res = await fetch('/.netlify/functions/auth', {
+        const res = await fetch('/api/auth', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -1054,7 +1054,7 @@
       btn.textContent = 'Sending Code...';
 
       try {
-        const res = await fetch('/.netlify/functions/auth', {
+        const res = await fetch('/api/auth', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action: 'forgot-password', email })
@@ -1092,7 +1092,7 @@
       btn.textContent = 'Updating Password...';
 
       try {
-        const res = await fetch('/.netlify/functions/auth', {
+        const res = await fetch('/api/auth', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

@@ -1,5 +1,5 @@
 /**
- * Netlify Serverless Function: send-pantry-alert
+ * Vercel Serverless Function: api/send-pantry-alert.js
  * Modular email dispatch system for:
  * - Expiry Alerts
  * - Expired Items Alerts
@@ -7,59 +7,40 @@
  * - Out-of-Stock Alerts
  * - Weekly Summary
  * - Test Email Alerts
- * 
- * SECURITY:
- * - RESEND_API_KEY is read strictly server-side from process.env
- * - Never returns or leaks the API key to the client
  */
 
-exports.handler = async function (event, context) {
-  const headers = {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Headers": "Content-Type",
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Content-Type": "application/json"
-  };
+module.exports = async function handler(req, res) {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
 
-  if (event.httpMethod === "OPTIONS") {
-    return { statusCode: 200, headers, body: JSON.stringify({ ok: true }) };
+  if (req.method === "OPTIONS") {
+    return res.status(200).json({ ok: true });
   }
 
-  if (event.httpMethod !== "POST") {
-    return {
-      statusCode: 405,
-      headers,
-      body: JSON.stringify({ success: false, error: "Method Not Allowed" })
-    };
+  if (req.method !== "POST") {
+    return res.status(405).json({ success: false, error: "Method Not Allowed" });
   }
 
   try {
-    const data = JSON.parse(event.body || "{}");
+    const data = typeof req.body === "string" ? JSON.parse(req.body || "{}") : (req.body || {});
     const { email, type, items = [], customMessage } = data;
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!email || !emailRegex.test(email)) {
-      return {
-        statusCode: 400,
-        headers,
-        body: JSON.stringify({ success: false, error: "Valid email address required" })
-      };
+      return res.status(400).json({ success: false, error: "Valid email address required" });
     }
 
     const apiKey = process.env.RESEND_API_KEY;
     const fromAddress = process.env.RESEND_FROM_EMAIL || "Smart Pantry <onboarding@resend.dev>";
 
     if (!apiKey) {
-      console.warn("[Smart Pantry Backend] RESEND_API_KEY is not set in Netlify environment variables.");
-      return {
-        statusCode: 200,
-        headers,
-        body: JSON.stringify({
-          success: true,
-          status: "pending_config",
-          message: "Alert triggered. Set RESEND_API_KEY in Netlify to deliver real emails."
-        })
-      };
+      console.warn("[Smart Pantry Backend] RESEND_API_KEY is not set in Vercel environment variables.");
+      return res.status(200).json({
+        success: true,
+        status: "pending_config",
+        message: "Alert triggered. Set RESEND_API_KEY in Vercel to deliver real emails."
+      });
     }
 
     // Determine subject & template based on type
@@ -180,35 +161,23 @@ Inventory & Expiry Management`;
 
     if (!resendResponse.ok) {
       console.error("[Resend API Alert Error]", resendData);
-      return {
-        statusCode: 200,
-        headers,
-        body: JSON.stringify({
-          success: false,
-          error: "Alert email delivery failed on server",
-          details: resendData.message || "Resend error"
-        })
-      };
+      return res.status(200).json({
+        success: false,
+        error: "Alert email delivery failed on server",
+        details: resendData.message || "Resend error"
+      });
     }
 
-    return {
-      statusCode: 200,
-      headers,
-      body: JSON.stringify({
-        success: true,
-        id: resendData.id,
-        message: "Alert email sent successfully"
-      })
-    };
+    return res.status(200).json({
+      success: true,
+      id: resendData.id,
+      message: "Alert email sent successfully"
+    });
   } catch (err) {
     console.error("[Server Error in send-pantry-alert]", err);
-    return {
-      statusCode: 200,
-      headers,
-      body: JSON.stringify({
-        success: false,
-        error: "Server processing error"
-      })
-    };
+    return res.status(200).json({
+      success: false,
+      error: "Server processing error"
+    });
   }
 };
