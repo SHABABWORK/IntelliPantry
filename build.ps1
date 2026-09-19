@@ -24,6 +24,9 @@ Copy-Item (Join-Path $root "index.html") (Join-Path $dist "dashboard.html") -For
 if (Test-Path (Join-Path $root "netlify.toml")) {
     Copy-Item (Join-Path $root "netlify.toml") (Join-Path $dist "netlify.toml") -Force
 }
+if (Test-Path (Join-Path $root "vercel.json")) {
+    Copy-Item (Join-Path $root "vercel.json") (Join-Path $dist "vercel.json") -Force
+}
 
 $redirects = "/api/*  /.netlify/functions/:splat  200`n/*      /index.html                 200`n"
 Set-Content -Path (Join-Path $dist "_redirects") -Value $redirects -Encoding UTF8
@@ -35,6 +38,9 @@ Copy-Item -Recurse (Join-Path $root "css\*") (Join-Path $dist "css") -Force
 Copy-Item -Recurse (Join-Path $root "js\*") (Join-Path $dist "js") -Force
 Copy-Item -Recurse (Join-Path $root "assets\*") (Join-Path $dist "assets") -Force
 Copy-Item -Recurse (Join-Path $root "netlify\*") (Join-Path $dist "netlify") -Force
+$public = Join-Path $root "public"
+if (Test-Path $public) { Remove-Item -Recurse -Force $public }
+Copy-Item -Recurse -Force $dist $public
 
 # Create deployment zip with POSIX compliant paths
 Add-Type -AssemblyName System.IO.Compression.FileSystem

@@ -1,0 +1,1134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Smart Pantry — Real Account Authentication & Email Verification</title>
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Playfair+Display:ital,wght@0,600;0,700;1,600&display=swap" rel="stylesheet">
+  
+  <script>
+    (function() {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('logout') === '1') {
+        localStorage.removeItem('smartpantry_token');
+        localStorage.removeItem('smartpantry_user');
+        return;
+      }
+      const token = localStorage.getItem('smartpantry_token');
+      const user = localStorage.getItem('smartpantry_user');
+      if (token && user) {
+        window.location.href = 'dashboard.html';
+      }
+    })();
+  </script>
+  
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    :root {
+      --bg-warm: #fbfaf5;
+      --surface: #ffffff;
+      --forest: #1e392a;
+      --forest-hover: #15291e;
+      --forest-light: #eef6f0;
+      --border: #e6e3da;
+      --text-main: #1f2823;
+      --text-muted: #6b756e;
+      --accent-green: #2e9e5b;
+      --accent-gold: #c28829;
+      --error-bg: #fef2f2;
+      --error-text: #991b1b;
+      --error-border: #fca5a5;
+    }
+
+    body {
+      background-color: var(--bg-warm);
+      color: var(--text-main);
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px 16px;
+    }
+
+    .auth-container {
+      width: 100%;
+      max-width: 1080px;
+      background: var(--surface);
+      border-radius: 28px;
+      border: 1px solid var(--border);
+      box-shadow: 0 20px 60px rgba(30, 57, 42, 0.06);
+      display: grid;
+      grid-template-columns: 1.18fr 0.82fr;
+      overflow: hidden;
+      min-height: 680px;
+    }
+
+    /* Left Form Column */
+    .form-column {
+      padding: 44px 50px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .brand-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+      color: var(--forest);
+      margin-bottom: 24px;
+    }
+
+    .brand-leaf-icon {
+      width: 32px;
+      height: 32px;
+      background: var(--forest-light);
+      color: var(--forest);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .brand-name {
+      font-size: 20px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      color: var(--forest);
+    }
+
+    .auth-view {
+      display: none;
+      animation: fadeIn 0.25s ease-out;
+    }
+
+    .auth-view.active {
+      display: block;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .view-title {
+      font-size: 27px;
+      font-weight: 800;
+      color: var(--text-main);
+      letter-spacing: -0.02em;
+      margin-bottom: 6px;
+    }
+
+    .view-sub {
+      font-size: 13.5px;
+      color: var(--text-muted);
+      margin-bottom: 24px;
+      line-height: 1.5;
+    }
+
+    /* Alert Banner */
+    .alert-banner {
+      display: none;
+      padding: 12px 16px;
+      border-radius: 12px;
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 18px;
+      line-height: 1.4;
+    }
+
+    .alert-banner.error {
+      background: var(--error-bg);
+      color: var(--error-text);
+      border: 1px solid var(--error-border);
+      display: block;
+    }
+
+    .alert-banner.success {
+      background: #ecfdf5;
+      color: #065f46;
+      border: 1px solid #a7f3d0;
+      display: block;
+    }
+
+    .input-group {
+      margin-bottom: 16px;
+    }
+
+    .input-label {
+      display: block;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text-main);
+      margin-bottom: 6px;
+    }
+
+    .input-wrap {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+
+    .input-icon {
+      position: absolute;
+      left: 14px;
+      color: #9aa39c;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+    }
+
+    .auth-input {
+      width: 100%;
+      padding: 12px 14px 12px 42px;
+      background: #faf9f5;
+      border: 1.5px solid var(--border);
+      border-radius: 14px;
+      font-size: 14px;
+      font-family: inherit;
+      color: var(--text-main);
+      outline: none;
+      transition: all 0.2s ease;
+    }
+
+    .auth-input:focus {
+      background: #ffffff;
+      border-color: var(--forest);
+      box-shadow: 0 0 0 3.5px rgba(30, 57, 42, 0.1);
+    }
+
+    .auth-input::placeholder {
+      color: #adb5ae;
+    }
+
+    .input-action-btn {
+      position: absolute;
+      right: 14px;
+      background: none;
+      border: none;
+      color: #9aa39c;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      padding: 4px;
+    }
+
+    .form-options-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin: 14px 0 20px;
+      font-size: 12.5px;
+    }
+
+    .remember-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      color: var(--text-main);
+      font-weight: 500;
+      user-select: none;
+    }
+
+    .remember-wrap input[type="checkbox"] {
+      accent-color: var(--forest);
+      width: 16px;
+      height: 16px;
+      cursor: pointer;
+    }
+
+    .forgot-link {
+      color: var(--text-muted);
+      text-decoration: none;
+      font-weight: 600;
+      transition: color 0.15s;
+      cursor: pointer;
+    }
+
+    .forgot-link:hover {
+      color: var(--forest);
+    }
+
+    .btn-forest-submit {
+      width: 100%;
+      padding: 13.5px;
+      background: var(--forest);
+      color: #ffffff;
+      border: none;
+      border-radius: 14px;
+      font-size: 14.5px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      box-shadow: 0 6px 20px rgba(30, 57, 42, 0.18);
+    }
+
+    .btn-forest-submit:hover:not(:disabled) {
+      background: var(--forest-hover);
+      transform: translateY(-1px);
+      box-shadow: 0 8px 24px rgba(30, 57, 42, 0.24);
+    }
+
+    .btn-forest-submit:disabled {
+      opacity: 0.7;
+      cursor: not-allowed;
+    }
+
+    /* 6-Digit OTP Inputs */
+    .otp-inputs-row {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      margin: 24px 0 20px;
+    }
+
+    .otp-field {
+      width: 48px;
+      height: 54px;
+      font-size: 24px;
+      font-weight: 800;
+      text-align: center;
+      background: #faf9f5;
+      border: 2px solid var(--border);
+      border-radius: 12px;
+      color: var(--forest);
+      outline: none;
+      font-family: inherit;
+      transition: all 0.2s ease;
+    }
+
+    .otp-field:focus {
+      background: #ffffff;
+      border-color: var(--forest);
+      box-shadow: 0 0 0 3px rgba(30, 57, 42, 0.12);
+    }
+
+    .otp-timer-box {
+      text-align: center;
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-bottom: 20px;
+    }
+
+    .otp-timer-highlight {
+      font-weight: 700;
+      color: var(--forest);
+    }
+
+    .auth-toggle-footer {
+      margin-top: 22px;
+      text-align: center;
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    .auth-toggle-footer a {
+      color: var(--forest);
+      font-weight: 700;
+      text-decoration: none;
+      cursor: pointer;
+      margin-left: 4px;
+    }
+
+    .auth-toggle-footer a:hover {
+      text-decoration: underline;
+    }
+
+    /* Right Visual Showcase Column */
+    .showcase-column {
+      background: #f4f2ea;
+      padding: 44px 36px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      position: relative;
+      border-left: 1px solid var(--border);
+      overflow: hidden;
+    }
+
+    .showcase-visual {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      justify-content: space-between;
+      position: relative;
+      z-index: 2;
+    }
+
+    .showcase-header h3 {
+      font-family: 'Playfair Display', Georgia, serif;
+      font-size: 32px;
+      line-height: 1.15;
+      color: var(--forest);
+      font-weight: 700;
+      margin-bottom: 12px;
+    }
+
+    .showcase-image-wrap {
+      margin: 20px 0;
+      border-radius: 20px;
+      overflow: hidden;
+      box-shadow: 0 16px 36px rgba(30, 57, 42, 0.12);
+      border: 3px solid #ffffff;
+      max-height: 260px;
+    }
+
+    .showcase-img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .showcase-footer {
+      font-size: 13px;
+      color: var(--text-muted);
+      line-height: 1.6;
+    }
+
+    .showcase-footer p:first-child {
+      font-weight: 700;
+      color: var(--forest);
+    }
+
+    /* Mobile Responsive */
+    @media (max-width: 860px) {
+      .auth-container {
+        grid-template-columns: 1fr;
+        max-width: 480px;
+        border-radius: 22px;
+      }
+      .form-column {
+        padding: 32px 20px;
+      }
+      .showcase-column {
+        display: none;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="auth-container">
+
+    <!-- ==========================================
+         LEFT FORM COLUMN
+         ========================================== -->
+    <div class="form-column">
+      
+      <!-- Brand Logo Header -->
+      <a href="landing.html" class="brand-header">
+        <div class="brand-leaf-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"></path>
+            <path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"></path>
+          </svg>
+        </div>
+        <span class="brand-name">Smart Pantry</span>
+      </a>
+
+      <!-- ==========================================
+           VIEW 1: LOGIN (Welcome Back)
+           ========================================== -->
+      <div class="auth-view active" id="viewLogin">
+        <h1 class="view-title">Welcome Back</h1>
+        <p class="view-sub">Login to continue your smart food journey.</p>
+
+        <div id="loginAlert" class="alert-banner"></div>
+
+        <form id="formLogin" onsubmit="handleRealLogin(event)">
+          <div class="input-group">
+            <label class="input-label">Email address</label>
+            <div class="input-wrap">
+              <span class="input-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+              </span>
+              <input type="email" id="loginEmail" class="auth-input" placeholder="name@gmail.com" required autocomplete="email">
+            </div>
+          </div>
+
+          <div class="input-group">
+            <label class="input-label">Password</label>
+            <div class="input-wrap">
+              <span class="input-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+              </span>
+              <input type="password" id="loginPassword" class="auth-input" placeholder="Enter your password" required autocomplete="current-password">
+              <button type="button" class="input-action-btn" onclick="togglePasswordVisibility('loginPassword', this)">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+              </button>
+            </div>
+          </div>
+
+          <div class="form-options-row">
+            <label class="remember-wrap">
+              <input type="checkbox" id="rememberMe" checked>
+              <span>Remember me</span>
+            </label>
+            <a class="forgot-link" onclick="switchView('viewForgot')">Forgot password?</a>
+          </div>
+
+          <button type="submit" id="btnLoginSubmit" class="btn-forest-submit">
+            Login
+          </button>
+        </form>
+
+        <div class="auth-toggle-footer">
+          Don't have an account? <a onclick="switchView('viewSignup')">Create Account</a>
+        </div>
+      </div>
+
+      <!-- ==========================================
+           VIEW 2: SIGN UP (Create Your Account)
+           ========================================== -->
+      <div class="auth-view" id="viewSignup">
+        <h1 class="view-title">Create Your Account</h1>
+        <p class="view-sub">Join thousands of users managing their food smarter.</p>
+
+        <div id="signupAlert" class="alert-banner"></div>
+
+        <form id="formSignup" onsubmit="handleRealSignup(event)">
+          <div class="input-group">
+            <label class="input-label">Full Name</label>
+            <div class="input-wrap">
+              <span class="input-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+              </span>
+              <input type="text" id="signupName" class="auth-input" placeholder="e.g. Shabab Rashid" required>
+            </div>
+          </div>
+
+          <div class="input-group">
+            <label class="input-label">Email Address</label>
+            <div class="input-wrap">
+              <span class="input-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+              </span>
+              <input type="email" id="signupEmail" class="auth-input" placeholder="name@gmail.com" required autocomplete="email">
+            </div>
+          </div>
+
+          <div class="input-group">
+            <label class="input-label">Password</label>
+            <div class="input-wrap">
+              <span class="input-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+              </span>
+              <input type="password" id="signupPassword" class="auth-input" placeholder="Create a password (min 6 chars)" required minlength="6">
+              <button type="button" class="input-action-btn" onclick="togglePasswordVisibility('signupPassword', this)">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+              </button>
+            </div>
+          </div>
+
+          <div class="input-group">
+            <label class="input-label">Confirm Password</label>
+            <div class="input-wrap">
+              <span class="input-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+              </span>
+              <input type="password" id="signupConfirmPassword" class="auth-input" placeholder="Re-enter your password" required minlength="6">
+            </div>
+          </div>
+
+          <div class="form-options-row" style="margin: 12px 0 20px;">
+            <label class="remember-wrap" style="font-size:12px;">
+              <input type="checkbox" id="agreeTerms" required checked>
+              <span>I agree to the Terms of Service & Privacy Policy</span>
+            </label>
+          </div>
+
+          <button type="submit" id="btnSignupSubmit" class="btn-forest-submit">
+            Create Account
+          </button>
+        </form>
+
+        <div class="auth-toggle-footer">
+          Already have an account? <a onclick="switchView('viewLogin')">Log In</a>
+        </div>
+      </div>
+
+      <!-- ==========================================
+           VIEW 3: VERIFY YOUR EMAIL (6-Digit OTP)
+           ========================================== -->
+      <div class="auth-view" id="viewVerify">
+        <h1 class="view-title">Verify Your Email</h1>
+        <p class="view-sub">
+          We've sent a 6-digit verification code to:<br>
+          <strong id="maskedEmailDisplay" style="color:var(--forest); font-size:14.5px;">user@example.com</strong>
+        </p>
+
+        <div id="verifyAlert" class="alert-banner"></div>
+
+        <form onsubmit="handleRealOTPVerify(event)">
+          <div class="otp-inputs-row">
+            <input type="text" maxlength="1" class="otp-field" id="otp1" inputmode="numeric" required autofocus>
+            <input type="text" maxlength="1" class="otp-field" id="otp2" inputmode="numeric" required>
+            <input type="text" maxlength="1" class="otp-field" id="otp3" inputmode="numeric" required>
+            <input type="text" maxlength="1" class="otp-field" id="otp4" inputmode="numeric" required>
+            <input type="text" maxlength="1" class="otp-field" id="otp5" inputmode="numeric" required>
+            <input type="text" maxlength="1" class="otp-field" id="otp6" inputmode="numeric" required>
+          </div>
+
+          <div class="otp-timer-box">
+            <span>Code expires in: </span>
+            <span class="otp-timer-highlight" id="otpCountdown">10:00</span>
+          </div>
+
+          <button type="submit" id="btnVerifySubmit" class="btn-forest-submit">
+            Verify Email
+          </button>
+        </form>
+
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:20px; font-size:13px;">
+          <button type="button" id="btnResendOtp" onclick="handleResendOTP()" style="background:none; border:none; color:var(--forest); font-weight:700; cursor:pointer; font-family:inherit;">
+            Resend Code
+          </button>
+          <a onclick="switchView('viewSignup')" style="color:var(--text-muted); text-decoration:none; font-weight:600; cursor:pointer;">
+            Change Email
+          </a>
+        </div>
+      </div>
+
+      <!-- ==========================================
+           VIEW 4: RESET YOUR PASSWORD
+           ========================================== -->
+      <div class="auth-view" id="viewForgot">
+        <h1 class="view-title">Reset Your Password</h1>
+        <p class="view-sub">Enter your email and we'll send a 6-digit code to reset your password.</p>
+
+        <div id="forgotAlert" class="alert-banner"></div>
+
+        <!-- Step A: Request Code -->
+        <form id="formForgotRequest" onsubmit="handleForgotRequest(event)">
+          <div class="input-group">
+            <label class="input-label">Email Address</label>
+            <div class="input-wrap">
+              <span class="input-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+              </span>
+              <input type="email" id="forgotEmail" class="auth-input" placeholder="name@gmail.com" required autocomplete="email">
+            </div>
+          </div>
+
+          <button type="submit" id="btnForgotSubmit" class="btn-forest-submit">
+            Send Reset Code
+          </button>
+        </form>
+
+        <!-- Step B: Set New Password -->
+        <form id="formForgotReset" onsubmit="handleForgotReset(event)" style="display:none; margin-top:16px;">
+          <div class="input-group">
+            <label class="input-label">6-Digit Reset Code</label>
+            <input type="text" id="resetCodeInput" class="auth-input" placeholder="e.g. 123456" maxlength="6" required style="letter-spacing:4px; font-weight:700; text-align:center;">
+          </div>
+          <div class="input-group">
+            <label class="input-label">New Password</label>
+            <input type="password" id="resetNewPassword" class="auth-input" placeholder="Min 6 characters" required minlength="6">
+          </div>
+          <div class="input-group">
+            <label class="input-label">Confirm New Password</label>
+            <input type="password" id="resetConfirmPassword" class="auth-input" placeholder="Confirm new password" required minlength="6">
+          </div>
+          <button type="submit" id="btnResetFinal" class="btn-forest-submit">
+            Update Password & Login
+          </button>
+        </form>
+
+        <div class="auth-toggle-footer" style="text-align: left; margin-top: 24px;">
+          <a onclick="switchView('viewLogin')" style="display:inline-flex; align-items:center; gap:6px;">
+            ← Back to Login
+          </a>
+        </div>
+      </div>
+
+      <div style="font-size: 11px; color: #a4aca6; margin-top: 20px;">
+        Official Support: <strong>smartpantry.notify@gmail.com</strong> • Smart Pantry Production System
+      </div>
+
+    </div>
+
+    <!-- ==========================================
+         RIGHT VISUAL SHOWCASE COLUMN
+         ========================================== -->
+    <div class="showcase-column">
+      
+      <div class="showcase-visual" id="showcaseLogin">
+        <div class="showcase-header">
+          <h3>Better<br>Food<br>A Brighter<br>Tomorrow</h3>
+          <div style="color:var(--forest); font-size:24px; margin-top:4px;">🍃</div>
+        </div>
+
+        <div class="showcase-image-wrap">
+          <img src="https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=600&q=80" alt="Fresh Healthy Ingredients" class="showcase-img">
+        </div>
+
+        <div class="showcase-footer">
+          <p>Track your food. Reduce waste.</p>
+          <p>Live smarter every single day.</p>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+
+  <script>
+    // Global Pending Auth State
+    let pendingVerificationEmail = "";
+    let otpCountdownInterval = null;
+    let resendCooldown = 0;
+
+    // Helper: Show Alert Banner
+    function showAlert(elementId, message, type = 'error') {
+      const el = document.getElementById(elementId);
+      if (!el) return;
+      el.textContent = message;
+      el.className = `alert-banner ${type}`;
+    }
+
+    function clearAlert(elementId) {
+      const el = document.getElementById(elementId);
+      if (!el) return;
+      el.style.display = 'none';
+      el.textContent = '';
+    }
+
+    // Switch Views (Login, Signup, Verify, Forgot)
+    function switchView(viewId) {
+      document.querySelectorAll('.auth-view').forEach(v => v.classList.remove('active'));
+      const activeView = document.getElementById(viewId);
+      if (activeView) activeView.classList.add('active');
+
+      // Clear alerts
+      ['loginAlert', 'signupAlert', 'verifyAlert', 'forgotAlert'].forEach(clearAlert);
+    }
+
+    // Toggle Password Visibility
+    function togglePasswordVisibility(inputId, btn) {
+      const input = document.getElementById(inputId);
+      if (!input) return;
+      if (input.type === 'password') {
+        input.type = 'text';
+        btn.style.color = 'var(--forest)';
+      } else {
+        input.type = 'password';
+        btn.style.color = '#9aa39c';
+      }
+    }
+
+    // Setup 6-Digit OTP Auto-Advance
+    const otpFields = [1,2,3,4,5,6].map(n => document.getElementById(`otp${n}`));
+    otpFields.forEach((field, index) => {
+      if (!field) return;
+      field.addEventListener('input', (e) => {
+        if (field.value.length === 1 && index < 5) {
+          otpFields[index + 1].focus();
+        }
+      });
+      field.addEventListener('keydown', (e) => {
+        if (e.key === 'Backspace' && field.value === '' && index > 0) {
+          otpFields[index - 1].focus();
+        }
+      });
+      field.addEventListener('paste', (e) => {
+        e.preventDefault();
+        const pasted = (e.clipboardData || window.clipboardData).getData('text').trim();
+        if (/^\d{6}$/.test(pasted)) {
+          pasted.split('').forEach((digit, i) => {
+            if (otpFields[i]) otpFields[i].value = digit;
+          });
+          otpFields[5].focus();
+        }
+      });
+    });
+
+    function getOTPValue() {
+      return otpFields.map(f => f.value).join('');
+    }
+
+    function startOTPCountdown(expiresAt) {
+      if (otpCountdownInterval) clearInterval(otpCountdownInterval);
+      const timerEl = document.getElementById('otpCountdown');
+
+      function update() {
+        const remainingMs = expiresAt - Date.now();
+        if (remainingMs <= 0) {
+          clearInterval(otpCountdownInterval);
+          if (timerEl) timerEl.textContent = 'Expired';
+          showAlert('verifyAlert', 'Your verification code has expired. Please request a new code.');
+          return;
+        }
+        const totalSec = Math.floor(remainingMs / 1000);
+        const mins = Math.floor(totalSec / 60);
+        const secs = totalSec % 60;
+        if (timerEl) {
+          timerEl.textContent = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+        }
+      }
+      update();
+      otpCountdownInterval = setInterval(update, 1000);
+    }
+
+    // Client device detection helper
+    function detectClientInfo() {
+      const ua = navigator.userAgent;
+      let browser = "Web Browser";
+      let device = "Desktop / Mobile";
+      if (ua.includes("Edg/")) browser = "Microsoft Edge";
+      else if (ua.includes("Chrome/") && !ua.includes("Edg/")) browser = "Google Chrome";
+      else if (ua.includes("Safari/") && !ua.includes("Chrome/")) browser = "Apple Safari";
+      else if (ua.includes("Firefox/")) browser = "Mozilla Firefox";
+
+      if (/iPhone|iPad|iPod/i.test(ua)) device = "iOS Device";
+      else if (/Android/i.test(ua)) device = "Android Device";
+      else if (/Windows/i.test(ua)) device = "Windows PC";
+      else if (/Macintosh|Mac OS X/i.test(ua)) device = "Apple Mac";
+
+      const now = new Date();
+      return {
+        browser,
+        device,
+        loginDate: now.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
+        loginTime: now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZoneName: 'short' })
+      };
+    }
+
+    // ==========================================
+    // REAL SIGNUP HANDLER
+    // ==========================================
+    async function handleRealSignup(e) {
+      e.preventDefault();
+      clearAlert('signupAlert');
+
+      const fullName = document.getElementById('signupName').value.trim();
+      const email = document.getElementById('signupEmail').value.trim();
+      const password = document.getElementById('signupPassword').value;
+      const confirmPassword = document.getElementById('signupConfirmPassword').value;
+      const btn = document.getElementById('btnSignupSubmit');
+
+      // Client-side validations
+      if (fullName.includes('@')) {
+        showAlert('signupAlert', 'Full Name field must contain your name, not an email address.');
+        return;
+      }
+      if (password !== confirmPassword) {
+        showAlert('signupAlert', 'Passwords do not match. Please re-enter.');
+        return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = 'Creating Account...';
+
+      try {
+        const res = await fetch('/.netlify/functions/auth', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'signup',
+            fullName,
+            email,
+            password,
+            confirmPassword
+          })
+        });
+
+        const data = await res.json();
+        btn.disabled = false;
+        btn.textContent = 'Create Account';
+
+        if (data.code === 'ACCOUNT_EXISTS') {
+          showAlert('signupAlert', 'An account with this email already exists. Please log in with your password.');
+          return;
+        }
+
+        if (!data.success) {
+          showAlert('signupAlert', data.error || data.message || 'Registration failed.');
+          return;
+        }
+
+        // Account created & immediately active -> Save session & redirect to dashboard
+        showAlert('signupAlert', `Account created! Welcome, ${data.user.name}! Opening pantry...`, 'success');
+        localStorage.setItem('smartpantry_token', data.token);
+        localStorage.setItem('smartpantry_user', JSON.stringify(data.user));
+
+        setTimeout(() => {
+          window.location.href = 'dashboard.html';
+        }, 600);
+
+      } catch (err) {
+        btn.disabled = false;
+        btn.textContent = 'Create Account';
+        showAlert('signupAlert', 'Connection problem. Please check your internet connection and try again.');
+      }
+    }
+
+    // ==========================================
+    // REAL OTP VERIFICATION HANDLER
+    // ==========================================
+    async function handleRealOTPVerify(e) {
+      e.preventDefault();
+      clearAlert('verifyAlert');
+
+      const otp = getOTPValue();
+      const btn = document.getElementById('btnVerifySubmit');
+
+      if (otp.length !== 6) {
+        showAlert('verifyAlert', 'Please enter the complete 6-digit verification code.');
+        return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = 'Verifying Code...';
+
+      try {
+        const res = await fetch('/.netlify/functions/auth', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'verify-otp',
+            email: pendingVerificationEmail,
+            otp
+          })
+        });
+
+        const data = await res.json();
+        btn.disabled = false;
+        btn.textContent = 'Verify Email';
+
+        if (!data.success) {
+          if (data.code === 'OTP_EXPIRED') {
+            showAlert('verifyAlert', 'Your verification code has expired. Please request a new code.');
+          } else if (data.code === 'TOO_MANY_ATTEMPTS') {
+            showAlert('verifyAlert', 'Too many attempts. Please request a new verification code later.');
+          } else {
+            showAlert('verifyAlert', data.message || 'Incorrect verification code.');
+          }
+          return;
+        }
+
+        // Verification Succeeded!
+        showAlert('verifyAlert', 'Email verified successfully! Redirecting to your pantry...', 'success');
+
+        // Store secure authentication token & user session
+        localStorage.setItem('smartpantry_token', data.token);
+        localStorage.setItem('smartpantry_user', JSON.stringify(data.user));
+
+        setTimeout(() => {
+          window.location.href = 'dashboard.html';
+        }, 800);
+
+      } catch (err) {
+        btn.disabled = false;
+        btn.textContent = 'Verify Email';
+        showAlert('verifyAlert', 'Connection problem. Please check your internet connection and try again.');
+      }
+    }
+
+    // ==========================================
+    // RESEND OTP HANDLER
+    // ==========================================
+    async function handleResendOTP() {
+      clearAlert('verifyAlert');
+      const resendBtn = document.getElementById('btnResendOtp');
+      resendBtn.disabled = true;
+      resendBtn.textContent = 'Sending...';
+
+      try {
+        const res = await fetch('/.netlify/functions/auth', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'resend-otp',
+            email: pendingVerificationEmail
+          })
+        });
+
+        const data = await res.json();
+        resendBtn.disabled = false;
+        resendBtn.textContent = 'Resend Code';
+
+        if (data.success) {
+          showAlert('verifyAlert', 'A new verification code has been sent to your email.', 'success');
+          otpFields.forEach(f => f.value = '');
+          startOTPCountdown(data.expiresAt || (Date.now() + 10 * 60 * 1000));
+          otpFields[0].focus();
+        } else {
+          showAlert('verifyAlert', data.message || 'Could not resend code right now.');
+        }
+      } catch (err) {
+        resendBtn.disabled = false;
+        resendBtn.textContent = 'Resend Code';
+        showAlert('verifyAlert', 'Connection problem. Please try again.');
+      }
+    }
+
+    // ==========================================
+    // REAL LOGIN HANDLER
+    // ==========================================
+    async function handleRealLogin(e) {
+      e.preventDefault();
+      clearAlert('loginAlert');
+
+      const email = document.getElementById('loginEmail').value.trim();
+      const password = document.getElementById('loginPassword').value;
+      const btn = document.getElementById('btnLoginSubmit');
+
+      btn.disabled = true;
+      btn.textContent = 'Logging in...';
+
+      try {
+        const clientInfo = detectClientInfo();
+        const res = await fetch('/.netlify/functions/auth', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'login',
+            email,
+            password,
+            clientInfo
+          })
+        });
+
+        const data = await res.json();
+        btn.disabled = false;
+        btn.textContent = 'Login';
+
+        if (!data.success) {
+          if (data.code === 'ACCOUNT_NOT_FOUND') {
+            showAlert('loginAlert', 'Account not found. Click "Create one" below to register.');
+          } else if (data.code === 'INVALID_CREDENTIALS') {
+            showAlert('loginAlert', 'Incorrect email or password.');
+          } else {
+            showAlert('loginAlert', data.message || 'Login failed.');
+          }
+          return;
+        }
+
+        // Login Verified & Authenticated!
+        showAlert('loginAlert', `Login successful — Welcome, ${data.user.name}!`, 'success');
+        localStorage.setItem('smartpantry_token', data.token);
+        localStorage.setItem('smartpantry_user', JSON.stringify(data.user));
+
+        setTimeout(() => {
+          window.location.href = 'dashboard.html';
+        }, 500);
+
+      } catch (err) {
+        btn.disabled = false;
+        btn.textContent = 'Login';
+        showAlert('loginAlert', 'Connection problem. Please check your internet connection and try again.');
+      }
+    }
+
+    // ==========================================
+    // FORGOT PASSWORD REQUEST & RESET HANDLERS
+    // ==========================================
+    let forgotUserEmail = "";
+
+    async function handleForgotRequest(e) {
+      e.preventDefault();
+      clearAlert('forgotAlert');
+
+      const email = document.getElementById('forgotEmail').value.trim();
+      const btn = document.getElementById('btnForgotSubmit');
+
+      btn.disabled = true;
+      btn.textContent = 'Sending Code...';
+
+      try {
+        const res = await fetch('/.netlify/functions/auth', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'forgot-password', email })
+        });
+        const data = await res.json();
+        btn.disabled = false;
+        btn.textContent = 'Send Reset Code';
+
+        forgotUserEmail = email;
+        showAlert('forgotAlert', 'Check your email for a password reset code.', 'success');
+        document.getElementById('formForgotRequest').style.display = 'none';
+        document.getElementById('formForgotReset').style.display = 'block';
+      } catch (err) {
+        btn.disabled = false;
+        btn.textContent = 'Send Reset Code';
+        showAlert('forgotAlert', 'Connection problem. Please try again.');
+      }
+    }
+
+    async function handleForgotReset(e) {
+      e.preventDefault();
+      clearAlert('forgotAlert');
+
+      const resetCode = document.getElementById('resetCodeInput').value.trim();
+      const newPassword = document.getElementById('resetNewPassword').value;
+      const confirmPassword = document.getElementById('resetConfirmPassword').value;
+      const btn = document.getElementById('btnResetFinal');
+
+      if (newPassword !== confirmPassword) {
+        showAlert('forgotAlert', 'Passwords do not match.');
+        return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = 'Updating Password...';
+
+      try {
+        const res = await fetch('/.netlify/functions/auth', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'reset-password',
+            email: forgotUserEmail,
+            resetCode,
+            newPassword,
+            confirmPassword
+          })
+        });
+        const data = await res.json();
+        btn.disabled = false;
+        btn.textContent = 'Update Password & Login';
+
+        if (!data.success) {
+          showAlert('forgotAlert', data.message || 'Password reset failed.');
+          return;
+        }
+
+        showAlert('forgotAlert', 'Password reset successful! Please log in with your new password.', 'success');
+        setTimeout(() => {
+          switchView('viewLogin');
+        }, 1200);
+      } catch (err) {
+        btn.disabled = false;
+        btn.textContent = 'Update Password & Login';
+        showAlert('forgotAlert', 'Connection problem. Please try again.');
+      }
+    }
+
+    // Check URL parameters
+    (function checkParams() {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('signup') === '1') switchView('viewSignup');
+      if (params.get('forgot') === '1') switchView('viewForgot');
+    })();
+  </script>
+</body>
+</html>

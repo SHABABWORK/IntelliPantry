@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Smart Pantry — Good Food Lasts Longer</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Playfair+Display:ital,wght@0,600;0,700;1,600&display=swap" rel="stylesheet">
+
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    :root {
+      --bg-warm: #fbfaf5;
+      --surface: #ffffff;
+      --forest: #1e392a;
+      --forest-hover: #15291e;
+      --forest-light: #eef6f0;
+      --border: #e6e3da;
+      --text-main: #1f2823;
+      --text-muted: #6b756e;
+      --accent-green: #2e9e5b;
+      --accent-gold: #c28829;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      background-color: var(--bg-warm);
+      color: var(--text-main);
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+      line-height: 1.6;
+    }
+
+    /* ==========================================
+       TOPBAR / NAVIGATION
+       ========================================== */
+    .landing-nav {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 18px 48px;
+      background: rgba(251, 250, 245, 0.92);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-bottom: 1px solid rgba(230, 227, 218, 0.7);
+    }
+
+    .nav-brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+      color: var(--forest);
+      font-size: 20px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+    }
+
+    .brand-leaf {
+      width: 32px;
+      height: 32px;
+      background: var(--forest-light);
+      color: var(--forest);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .nav-links-center {
+      display: flex;
+      align-items: center;
+      gap: 32px;
+    }
+
+    .nav-links-center a {
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 14.5px;
+      font-weight: 600;
+      transition: color 0.2s;
+    }
+
+    .nav-links-center a:hover {
+      color: var(--forest);
+    }
+
+    .nav-actions {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .btn-nav-login {
+      padding: 9px 22px;
+      border: 1.5px solid var(--border);
+      background: transparent;
+      border-radius: 999px;
+      color: var(--forest);
+      font-size: 14px;
+      font-weight: 700;
+      text-decoration: none;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .btn-nav-login:hover {
+      background: var(--surface);
+      border-color: var(--forest);
+    }
+
+    .btn-nav-getstarted {
+      padding: 10px 24px;
+      background: var(--forest);
+      color: #ffffff;
+      border-radius: 999px;
+      font-size: 14px;
+      font-weight: 700;
+      text-decoration: none;
+      cursor: pointer;
+      border: none;
+      transition: all 0.2s ease;
+      box-shadow: 0 4px 14px rgba(30, 57, 42, 0.18);
+    }
+
+    .btn-nav-getstarted:hover {
+      background: var(--forest-hover);
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(30, 57, 42, 0.25);
+    }
+
+    .mobile-hamburger {
+      display: none;
+      background: none;
+      border: none;
+      font-size: 24px;
+      color: var(--forest);
+      cursor: pointer;
+    }
+
+    /* ==========================================
+       HERO SECTION (Matches Mockup Top-Left)
+       ========================================== */
+    .hero-section {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 48px 48px 80px;
+      display: grid;
+      grid-template-columns: 1.15fr 0.85fr;
+      gap: 48px;
+      align-items: center;
+      min-height: calc(100vh - 85px);
+    }
+
+    .hero-content-left {
+      max-width: 580px;
+    }
+
+    .hero-badge-tag {
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--forest);
+      margin-bottom: 14px;
+      display: inline-block;
+    }
+
+    .hero-title {
+      font-family: 'Playfair Display', Georgia, serif;
+      font-size: clamp(40px, 5.5vw, 64px);
+      line-height: 1.08;
+      font-weight: 700;
+      color: var(--forest);
+      letter-spacing: -0.02em;
+      margin-bottom: 16px;
+    }
+
+    .hero-subtitle {
+      font-size: 18px;
+      font-weight: 800;
+      color: var(--forest);
+      margin-bottom: 14px;
+    }
+
+    .hero-description {
+      font-size: 16px;
+      color: var(--text-muted);
+      line-height: 1.6;
+      margin-bottom: 32px;
+      max-width: 480px;
+    }
+
+    .hero-buttons-row {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 48px;
+      flex-wrap: wrap;
+    }
+
+    .btn-hero-primary {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 14px 30px;
+      background: var(--forest);
+      color: #ffffff;
+      border-radius: 999px;
+      font-size: 15px;
+      font-weight: 700;
+      text-decoration: none;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      box-shadow: 0 6px 22px rgba(30, 57, 42, 0.22);
+    }
+
+    .btn-hero-primary:hover {
+      background: var(--forest-hover);
+      transform: translateY(-2px);
+      box-shadow: 0 10px 28px rgba(30, 57, 42, 0.3);
+    }
+
+    .btn-hero-video {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 13px 26px;
+      border: 1.5px solid var(--border);
+      background: var(--surface);
+      border-radius: 999px;
+      color: var(--forest);
+      font-size: 15px;
+      font-weight: 700;
+      text-decoration: none;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .btn-hero-video:hover {
+      border-color: var(--forest);
+      transform: translateY(-1px);
+    }
+
+    .btn-hero-video .play-icon {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: var(--forest-light);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+    }
+
+    /* Stats Row */
+    .hero-stats-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+      padding-top: 24px;
+      border-top: 1px solid var(--border);
+      margin-bottom: 28px;
+    }
+
+    .stat-item h4 {
+      font-size: 26px;
+      font-weight: 800;
+      color: var(--forest);
+      line-height: 1.1;
+    }
+
+    .stat-item p {
+      font-size: 13px;
+      color: var(--text-muted);
+      font-weight: 500;
+      margin-top: 4px;
+    }
+
+    .hero-quote-box {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--forest);
+      font-family: 'Playfair Display', Georgia, serif;
+      font-style: italic;
+      font-size: 16px;
+    }
+
+    /* ==========================================
+       HERO VISUAL SHOWCASE RIGHT (Matches Mockup)
+       ========================================== */
+    .hero-visual-right {
+      position: relative;
+    }
+
+    .hero-image-card {
+      position: relative;
+      border-radius: 40px 40px 40px 120px;
+      overflow: hidden;
+      box-shadow: 0 24px 60px rgba(30, 57, 42, 0.12);
+      border: 4px solid #ffffff;
+      background: #ffffff;
+    }
+
+    .hero-main-photo {
+      width: 100%;
+      height: 520px;
+      object-fit: cover;
+      display: block;
+    }
+
+    .floating-fresh-badge {
+      position: absolute;
+      bottom: 32px;
+      left: 32px;
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      padding: 12px 20px;
+      border-radius: 999px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
+      border: 1px solid rgba(230, 227, 218, 0.8);
+      text-decoration: none;
+      color: var(--forest);
+      transition: transform 0.2s ease;
+    }
+
+    .floating-fresh-badge:hover {
+      transform: scale(1.04);
+    }
+
+    .floating-badge-leaf {
+      font-size: 20px;
+    }
+
+    .floating-badge-text {
+      font-size: 13.5px;
+      font-weight: 700;
+      line-height: 1.2;
+    }
+
+    .floating-badge-arrow {
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      background: var(--forest-light);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    /* ==========================================
+       FOOTER & RESPONSIVE
+       ========================================== */
+    .landing-footer {
+      border-top: 1px solid var(--border);
+      padding: 32px 48px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      color: var(--text-muted);
+      font-size: 13.5px;
+      max-width: 1280px;
+      margin: 0 auto;
+    }
+
+    @media (max-width: 1024px) {
+      .landing-nav { padding: 16px 24px; }
+      .hero-section {
+        grid-template-columns: 1fr;
+        padding: 32px 24px 60px;
+        gap: 36px;
+      }
+      .hero-image-card {
+        border-radius: 28px;
+        max-width: 540px;
+        margin: 0 auto;
+      }
+      .hero-main-photo { height: 380px; }
+      .nav-links-center { display: none; }
+      .landing-footer { padding: 24px; flex-direction: column; gap: 12px; text-align: center; }
+    }
+
+    @media (max-width: 640px) {
+      .landing-nav { padding: 14px 18px; }
+      .hero-title { font-size: 36px; }
+      .hero-stats-row { grid-template-columns: 1fr 1fr; gap: 16px; }
+      .hero-buttons-row { flex-direction: column; align-items: stretch; }
+      .btn-hero-primary, .btn-hero-video { justify-content: center; }
+      .floating-fresh-badge { bottom: 16px; left: 16px; right: 16px; justify-content: center; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ==========================================
+       TOPBAR NAVIGATION
+       ========================================== -->
+  <nav class="landing-nav">
+    <a href="#" class="nav-brand">
+      <div class="brand-leaf">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"></path>
+          <path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"></path>
+        </svg>
+      </div>
+      <span>Smart Pantry</span>
+    </a>
+
+    <div class="nav-links-center">
+      <a href="#home">Home</a>
+      <a href="#features">Features</a>
+      <a href="#how-it-works">How It Works</a>
+      <a href="#pricing">Pricing</a>
+      <a href="#blog">Blog</a>
+    </div>
+
+    <div class="nav-actions">
+      <a href="login.html" class="btn-nav-login">Login</a>
+      <a href="login.html?signup=1" class="btn-nav-getstarted">Get Started</a>
+    </div>
+  </nav>
+
+  <!-- ==========================================
+       HERO SECTION (Matches Top-Left Mockup)
+       ========================================== -->
+  <main class="hero-section" id="home">
+    
+    <!-- Left Column Content -->
+    <div class="hero-content-left">
+      <div class="hero-badge-tag">A SMARTER WAY TO LIVE</div>
+      <h1 class="hero-title">Good Food<br>Lasts Longer</h1>
+      <div class="hero-subtitle">Track. Organize. Reduce Waste.</div>
+      <p class="hero-description">
+        Smart Pantry helps you manage your food, get timely alerts and build a more sustainable lifestyle.
+      </p>
+
+      <div class="hero-buttons-row">
+        <a href="login.html?signup=1" class="btn-hero-primary">
+          Get Started ➔
+        </a>
+        <a href="login.html" class="btn-hero-video">
+          <span class="play-icon">▶</span> Watch Video
+        </a>
+      </div>
+
+      <div class="hero-stats-row">
+        <div class="stat-item">
+          <h4>10K+</h4>
+          <p>Active Users</p>
+        </div>
+        <div class="stat-item">
+          <h4>50%</h4>
+          <p>Less Food Waste</p>
+        </div>
+        <div class="stat-item">
+          <h4>1M+</h4>
+          <p>Items Tracked</p>
+        </div>
+      </div>
+
+      <div class="hero-quote-box">
+        <span>🍃</span> "A healthier home for a brighter tomorrow."
+      </div>
+    </div>
+
+    <!-- Right Column Visual Image Card -->
+    <div class="hero-visual-right">
+      <div class="hero-image-card">
+        <img src="https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=800&q=80" alt="Kitchen Pantry Glass Jars" class="hero-main-photo">
+
+        <!-- Floating Fresh Pill Badge -->
+        <a href="login.html" class="floating-fresh-badge">
+          <span class="floating-badge-leaf">🍃</span>
+          <span class="floating-badge-text">Fresh Food<br>Happier You</span>
+          <span class="floating-badge-arrow">➔</span>
+        </a>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- ==========================================
+       FOOTER
+       ========================================== -->
+  <footer class="landing-footer">
+    <p>© 2025 Smart Pantry — G20 Project. Designed for Mobile & Web.</p>
+    <div>
+      <a href="login.html" style="color:var(--forest); font-weight:700; text-decoration:none;">Go to App Login ➔</a>
+    </div>
+  </footer>
+
+  <script>
+    // If already logged in, redirect directly to dashboard
+    (function() {
+      const token = localStorage.getItem('smartpantry_token');
+      const user = localStorage.getItem('smartpantry_user');
+      if (token && user) {
+        window.location.href = 'dashboard.html';
+      }
+    })();
+  </script>
+</body>
+</html>

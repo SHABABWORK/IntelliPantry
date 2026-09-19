@@ -1,6 +1,14 @@
 {
   "version": 2,
+  "buildCommand": "node build.js",
+  "outputDirectory": "dist",
   "cleanUrls": true,
+  "rewrites": [
+    {
+      "source": "/.netlify/functions/:match*",
+      "destination": "/api/:match*"
+    }
+  ],
   "headers": [
     {
       "source": "/(.*)",

@@ -33,9 +33,12 @@ fs.copyFileSync(path.join(srcDir, 'landing.html'), path.join(distDir, 'landing.h
 fs.copyFileSync(path.join(srcDir, 'login.html'), path.join(distDir, 'login.html'));
 fs.copyFileSync(path.join(srcDir, 'index.html'), path.join(distDir, 'dashboard.html'));
 
-// 3. Copy netlify.toml and redirects
+// 3. Copy netlify.toml, vercel.json, and redirects
 if (fs.existsSync(path.join(srcDir, 'netlify.toml'))) {
   fs.copyFileSync(path.join(srcDir, 'netlify.toml'), path.join(distDir, 'netlify.toml'));
+}
+if (fs.existsSync(path.join(srcDir, 'vercel.json'))) {
+  fs.copyFileSync(path.join(srcDir, 'vercel.json'), path.join(distDir, 'vercel.json'));
 }
 
 // 4. Create _redirects and robots.txt in dist
@@ -45,10 +48,15 @@ fs.writeFileSync(path.join(distDir, '_redirects'), redirectsContent, 'utf8');
 const robotsContent = `User-agent: *\nAllow: /\n`;
 fs.writeFileSync(path.join(distDir, 'robots.txt'), robotsContent, 'utf8');
 
-// 5. Copy static assets, css, js, netlify functions
+// 5. Copy static assets, css, js, netlify functions, and api
 copyRecursiveSync(path.join(srcDir, 'css'), path.join(distDir, 'css'));
 copyRecursiveSync(path.join(srcDir, 'js'), path.join(distDir, 'js'));
 copyRecursiveSync(path.join(srcDir, 'assets'), path.join(distDir, 'assets'));
 copyRecursiveSync(path.join(srcDir, 'netlify'), path.join(distDir, 'netlify'));
+if (fs.existsSync(path.join(srcDir, 'api'))) {
+  copyRecursiveSync(path.join(srcDir, 'api'), path.join(distDir, 'api'));
+// 6. Also mirror to public folder for seamless Vercel / zero-config compatibility
+const publicDir = path.join(__dirname, 'public');
+copyRecursiveSync(distDir, publicDir);
 
-console.log('[Build] SUCCESS: All pages, assets, redirects, and Netlify Functions bundled into ./dist!');
+console.log('[Build] SUCCESS: All pages, assets, redirects, Vercel API and Netlify Functions bundled into ./dist and ./public!');
