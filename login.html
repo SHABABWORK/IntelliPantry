@@ -444,6 +444,16 @@
         <span class="brand-name">Smart Pantry</span>
       </a>
 
+      <!-- Navigation Tabs: Sign In / Create Account -->
+      <div class="auth-tabs-nav" style="display:flex; background:#f4f3ec; padding:4px; border-radius:12px; margin-bottom:24px; border:1px solid #e6e3da;">
+        <button type="button" id="tabBtnLogin" onclick="switchView('viewLogin')" style="flex:1; padding:10px 14px; border-radius:9px; border:none; font-weight:700; font-size:13.5px; cursor:pointer; background:#ffffff; color:#1e392a; box-shadow:0 2px 6px rgba(0,0,0,0.06); transition:all 0.2s;">
+          🔑 Sign In
+        </button>
+        <button type="button" id="tabBtnSignup" onclick="switchView('viewSignup')" style="flex:1; padding:10px 14px; border-radius:9px; border:none; font-weight:700; font-size:13.5px; cursor:pointer; background:transparent; color:#6b756e; transition:all 0.2s;">
+          ✨ Create Account
+        </button>
+      </div>
+
       <!-- ==========================================
            VIEW 1: LOGIN (Welcome Back)
            ========================================== -->
@@ -561,6 +571,10 @@
 
           <button type="submit" id="btnSignupSubmit" class="btn-forest-submit">
             Create Account
+          </button>
+
+          <button type="button" onclick="loginAsGuest()" class="btn-forest-submit" style="background:#eef6f0; color:#1e392a; border:1px solid #bbf7d0; margin-top:10px; box-shadow:none;">
+            ⚡ Quick Guest Login (Instant Access)
           </button>
         </form>
 
@@ -721,9 +735,37 @@
       const activeView = document.getElementById(viewId);
       if (activeView) activeView.classList.add('active');
 
+      const tabLogin = document.getElementById('tabBtnLogin');
+      const tabSignup = document.getElementById('tabBtnSignup');
+      if (tabLogin && tabSignup) {
+        if (viewId === 'viewSignup') {
+          tabSignup.style.background = '#ffffff';
+          tabSignup.style.color = '#1e392a';
+          tabSignup.style.boxShadow = '0 2px 6px rgba(0,0,0,0.06)';
+          tabLogin.style.background = 'transparent';
+          tabLogin.style.color = '#6b756e';
+          tabLogin.style.boxShadow = 'none';
+        } else if (viewId === 'viewLogin') {
+          tabLogin.style.background = '#ffffff';
+          tabLogin.style.color = '#1e392a';
+          tabLogin.style.boxShadow = '0 2px 6px rgba(0,0,0,0.06)';
+          tabSignup.style.background = 'transparent';
+          tabSignup.style.color = '#6b756e';
+          tabSignup.style.boxShadow = 'none';
+        }
+      }
+
       // Clear alerts
       ['loginAlert', 'signupAlert', 'verifyAlert', 'forgotAlert'].forEach(clearAlert);
     }
+
+    // Auto-detect signup tab in query param
+    document.addEventListener('DOMContentLoaded', () => {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('signup') === '1' || params.get('tab') === 'signup' || params.get('register') === '1') {
+        switchView('viewSignup');
+      }
+    });
 
     // Toggle Password Visibility
     function togglePasswordVisibility(inputId, btn) {
