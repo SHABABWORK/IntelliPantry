@@ -154,6 +154,9 @@ function updateRealTimeClockAndDate() {
   const liveClockEl = document.getElementById("liveClockDisplay");
   if (liveClockEl) liveClockEl.textContent = timeStr;
 
+  const topbarClockEl = document.getElementById("topbarLiveClock");
+  if (topbarClockEl) topbarClockEl.textContent = timeStr;
+
   // 4. Dynamic Time of Day Quote / Greeting
   const hour = now.getHours();
   const quoteEl = document.getElementById("dynamicTimeQuote");
@@ -181,45 +184,63 @@ async function fetchUserLocation(force = false) {
     return;
   }
 
-  if (!navigator.geolocation) {
-    badgeEl.textContent = "Location unavailable";
-    return;
-  }
+  badgeEl.textContent = "Detecting live location...";
 
-  badgeEl.textContent = "Detecting location...";
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        try {
+          const { latitude, longitude } = position.coords;
+          let city = "", country = "";
+          try {
+            const res = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`);
+            const data = await res.json();
+            city = data.city || data.locality || data.principalSubdivision || "";
+            country = data.countryCode || data.countryName || "";
+          } catch (e) {
+            const res2 = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
+            const data2 = await res2.json();
+            city = data2.address?.city || data2.address?.town || data2.address?.village || data2.address?.state || "";
+            country = data2.address?.country_code?.toUpperCase() || "";
+          }
 
-  navigator.geolocation.getCurrentPosition(
-    async (position) => {
-      try {
-        const { latitude, longitude } = position.coords;
-        const res = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`);
-        const data = await res.json();
+          let locText = "Live Location Active";
+          if (city && country) {
+            locText = `${city}, ${country}`;
+          } else if (city) {
+            locText = city;
+          }
 
-        const city = data.city || data.locality || data.principalSubdivision || "";
-        const country = data.countryCode || data.countryName || "";
-
-        let locText = "Location detected";
-        if (city && country) {
-          locText = `${city}, ${country}`;
-        } else if (city) {
-          locText = city;
-        } else if (data.principalSubdivision) {
-          locText = `${data.principalSubdivision}, ${country}`;
+          badgeEl.textContent = locText;
+          sessionStorage.setItem("smartpantry_detected_location", locText);
+        } catch (err) {
+          fallbackIpLocation(badgeEl);
         }
+      },
+      () => {
+        fallbackIpLocation(badgeEl);
+      },
+      { timeout: 6000, maximumAge: 60000, enableHighAccuracy: true }
+    );
+  } else {
+    fallbackIpLocation(badgeEl);
+  }
+}
 
-        badgeEl.textContent = locText;
-        sessionStorage.setItem("smartpantry_detected_location", locText);
-      } catch (err) {
-        console.warn("[Smart Pantry Geolocation]", err);
-        badgeEl.textContent = "Location unavailable";
-      }
-    },
-    (err) => {
-      console.warn("[Smart Pantry Geolocation Error]", err.message);
-      badgeEl.textContent = "Location unavailable";
-    },
-    { timeout: 7000, maximumAge: 300000, enableHighAccuracy: false }
-  );
+async function fallbackIpLocation(badgeEl) {
+  try {
+    const res = await fetch("https://ipapi.co/json/");
+    const data = await res.json();
+    const city = data.city || data.region || "";
+    const country = data.country_code || data.country_name || "";
+    if (city) {
+      const locText = `${city}, ${country}`;
+      badgeEl.textContent = locText;
+      sessionStorage.setItem("smartpantry_detected_location", locText);
+      return;
+    }
+  } catch (e) {}
+  badgeEl.textContent = "Location Active";
 }
 
 function refreshUserLocation() {
