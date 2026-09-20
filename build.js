@@ -32,7 +32,7 @@ console.log('[Build] Generating Vercel production bundle in ./dist and ./public 
 fs.copyFileSync(path.join(srcDir, 'landing.html'), path.join(distDir, 'index.html'));
 fs.copyFileSync(path.join(srcDir, 'landing.html'), path.join(distDir, 'landing.html'));
 fs.copyFileSync(path.join(srcDir, 'login.html'), path.join(distDir, 'login.html'));
-fs.copyFileSync(path.join(srcDir, 'index.html'), path.join(distDir, 'dashboard.html'));
+fs.copyFileSync(path.join(srcDir, 'dashboard.html'), path.join(distDir, 'dashboard.html'));
 
 // 3. Copy vercel.json & robots.txt
 if (fs.existsSync(path.join(srcDir, 'vercel.json'))) {

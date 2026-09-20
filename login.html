@@ -951,6 +951,11 @@
       };
     }
 
+    function navigateToDashboard() {
+      const isHtml = window.location.pathname.endsWith('.html');
+      window.location.href = isHtml ? 'dashboard.html' : 'dashboard';
+    }
+
     // Quick 1-Click Guest Login
     function loginAsGuest() {
       const guestResult = performLocalAuth('login', {
@@ -962,7 +967,7 @@
       localStorage.setItem('smartpantry_user', JSON.stringify(guestResult.user));
       showAlert('loginAlert', 'Welcome! Opening Smart Pantry...', 'success');
       setTimeout(() => {
-        window.location.href = 'dashboard.html';
+        navigateToDashboard();
       }, 350);
     }
 
@@ -1016,7 +1021,7 @@
             localStorage.setItem('smartpantry_token', data.token);
             localStorage.setItem('smartpantry_user', JSON.stringify(data.user));
             setTimeout(() => {
-              window.location.href = 'dashboard.html';
+              navigateToDashboard();
             }, 300);
             return;
           }
@@ -1033,7 +1038,7 @@
       localStorage.setItem('smartpantry_token', localResult.token);
       localStorage.setItem('smartpantry_user', JSON.stringify(localResult.user));
       setTimeout(() => {
-        window.location.href = 'dashboard.html';
+        navigateToDashboard();
       }, 300);
     }
 
@@ -1083,7 +1088,7 @@
             localStorage.setItem('smartpantry_token', data.token);
             localStorage.setItem('smartpantry_user', JSON.stringify(data.user));
             setTimeout(() => {
-              window.location.href = 'dashboard.html';
+              navigateToDashboard();
             }, 300);
             return;
           }
@@ -1100,7 +1105,7 @@
       localStorage.setItem('smartpantry_token', localResult.token);
       localStorage.setItem('smartpantry_user', JSON.stringify(localResult.user));
       setTimeout(() => {
-        window.location.href = 'dashboard.html';
+        navigateToDashboard();
       }, 300);
     }
 
