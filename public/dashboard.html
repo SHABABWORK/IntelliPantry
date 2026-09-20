@@ -211,16 +211,17 @@
         </a>
       </nav>
 
-      <!-- Go Premium Card -->
-      <div class="premium-card">
-        <div class="premium-header">
-          <span class="premium-crown">👑</span>
-          <span class="premium-title">Go Premium</span>
+      <!-- Recipe Kitchen Card (100% Free) -->
+      <div class="recipe-kitchen-card">
+        <div class="recipe-kitchen-header">
+          <span class="recipe-kitchen-icon">🍳</span>
+          <span class="recipe-kitchen-title">Recipe Kitchen</span>
         </div>
-        <p>Unlock AI recipes, smart ordering and more.</p>
-        <button class="premium-btn" onclick="showToast('Upgrade to Smart Pantry Pro ✨')">
-          Upgrade Now ➔
-        </button>
+        <p>Discover recipes using the ingredients you already have.</p>
+        <div class="recipe-kitchen-btns">
+          <button type="button" class="recipe-k-btn primary" onclick="window.RecipeEngine.showPantryMatches()">Find Recipes</button>
+          <button type="button" class="recipe-k-btn secondary" onclick="window.RecipeEngine.setCategory('all'); window.RecipeEngine.scrollToRecipeKitchen();">All Recipes</button>
+        </div>
       </div>
 
       <div class="sidebar-footer">
@@ -396,6 +397,58 @@
               <!-- Dynamically populated from store.js -->
             </tbody>
           </table>
+        </div>
+      </section>
+
+      <!-- ==========================================
+           FREE REAL-TIME RECIPE KITCHEN SECTION
+           ========================================== -->
+      <section class="recipe-section" id="recipesSection">
+        <div class="recipe-section-header">
+          <div class="recipe-title-group">
+            <h2>🍳 Recipe Kitchen <span style="font-size:12px; font-weight:700; background:#ecfdf5; color:#059669; padding:3px 8px; border-radius:12px; border:1px solid #a7f3d0;">100% Free</span></h2>
+            <p>Smart real-time recipe recommendations matched directly to your active pantry ingredients.</p>
+          </div>
+        </div>
+
+        <!-- Expiring Soon Spotlight Banner -->
+        <div class="expiring-recipes-banner" id="recipeExpiringBanner">
+          <!-- Dynamically populated from recipes.js -->
+        </div>
+
+        <!-- Recipe Action Bar: Search & Quick Filters -->
+        <div class="recipe-actions-bar">
+          <div class="recipe-search-input-wrap">
+            <span class="recipe-search-icon">🔍</span>
+            <input type="text" id="recipeSearchInput" class="recipe-search-input" placeholder="Search by recipe, cuisine, or ingredient (e.g. chicken, rice, tomato, egg)..." oninput="window.RecipeEngine.setSearchQuery(this.value)">
+          </div>
+          <button type="button" class="recipe-quick-btn pantry-btn" onclick="window.RecipeEngine.showPantryMatches()">
+            🍳 Cook With My Pantry
+          </button>
+          <button type="button" class="recipe-quick-btn" onclick="window.RecipeEngine.showExpiringRecipes()">
+            🔥 Use Soon
+          </button>
+          <button type="button" class="recipe-quick-btn" onclick="window.RecipeEngine.showFavorites()">
+            ❤️ My Favorites
+          </button>
+          <button type="button" class="recipe-quick-btn" onclick="window.RecipeEngine.openShoppingListModal()">
+            🛒 Shopping List
+          </button>
+        </div>
+
+        <!-- 24 Master Category Chips Carousel -->
+        <div class="recipe-chips-scroll" id="recipeCategoryChips">
+          <!-- Dynamically populated from recipes.js -->
+        </div>
+
+        <!-- Dynamic Match Count Subtitle -->
+        <div class="recipe-meta-status-row" id="recipesMatchCount">
+          Loading recipes...
+        </div>
+
+        <!-- Recipe Cards Grid -->
+        <div class="recipes-grid" id="recipesGrid">
+          <!-- Dynamically populated from recipes.js -->
         </div>
       </section>
 
@@ -1216,8 +1269,133 @@ function closeBillScannerModal() {
 window.addEventListener("beforeunload", () => stopCamera());
 </script>
 
+  <!-- ==========================================
+       RECIPE DETAIL MODAL
+       ========================================== -->
+  <div class="modal-overlay" id="recipeDetailModal">
+    <div class="modal-card recipe-detail-modal-card">
+      <div class="recipe-detail-header-img-wrap">
+        <img id="detailRecipeImg" src="" alt="Recipe Image" class="recipe-detail-img">
+        <button type="button" class="recipe-detail-close-btn" onclick="window.RecipeEngine.closeRecipeDetail()" aria-label="Close modal">✕</button>
+      </div>
+
+      <div class="recipe-detail-body">
+        <div class="detail-meta-pill-row">
+          <span class="recipe-cuisine-tag" id="detailCuisineTag">Indian</span>
+        </div>
+
+        <h2 id="detailRecipeTitle">Recipe Name</h2>
+        <p class="detail-desc" id="detailRecipeDesc">Recipe description</p>
+
+        <!-- Pantry Match Progress Bar -->
+        <div class="detail-progress-container">
+          <div class="detail-progress-header">
+            <span>Pantry Match</span>
+            <span id="detailMatchText">85% Match</span>
+          </div>
+          <div class="detail-progress-track">
+            <div class="detail-progress-bar" id="detailMatchBar" style="width: 85%;"></div>
+          </div>
+        </div>
+
+        <!-- 4 Quick Stat Metric Tiles -->
+        <div class="detail-stats-grid">
+          <div class="detail-stat-box">
+            <span class="label">Prep Time</span>
+            <span class="val" id="detailPrepTime">10 min</span>
+          </div>
+          <div class="detail-stat-box">
+            <span class="label">Cook Time</span>
+            <span class="val" id="detailCookTime">15 min</span>
+          </div>
+          <div class="detail-stat-box">
+            <span class="label">Servings</span>
+            <span class="val" id="detailServings">4</span>
+          </div>
+          <div class="detail-stat-box">
+            <span class="label">Difficulty</span>
+            <span class="val" id="detailDifficulty">Easy</span>
+          </div>
+        </div>
+
+        <!-- Nutrition Overview -->
+        <div class="detail-nutrition-row">
+          <div><strong id="detailCalories">350 kcal</strong><span>Calories</span></div>
+          <div><strong id="detailProtein">24g</strong><span>Protein</span></div>
+          <div><strong id="detailCarbs">48g</strong><span>Carbs</span></div>
+          <div><strong id="detailFat">12g</strong><span>Fat</span></div>
+        </div>
+
+        <!-- Ingredients Checklist with Live Status -->
+        <div class="detail-section-title">
+          <span>Required Ingredients</span>
+          <button type="button" class="recipe-view-btn" onclick="window.RecipeEngine.addCurrentMissingToShopping()" style="font-size:12px; color:#059669;">
+            + Add Missing to Shopping List
+          </button>
+        </div>
+        <div class="detail-ingredients-grid" id="detailIngredientsList">
+          <!-- Dynamically populated from recipes.js -->
+        </div>
+
+        <!-- Step-by-Step Instructions -->
+        <div class="detail-section-title">
+          <span>Step-by-Step Instructions</span>
+        </div>
+        <div class="detail-instructions-list" id="detailInstructionsList">
+          <!-- Dynamically populated from recipes.js -->
+        </div>
+
+        <!-- Modal Footer Actions -->
+        <div class="detail-footer-actions">
+          <button type="button" class="detail-btn cook" onclick="window.RecipeEngine.cookCurrentRecipe()">
+            🍳 Cook This
+          </button>
+          <button type="button" class="detail-btn shopping" onclick="window.RecipeEngine.addCurrentMissingToShopping()">
+            🛒 Add Missing Items
+          </button>
+          <button type="button" class="detail-btn fav" id="detailFavBtn" onclick="window.RecipeEngine.toggleCurrentDetailFavorite()">
+            ❤️ Save Recipe
+          </button>
+          <button type="button" class="detail-btn share" onclick="window.RecipeEngine.shareCurrentRecipe()">
+            📤 Share
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==========================================
+       SHOPPING LIST MODAL
+       ========================================== -->
+  <div class="modal-overlay" id="shoppingListModal">
+    <div class="modal-card shopping-modal-card">
+      <div class="modal-header">
+        <h3 class="modal-title">🛒 Smart Shopping List</h3>
+        <button type="button" class="close-modal-btn" onclick="window.RecipeEngine.closeShoppingListModal()">✕</button>
+      </div>
+      <p style="font-size:12.5px; color:#64748b; margin-bottom:16px;">
+        Ingredients needed for your selected recipes. Click <strong>+ Pantry</strong> to transfer directly to inventory.
+      </p>
+
+      <div id="shoppingListItemsContainer" style="max-height:300px; overflow-y:auto; margin-bottom:18px;">
+        <!-- Dynamically populated from recipes.js -->
+      </div>
+
+      <div style="display:flex; justify-content:space-between; gap:10px;">
+        <button type="button" class="modal-cancel-btn" onclick="window.RecipeEngine.clearShoppingList()" style="color:#ef4444;">
+          Clear List
+        </button>
+        <button type="button" class="modal-save-btn" onclick="window.RecipeEngine.closeShoppingListModal()">
+          Done
+        </button>
+      </div>
+    </div>
+  </div>
+
 <script src="js/store.js"></script>
 <script src="js/components.js"></script>
+<script src="js/recipes-data.js"></script>
+<script src="js/recipes.js"></script>
 <script src="js/app.js"></script>
 
 <script>
@@ -1318,14 +1496,23 @@ function setActiveMobileNav(btn) {
   }
 }
 
-// Close user menu when clicking outside
-document.addEventListener('click', function(e) {
-  const profile = document.getElementById('userProfile');
-  const menu = document.getElementById('userMenu');
-  if (profile && menu && !profile.contains(e.target)) {
-    menu.style.display = 'none';
+// Initialize Recipe Kitchen on load
+document.addEventListener('DOMContentLoaded', function() {
+  if (window.RecipeEngine) {
+    window.RecipeEngine.renderCategoryChips();
+    window.RecipeEngine.renderRecipeKitchen();
+    window.RecipeEngine.updateExpiringBanner();
   }
 });
+
+// Fallback direct run
+setTimeout(function() {
+  if (window.RecipeEngine) {
+    window.RecipeEngine.renderCategoryChips();
+    window.RecipeEngine.renderRecipeKitchen();
+    window.RecipeEngine.updateExpiringBanner();
+  }
+}, 300);
 </script>
 
 </body>

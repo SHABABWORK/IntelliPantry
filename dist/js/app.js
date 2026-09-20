@@ -66,12 +66,18 @@ class AppRouter {
   }
 
   showShoppingList() {
-    const metrics = window.store.getMetrics();
-    showToast(`Shopping List: ${metrics.shoppingListCount} item(s) recommended to restock.`);
+    if (window.RecipeEngine && typeof window.RecipeEngine.openShoppingListModal === "function") {
+      window.RecipeEngine.openShoppingListModal();
+    } else {
+      const metrics = window.store.getMetrics();
+      showToast(`Shopping List: ${metrics.shoppingListCount} item(s) recommended to restock.`);
+    }
   }
 
   showRecipes() {
-    showToast("AI Recipes: Fresh meal recommendations based on your pantry items!");
+    if (window.RecipeEngine && typeof window.RecipeEngine.scrollToRecipeKitchen === "function") {
+      window.RecipeEngine.scrollToRecipeKitchen();
+    }
   }
 }
 
