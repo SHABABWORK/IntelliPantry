@@ -160,6 +160,169 @@ const CATEGORY_EMOJIS = {
   Spices: "🧂"
 };
 
+/**
+ * Smart Pantry - LocalStorage User Database Engine
+ * Persistent Multi-User Authentication, Profiles, and Isolation in LocalStorage
+ */
+class UserDatabaseManager {
+  constructor() {
+    this.DB_KEY = "smartpantry_users_db";
+    this.init();
+  }
+
+  init() {
+    try {
+      if (!localStorage.getItem(this.DB_KEY)) {
+        const initialDB = {
+          version: "1.0",
+          users: {},
+          createdAt: new Date().toISOString()
+        };
+        localStorage.setItem(this.DB_KEY, JSON.stringify(initialDB));
+      }
+    } catch (e) {
+      console.warn("[UserDB] Init error:", e);
+    }
+  }
+
+  getDB() {
+    try {
+      const raw = localStorage.getItem(this.DB_KEY);
+      if (raw) return JSON.parse(raw);
+    } catch (e) {
+      console.warn("[UserDB] Read error:", e);
+    }
+    return { version: "1.0", users: {}, createdAt: new Date().toISOString() };
+  }
+
+  saveDB(db) {
+    try {
+      localStorage.setItem(this.DB_KEY, JSON.stringify(db));
+    } catch (e) {
+      console.error("[UserDB] Save error:", e);
+    }
+  }
+
+  findUser(email) {
+    if (!email) return null;
+    const normalized = email.trim().toLowerCase();
+    const db = this.getDB();
+    return db.users[normalized] || null;
+  }
+
+  registerUser({ fullName, email, password, clientInfo, role = "user" }) {
+    const normalized = email.trim().toLowerCase();
+    const db = this.getDB();
+
+    let user = db.users[normalized];
+    if (user) {
+      user.name = fullName.trim() || user.name;
+      if (password) user.password = password;
+      user.lastLogin = new Date().toISOString();
+      user.updatedAt = new Date().toISOString();
+    } else {
+      const uid = "user_" + Date.now() + "_" + Math.floor(Math.random() * 1000);
+      user = {
+        id: uid,
+        name: fullName.trim() || normalized.split("@")[0] || "Pantry Chef",
+        email: normalized,
+        password: password || "",
+        role: role,
+        emailVerified: true,
+        createdAt: new Date().toISOString(),
+        lastLogin: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        preferences: {
+          emailNotifications: true,
+          expiryAlerts: true,
+          lowStockAlerts: true,
+          expiredAlerts: true,
+          securityAlerts: true
+        }
+      };
+      db.users[normalized] = user;
+    }
+
+    this.saveDB(db);
+    const token = "sp_jwt_" + btoa(JSON.stringify({ id: user.id, email: user.email, time: Date.now() }));
+    this.setActiveSession(user, token);
+    return { success: true, user, token };
+  }
+
+  loginUser({ email, password, clientInfo }) {
+    const normalized = email.trim().toLowerCase();
+    const db = this.getDB();
+    let user = db.users[normalized];
+
+    if (!user) {
+      const rawName = normalized.split("@")[0] || "User";
+      const cleanName = rawName.replace(/[^a-zA-Z0-9]/g, " ").trim();
+      const formattedName = cleanName.charAt(0).toUpperCase() + cleanName.slice(1) || "User";
+      const uid = "user_" + Date.now() + "_" + Math.floor(Math.random() * 1000);
+
+      user = {
+        id: uid,
+        name: formattedName,
+        email: normalized,
+        password: password || "",
+        role: "user",
+        emailVerified: true,
+        createdAt: new Date().toISOString(),
+        lastLogin: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        preferences: {
+          emailNotifications: true,
+          expiryAlerts: true,
+          lowStockAlerts: true,
+          expiredAlerts: true,
+          securityAlerts: true
+        }
+      };
+      db.users[normalized] = user;
+    } else {
+      user.lastLogin = new Date().toISOString();
+      if (password) user.password = password;
+    }
+
+    this.saveDB(db);
+    const token = "sp_jwt_" + btoa(JSON.stringify({ id: user.id, email: user.email, time: Date.now() }));
+    this.setActiveSession(user, token);
+    return { success: true, user, token };
+  }
+
+  setActiveSession(user, token) {
+    try {
+      localStorage.setItem("smartpantry_token", token);
+      localStorage.setItem("smartpantry_user", JSON.stringify(user));
+    } catch (e) {
+      console.error("[UserDB] Set active session error:", e);
+    }
+  }
+
+  getActiveUser() {
+    try {
+      const raw = localStorage.getItem("smartpantry_user");
+      return raw ? JSON.parse(raw) : null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  getAllUsers() {
+    const db = this.getDB();
+    return Object.values(db.users || {});
+  }
+
+  logout() {
+    try {
+      localStorage.removeItem("smartpantry_token");
+      localStorage.removeItem("smartpantry_user");
+    } catch (e) {}
+  }
+}
+
+window.UserDB = new UserDatabaseManager();
+
 function getCurrentUserInfo() {
   try {
     return JSON.parse(localStorage.getItem("smartpantry_user") || "{}");

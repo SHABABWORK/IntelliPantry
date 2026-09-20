@@ -851,21 +851,69 @@
       };
     }
 
+    // LocalStorage User Database Engine
+    const UserDB = {
+      DB_KEY: 'smartpantry_users_db',
+      getDB() {
+        try {
+          const raw = localStorage.getItem(this.DB_KEY);
+          if (raw) return JSON.parse(raw);
+        } catch (e) {}
+        return { version: '1.0', users: {}, createdAt: new Date().toISOString() };
+      },
+      saveDB(db) {
+        try {
+          localStorage.setItem(this.DB_KEY, JSON.stringify(db));
+        } catch (e) {
+          console.error('[UserDB] Storage error:', e);
+        }
+      },
+      saveUser(user) {
+        const db = this.getDB();
+        const email = (user.email || '').trim().toLowerCase();
+        if (email) {
+          db.users[email] = {
+            ...user,
+            updatedAt: new Date().toISOString()
+          };
+          this.saveDB(db);
+        }
+      },
+      findUser(email) {
+        const db = this.getDB();
+        return db.users[(email || '').trim().toLowerCase()] || null;
+      },
+      getAllUsers() {
+        const db = this.getDB();
+        return Object.values(db.users || {});
+      }
+    };
+    window.UserDB = UserDB;
+
     // Local Resilient Auth Engine (Failsafe for Serverless / Offline / Instant Login)
     function performLocalAuth(action, data) {
       const normalizedEmail = (data.email || 'user@example.com').trim().toLowerCase();
       let userName = data.fullName;
       if (!userName) {
-        const raw = normalizedEmail.split('@')[0] || 'User';
-        const clean = raw.replace(/[^a-zA-Z0-9]/g, ' ').trim();
-        userName = clean.charAt(0).toUpperCase() + clean.slice(1) || 'User';
+        const existing = UserDB.findUser(normalizedEmail);
+        if (existing && existing.name) {
+          userName = existing.name;
+        } else {
+          const raw = normalizedEmail.split('@')[0] || 'User';
+          const clean = raw.replace(/[^a-zA-Z0-9]/g, ' ').trim();
+          userName = clean.charAt(0).toUpperCase() + clean.slice(1) || 'User';
+        }
       }
 
+      const existingUser = UserDB.findUser(normalizedEmail);
       const localUser = {
-        id: 'user_' + Date.now(),
+        id: existingUser ? existingUser.id : ('user_' + Date.now()),
         name: userName,
         email: normalizedEmail,
+        password: data.password || (existingUser ? existingUser.password : ''),
         emailVerified: true,
+        createdAt: existingUser ? existingUser.createdAt : new Date().toISOString(),
+        lastLogin: new Date().toISOString(),
         preferences: {
           emailNotifications: true,
           expiryAlerts: true,
@@ -875,7 +923,10 @@
         }
       };
 
-      const localToken = 'sp_tok_' + btoa(JSON.stringify({ email: normalizedEmail, time: Date.now() }));
+      // Persist permanently in user database in localStorage
+      UserDB.saveUser(localUser);
+
+      const localToken = 'sp_tok_' + btoa(JSON.stringify({ id: localUser.id, email: normalizedEmail, time: Date.now() }));
 
       // Dispatch real email alert in background via Resend endpoint
       try {
@@ -961,11 +1012,12 @@
             btn.disabled = false;
             btn.textContent = 'Create Account';
             showAlert('signupAlert', `Account created! Welcome, ${data.user.name}! Opening pantry...`, 'success');
+            UserDB.saveUser({ ...data.user, password });
             localStorage.setItem('smartpantry_token', data.token);
             localStorage.setItem('smartpantry_user', JSON.stringify(data.user));
             setTimeout(() => {
               window.location.href = 'dashboard.html';
-            }, 400);
+            }, 300);
             return;
           }
         }
@@ -982,7 +1034,7 @@
       localStorage.setItem('smartpantry_user', JSON.stringify(localResult.user));
       setTimeout(() => {
         window.location.href = 'dashboard.html';
-      }, 400);
+      }, 300);
     }
 
     // ==========================================
@@ -1027,6 +1079,7 @@
             btn.disabled = false;
             btn.textContent = 'Login';
             showAlert('loginAlert', `Login successful — Welcome, ${data.user.name}!`, 'success');
+            UserDB.saveUser({ ...data.user, password });
             localStorage.setItem('smartpantry_token', data.token);
             localStorage.setItem('smartpantry_user', JSON.stringify(data.user));
             setTimeout(() => {
