@@ -1467,7 +1467,8 @@ function toggleUserMenu() {
 function handleLogout() {
   localStorage.removeItem('smartpantry_token');
   localStorage.removeItem('smartpantry_user');
-  window.location.href = 'login.html?logout=1';
+  const isHtml = window.location.pathname.endsWith('.html');
+  window.location.href = isHtml ? 'login.html?logout=1' : 'login?logout=1';
 }
 
 // ===== Mobile Drawer & Navigation Helpers =====
