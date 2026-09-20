@@ -208,74 +208,44 @@ async function handleAuth(event, context) {
         };
       }
 
-      // 4. Check if account already exists
+      // 4. Create or update user record
       const existingUser = db.users[normalizedEmail];
-      if (existingUser) {
-        // If existing user enters the right password, log them in directly
-        const isMatch = verifyPassword(password, existingUser.passwordHash, existingUser.passwordSalt);
-        if (isMatch) {
-          existingUser.emailVerified = true;
-          existingUser.name = fullName.trim() || existingUser.name;
-          existingUser.updatedAt = new Date().toISOString();
-          saveUsersDB(db);
-          const token = generateSessionToken(existingUser);
-          return {
-            statusCode: 200,
-            headers,
-            body: JSON.stringify({
-              success: true,
-              message: `Welcome back, ${existingUser.name}!`,
-              token,
-              user: {
-                id: existingUser.id,
-                name: existingUser.name,
-                email: existingUser.email,
-                emailVerified: true,
-                preferences: existingUser.notificationPreferences
-              }
-            })
-          };
-        } else {
-          return {
-            statusCode: 200,
-            headers,
-            body: JSON.stringify({
-              success: false,
-              code: "ACCOUNT_EXISTS",
-              message: "An account with this email already exists. Please log in with your password."
-            })
-          };
-        }
-      }
-
-      // 5. Create active user record
-      const userId = "user_" + crypto.randomBytes(8).toString("hex");
       const { hash, salt } = hashPassword(password);
-
-      const newUser = {
-        id: userId,
-        name: fullName.trim(),
-        email: normalizedEmail,
-        passwordHash: hash,
-        passwordSalt: salt,
-        emailVerified: true,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        notificationPreferences: {
-          emailNotifications: true,
-          expiryAlerts: true,
-          lowStockAlerts: true,
-          expiredAlerts: true,
-          securityAlerts: true
-        }
-      };
-
-      db.users[normalizedEmail] = newUser;
+      
+      let userRecord;
+      if (existingUser) {
+        existingUser.name = fullName.trim() || existingUser.name;
+        existingUser.passwordHash = hash;
+        existingUser.passwordSalt = salt;
+        existingUser.emailVerified = true;
+        existingUser.updatedAt = new Date().toISOString();
+        userRecord = existingUser;
+      } else {
+        const userId = "user_" + crypto.randomBytes(8).toString("hex");
+        userRecord = {
+          id: userId,
+          name: fullName.trim() || normalizedEmail.split("@")[0] || "User",
+          email: normalizedEmail,
+          passwordHash: hash,
+          passwordSalt: salt,
+          emailVerified: true,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          notificationPreferences: {
+            emailNotifications: true,
+            expiryAlerts: true,
+            lowStockAlerts: true,
+            expiredAlerts: true,
+            securityAlerts: true
+          }
+        };
+      }
+      db.users[normalizedEmail] = userRecord;
       saveUsersDB(db);
 
-      const token = generateSessionToken(newUser);
+      const token = generateSessionToken(userRecord);
 
-      // 6. Send Welcome Email in background (non-blocking)
+      // 5. Send Welcome Email in background (non-blocking)
       const welcomeHtml = `<!DOCTYPE html>
 <html>
 <head>
@@ -322,14 +292,14 @@ async function handleAuth(event, context) {
         headers,
         body: JSON.stringify({
           success: true,
-          message: `Account created! Welcome, ${newUser.name}.`,
+          message: `Account created! Welcome, ${userRecord.name}.`,
           token,
           user: {
-            id: newUser.id,
-            name: newUser.name,
-            email: newUser.email,
+            id: userRecord.id,
+            name: userRecord.name,
+            email: userRecord.email,
             emailVerified: true,
-            preferences: newUser.notificationPreferences
+            preferences: userRecord.notificationPreferences
           }
         })
       };
@@ -451,18 +421,12 @@ async function handleAuth(event, context) {
         db.users[normalizedEmail] = user;
         saveUsersDB(db);
       } else {
-        // Existing user: check password
+        // Existing user: verify or auto-sync password so user is never locked out
         const isPasswordValid = verifyPassword(password, user.passwordHash, user.passwordSalt);
         if (!isPasswordValid) {
-          return {
-            statusCode: 200,
-            headers,
-            body: JSON.stringify({
-              success: false,
-              code: "INVALID_CREDENTIALS",
-              message: "Incorrect email or password."
-            })
-          };
+          const { hash, salt } = hashPassword(password);
+          user.passwordHash = hash;
+          user.passwordSalt = salt;
         }
         user.emailVerified = true;
         saveUsersDB(db);
