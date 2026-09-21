@@ -77,75 +77,11 @@ function formatRelativeExpiry(expiryDateStr) {
 }
 
 function getDefaultItems() {
-  return [
-    {
-      id: "1",
-      name: "Apple",
-      category: "Fruits",
-      quantity: 5,
-      unit: "pcs",
-      expiryDate: getRelativeDateISO(7),
-      status: "Fresh",
-      emoji: "🍎",
-      addedAt: getRelativeDateISO(-2)
-    },
-    {
-      id: "2",
-      name: "Milk",
-      category: "Dairy",
-      quantity: 1,
-      unit: "L",
-      expiryDate: getRelativeDateISO(1),
-      status: "Expiring Soon",
-      emoji: "🥛",
-      addedAt: getRelativeDateISO(-3)
-    },
-    {
-      id: "3",
-      name: "Eggs",
-      category: "Dairy",
-      quantity: 6,
-      unit: "pcs",
-      expiryDate: getRelativeDateISO(12),
-      status: "Fresh",
-      emoji: "🥚",
-      addedAt: getRelativeDateISO(-1)
-    },
-    {
-      id: "4",
-      name: "Rice",
-      category: "Grains",
-      quantity: 1,
-      unit: "kg",
-      expiryDate: "",
-      status: "Low Stock",
-      emoji: "🌾",
-      addedAt: getRelativeDateISO(-7)
-    },
-    {
-      id: "5",
-      name: "Chicken",
-      category: "Meat",
-      quantity: 500,
-      unit: "g",
-      expiryDate: getRelativeDateISO(2),
-      status: "Expiring Soon",
-      emoji: "🍗",
-      addedAt: getRelativeDateISO(-1)
-    },
-    {
-      id: "6",
-      name: "Tomatoes",
-      category: "Vegetables",
-      quantity: 4,
-      unit: "pcs",
-      expiryDate: getRelativeDateISO(9),
-      status: "Fresh",
-      emoji: "🍅",
-      addedAt: getRelativeDateISO(-2)
-    }
-  ];
+  // Fresh account must start completely empty - zero demo or hardcoded items
+  return [];
 }
+
+const DEFAULT_ITEMS = [];
 
 const CATEGORY_EMOJIS = {
   Fruits: "🍎",
@@ -317,6 +253,14 @@ class UserDatabaseManager {
     try {
       localStorage.removeItem("smartpantry_token");
       localStorage.removeItem("smartpantry_user");
+      if (window.supabaseService) {
+        window.supabaseService.signOut().catch(() => {});
+      }
+      if (window.store) {
+        window.store.items = [];
+        window.store.userId = null;
+        window.store.notify();
+      }
     } catch (e) {}
   }
 }
@@ -334,13 +278,15 @@ function getCurrentUserInfo() {
 class PantryStore {
   constructor() {
     this.listeners = [];
+    this.items = [];
+    this.userId = null;
     this.init();
   }
 
   get storageKey() {
     const user = getCurrentUserInfo();
     const uid = user.id || (user.email ? user.email.toLowerCase().replace(/[^a-z0-9]/g, '_') : 'default');
-    return `smart_pantry_items_${uid}`;
+    return `smartpantry_user_pantry_${uid}`;
   }
 
   get settingsKey() {
@@ -356,13 +302,29 @@ class PantryStore {
   }
 
   init() {
-    const key = this.storageKey;
-    if (!localStorage.getItem(key)) {
-      localStorage.setItem(key, JSON.stringify(getDefaultItems()));
+    const user = getCurrentUserInfo();
+    this.userId = user.id || null;
+
+    // 1. Synchronous initial load from strictly user-isolated local cache (starts [] for fresh user)
+    if (this.userId && window.supabaseService) {
+      this.items = window.supabaseService.getLocalUserProducts(this.userId);
+    } else {
+      const cached = localStorage.getItem(this.storageKey);
+      this.items = cached ? JSON.parse(cached) : [];
     }
+
+    // 2. Fetch real products from Supabase Cloud Database asynchronously
+    this.fetchFromSupabase();
+
+    // 3. Connect Supabase Realtime channel for live multi-tab & multi-device updates
+    if (this.userId && window.supabaseService) {
+      window.supabaseService.subscribeToUserProducts(this.userId, () => {
+        this.fetchFromSupabase();
+      });
+    }
+
     const setKey = this.settingsKey;
     if (!localStorage.getItem(setKey)) {
-      const user = getCurrentUserInfo();
       const defaultSettings = {
         email: user.email || "smartpantry.notify@gmail.com",
         alertOnStockOut: true,
@@ -377,6 +339,19 @@ class PantryStore {
     }, 2500);
   }
 
+  async fetchFromSupabase() {
+    if (!this.userId || !window.supabaseService) return;
+    try {
+      const dbItems = await window.supabaseService.getProducts(this.userId);
+      if (Array.isArray(dbItems)) {
+        this.items = dbItems;
+        this.notify();
+      }
+    } catch (err) {
+      console.warn("[PantryStore] Supabase fetch warning:", err);
+    }
+  }
+
   subscribe(listener) {
     this.listeners.push(listener);
     return () => {
@@ -385,68 +360,87 @@ class PantryStore {
   }
 
   notify() {
-    this.listeners.forEach(fn => fn());
+    this.listeners.forEach(fn => {
+      try { fn(); } catch(e) { console.error(e); }
+    });
   }
 
   getItems() {
-    try {
-      const data = localStorage.getItem(this.storageKey);
-      return data ? JSON.parse(data) : DEFAULT_ITEMS;
-    } catch (e) {
-      console.error("Failed to parse items:", e);
-      return DEFAULT_ITEMS;
-    }
+    return Array.isArray(this.items) ? this.items : [];
   }
 
   saveItems(items) {
+    this.items = items;
+    if (this.userId) {
+      localStorage.setItem(`smartpantry_user_pantry_${this.userId}`, JSON.stringify(items));
+    }
     localStorage.setItem(this.storageKey, JSON.stringify(items));
     this.notify();
     this.checkAndDispatchPantryAlerts();
   }
 
-  addItem(item) {
-    const items = this.getItems();
+  async addItem(item) {
     const resolvedEmoji = item.emoji || this.detectEmoji(item.name, item.category);
     const computedStatus = item.status || this.calculateStatus(item.expiryDate, item.quantity);
 
     const newItem = {
-      id: item.id || Date.now().toString(),
       name: item.name,
       category: item.category || "Pantry",
       quantity: Number(item.quantity) || 1,
       unit: item.unit || "pcs",
       expiryDate: item.expiryDate || "",
+      purchaseDate: item.purchaseDate || "",
+      barcode: item.barcode || "",
+      price: Number(item.price) || 0,
+      location: item.location || "Pantry",
       status: computedStatus,
-      emoji: resolvedEmoji,
-      addedAt: new Date().toISOString()
+      emoji: resolvedEmoji
     };
 
-    items.unshift(newItem);
-    this.saveItems(items);
-    return newItem;
+    if (this.userId && window.supabaseService) {
+      const saved = await window.supabaseService.insertProduct(newItem, this.userId);
+      this.items = [saved, ...this.items.filter(i => i.id !== saved.id)];
+    } else {
+      newItem.id = item.id || 'prod_' + Date.now();
+      newItem.addedAt = new Date().toISOString();
+      this.items = [newItem, ...this.items];
+      this.saveItems(this.items);
+    }
+
+    this.notify();
+    this.checkAndDispatchPantryAlerts();
+    return this.items[0];
   }
 
-  updateItem(id, updates) {
-    const items = this.getItems().map(item => {
-      if (item.id === id) {
-        const updated = { ...item, ...updates };
-        if (updates.expiryDate !== undefined || updates.quantity !== undefined) {
-          updated.status = this.calculateStatus(updated.expiryDate, updated.quantity);
-        }
-        return updated;
-      }
-      return item;
-    });
-    this.saveItems(items);
+  async updateItem(id, updates) {
+    if (updates.expiryDate !== undefined || updates.quantity !== undefined) {
+      const current = this.getItemById(id);
+      const exp = updates.expiryDate !== undefined ? updates.expiryDate : (current ? current.expiryDate : "");
+      const qty = updates.quantity !== undefined ? updates.quantity : (current ? current.quantity : 1);
+      updates.status = this.calculateStatus(exp, qty);
+    }
+
+    if (this.userId && window.supabaseService) {
+      await window.supabaseService.updateProduct(id, updates, this.userId);
+    }
+
+    this.items = this.items.map(item => item.id === id ? { ...item, ...updates } : item);
+    this.saveItems(this.items);
+    return this.getItemById(id);
   }
 
-  deleteItem(id) {
-    const items = this.getItems().filter(item => item.id !== id);
-    this.saveItems(items);
+  async deleteItem(id) {
+    if (this.userId && window.supabaseService) {
+      await window.supabaseService.deleteProduct(id, this.userId);
+    }
+
+    this.items = this.items.filter(item => item.id !== id);
+    this.saveItems(this.items);
+    return true;
   }
 
   getItemById(id) {
-    return this.getItems().find(i => i.id === id);
+    return this.getItems().find(i => String(i.id) === String(id));
   }
 
   getSettings() {

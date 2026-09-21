@@ -99,6 +99,9 @@
         <!-- User dropdown menu -->
         <div id="userMenu" style="display:none; position:absolute; top:100%; right:0; margin-top:8px; background:#1e293b; border:1px solid #334155; border-radius:10px; min-width:160px; box-shadow:0 8px 24px rgba(0,0,0,0.3); z-index:999; overflow:hidden;">
           <div style="padding:12px 16px; border-bottom:1px solid #334155; font-size:13px; color:#94a3b8;" id="userMenuEmail">email</div>
+          <button onclick="openDatabaseSettingsModal()" style="width:100%; padding:10px 16px; background:none; border:none; color:#10b981; font-size:13px; font-weight:600; text-align:left; cursor:pointer; font-family:inherit; border-bottom:1px solid #334155; display:flex; align-items:center; gap:8px;" onmouseover="this.style.background='#263348'" onmouseout="this.style.background='none'">
+            ⚡ Supabase Database
+          </button>
           <button onclick="handleLogout()" style="width:100%; padding:12px 16px; background:none; border:none; color:#ef4444; font-size:14px; font-weight:600; text-align:left; cursor:pointer; font-family:inherit;" onmouseover="this.style.background='#263348'" onmouseout="this.style.background='none'">
             ⎋ Logout
           </button>
@@ -1392,6 +1395,83 @@ window.addEventListener("beforeunload", () => stopCamera());
     </div>
   </div>
 
+  <!-- ==========================================
+       SUPABASE DATABASE CONFIGURATION MODAL
+       ========================================== -->
+  <div class="modal-backdrop" id="databaseSettingsModal">
+    <div class="modal-card" style="max-width:520px;">
+      <div class="modal-header">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <div style="font-size:24px;">⚡</div>
+          <div>
+            <h3>Supabase Database Settings</h3>
+            <p>Connect your production PostgreSQL database</p>
+          </div>
+        </div>
+        <button class="modal-close-btn" onclick="closeDatabaseSettingsModal()">✕</button>
+      </div>
+
+      <div style="margin-bottom:18px;">
+        <div id="supabaseConnectionStatusBadge" style="display:inline-flex; align-items:center; gap:8px; padding:8px 14px; border-radius:10px; font-size:12.5px; font-weight:700; background:#f0fdf4; color:#166534; border:1px solid #bbf7d0; margin-bottom:14px;">
+          <span style="width:8px; height:8px; border-radius:50%; background:#10b981;"></span>
+          <span id="supabaseStatusText">Checking Connection...</span>
+        </div>
+        <p style="font-size:13px; color:#64748b; line-height:1.5;">
+          Every product, expiry date, and inventory update is linked directly to your authenticated Supabase user ID with PostgreSQL Row Level Security (RLS).
+        </p>
+      </div>
+
+      <form onsubmit="handleSaveDatabaseSettings(event)">
+        <div class="form-group" style="margin-bottom:14px;">
+          <label class="form-label" style="display:block; font-size:13px; font-weight:600; color:#1e293b; margin-bottom:6px;">
+            Supabase Project URL
+          </label>
+          <input 
+            type="url" 
+            id="supabaseUrlInput" 
+            placeholder="https://xyzcompany.supabase.co" 
+            class="form-input" 
+            style="width:100%; padding:10px 12px; border:1px solid #cbd5e1; border-radius:8px; font-size:13.5px;"
+            required
+          >
+          <small style="display:block; font-size:11.5px; color:#94a3b8; margin-top:4px;">
+            Found in Supabase Dashboard → Project Settings → API
+          </small>
+        </div>
+
+        <div class="form-group" style="margin-bottom:20px;">
+          <label class="form-label" style="display:block; font-size:13px; font-weight:600; color:#1e293b; margin-bottom:6px;">
+            Supabase Anon / Public Key
+          </label>
+          <input 
+            type="text" 
+            id="supabaseKeyInput" 
+            placeholder="eyJhbGciOiJIUzI1NiIsIn..." 
+            class="form-input" 
+            style="width:100%; padding:10px 12px; border:1px solid #cbd5e1; border-radius:8px; font-size:13.5px; font-family:monospace;"
+            required
+          >
+          <small style="display:block; font-size:11.5px; color:#94a3b8; margin-top:4px;">
+            Safe public anon key for frontend queries with Row Level Security.
+          </small>
+        </div>
+
+        <div style="display:flex; justify-content:space-between; gap:10px;">
+          <button type="button" class="modal-cancel-btn" onclick="closeDatabaseSettingsModal()">
+            Cancel
+          </button>
+          <button type="submit" class="modal-save-btn" style="background:#1e392a; color:#fff; padding:10px 22px; border-radius:10px; border:none; font-weight:700; cursor:pointer;">
+            Save & Connect
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+<!-- Supabase Production JS Client SDK & Services -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/supabase-config.js"></script>
+<script src="js/supabase.js"></script>
 <script src="js/store.js"></script>
 <script src="js/components.js"></script>
 <script src="js/recipes-data.js"></script>
@@ -1399,6 +1479,60 @@ window.addEventListener("beforeunload", () => stopCamera());
 <script src="js/app.js"></script>
 
 <script>
+// Database Settings Modal Handlers
+function openDatabaseSettingsModal() {
+  const modal = document.getElementById('databaseSettingsModal');
+  if (!modal) return;
+  const config = window.SupabaseConfig ? window.SupabaseConfig.get() : { url: '', key: '', isConfigured: false };
+  const urlInput = document.getElementById('supabaseUrlInput');
+  const keyInput = document.getElementById('supabaseKeyInput');
+  const statusBadge = document.getElementById('supabaseConnectionStatusBadge');
+  const statusText = document.getElementById('supabaseStatusText');
+
+  if (urlInput && !config.url.includes('your-project')) urlInput.value = config.url;
+  if (keyInput && !config.key.includes('your-anon-key')) keyInput.value = config.key;
+
+  if (config.isConfigured) {
+    statusBadge.style.background = '#f0fdf4';
+    statusBadge.style.color = '#166534';
+    statusBadge.style.borderColor = '#bbf7d0';
+    statusText.textContent = '🟢 Connected to Live Supabase Cloud Database';
+  } else {
+    statusBadge.style.background = '#fffbeb';
+    statusBadge.style.color = '#b45309';
+    statusBadge.style.borderColor = '#fde68a';
+    statusText.textContent = '🟡 Ready for Configuration (User-Isolated Persistence Active)';
+  }
+
+  modal.classList.add('active');
+  const menu = document.getElementById('userMenu');
+  if (menu) menu.style.display = 'none';
+}
+
+function closeDatabaseSettingsModal() {
+  const modal = document.getElementById('databaseSettingsModal');
+  if (modal) modal.classList.remove('active');
+}
+
+function handleSaveDatabaseSettings(e) {
+  if (e) e.preventDefault();
+  const url = document.getElementById('supabaseUrlInput').value.trim();
+  const key = document.getElementById('supabaseKeyInput').value.trim();
+  if (!url || !key) return;
+
+  if (window.SupabaseConfig) {
+    window.SupabaseConfig.save(url, key);
+  }
+  if (window.supabaseService) {
+    window.supabaseService.init();
+  }
+  if (window.store) {
+    window.store.fetchFromSupabase();
+  }
+  showToast('✓ Supabase Database settings saved!');
+  closeDatabaseSettingsModal();
+}
+
 // Helper: Extract clean display name from any email / gmail
 function formatNameFromEmail(email) {
   if (!email) return 'User';
@@ -1465,8 +1599,16 @@ function toggleUserMenu() {
 }
 
 function handleLogout() {
+  if (window.supabaseService) {
+    window.supabaseService.signOut().catch(() => {});
+  }
   localStorage.removeItem('smartpantry_token');
   localStorage.removeItem('smartpantry_user');
+  if (window.store) {
+    window.store.items = [];
+    window.store.userId = null;
+    window.store.notify();
+  }
   const isHtml = window.location.pathname.endsWith('.html');
   window.location.href = isHtml ? 'login.html?logout=1' : 'login?logout=1';
 }

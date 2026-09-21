@@ -45,13 +45,29 @@ function renderInventoryTable() {
     return matchesCategory && matchesSearch;
   });
 
+  if (allItems.length === 0) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="6" style="text-align:center; padding: 48px 16px; color: #64748b;">
+          <div style="font-size: 44px; margin-bottom: 12px;">🥣</div>
+          <p style="font-size: 16.5px; font-weight: 700; color: #1e392a; margin-bottom: 6px;">Your pantry is empty. Add your first product to get started.</p>
+          <p style="font-size: 13px; color: #94a3b8; margin-bottom: 20px;">Track shelf-life, scan receipts, and unlock recipes with the ingredients you have.</p>
+          <button type="button" class="btn-forest-submit" onclick="openAddEditModal()" style="display:inline-flex; align-items:center; gap:8px; padding:10px 22px; font-size:13.5px; border-radius:12px; width:auto; margin:0 auto; cursor:pointer;">
+            <span>+</span> Add Your First Product
+          </button>
+        </td>
+      </tr>
+    `;
+    return;
+  }
+
   if (filtered.length === 0) {
     tbody.innerHTML = `
       <tr>
         <td colspan="6" style="text-align:center; padding: 36px 16px; color: #94a3b8;">
-          <div style="font-size: 32px; margin-bottom: 8px;">🥣</div>
-          <p style="font-weight: 600; color: #64748b;">No items found</p>
-          <small>Try another filter or click "+ Quick Add Item"</small>
+          <div style="font-size: 32px; margin-bottom: 8px;">🔍</div>
+          <p style="font-weight: 600; color: #64748b;">No items match your filter</p>
+          <small>Try selecting "All" or clearing your search</small>
         </td>
       </tr>
     `;
@@ -141,11 +157,11 @@ function handleSearchInput(e) {
 }
 
 // Delete item helper
-function deletePantryItem(id) {
+async function deletePantryItem(id) {
   const item = window.store.getItemById(id);
   if (!item) return;
   if (confirm(`Remove "${item.name}" from your pantry?`)) {
-    window.store.deleteItem(id);
+    await window.store.deleteItem(id);
     showToast(`Removed "${item.name}"`);
     renderInventoryTable();
     updateMetricsDisplay();
@@ -203,7 +219,7 @@ function closeAddEditModal() {
   editingItemId = null;
 }
 
-function saveItemForm(e) {
+async function saveItemForm(e) {
   if (e) {
     e.preventDefault();
     e.stopPropagation();
@@ -228,7 +244,7 @@ function saveItemForm(e) {
   }
 
   if (editingItemId) {
-    window.store.updateItem(editingItemId, {
+    await window.store.updateItem(editingItemId, {
       name,
       category,
       quantity,
@@ -237,7 +253,7 @@ function saveItemForm(e) {
     });
     showToast(`Updated "${name}"`);
   } else {
-    window.store.addItem({
+    await window.store.addItem({
       name,
       category,
       quantity,
