@@ -135,7 +135,8 @@ Inventory & Expiry Management`;
       ${itemsHtml}
     </div>
     <div class="footer">
-      © 2025 Smart Pantry • Inventory & Expiry Management
+      © 2026 IntelliPantry • Inventory & Expiry Management<br>
+      Need assistance? Contact support at <a href="mailto:intellipantrynotify@gmail.com" style="color: #2e9e5b; text-decoration: none; font-weight: 600;">intellipantrynotify@gmail.com</a>
     </div>
   </div>
 </body>
@@ -151,6 +152,7 @@ Inventory & Expiry Management`;
       body: JSON.stringify({
         from: fromAddress,
         to: [email],
+        reply_to: process.env.RESEND_REPLY_TO || "intellipantrynotify@gmail.com",
         subject: subject,
         text: textContent,
         html: htmlContent

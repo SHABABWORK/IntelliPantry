@@ -326,7 +326,7 @@ class PantryStore {
     const setKey = this.settingsKey;
     if (!localStorage.getItem(setKey)) {
       const defaultSettings = {
-        email: user.email || "smartpantry.notify@gmail.com",
+        email: user.email || "intellipantrynotify@gmail.com",
         alertOnStockOut: true,
         alertOnExpiry: true
       };
@@ -447,11 +447,11 @@ class PantryStore {
     try {
       const data = localStorage.getItem(this.settingsKey);
       const user = getCurrentUserInfo();
-      const defaultEmail = user.email || "smartpantry.notify@gmail.com";
+      const defaultEmail = user.email || "intellipantrynotify@gmail.com";
       return data ? JSON.parse(data) : { email: defaultEmail, alertOnStockOut: true, alertOnExpiry: true };
     } catch (e) {
       const user = getCurrentUserInfo();
-      return { email: user.email || "smartpantry.notify@gmail.com", alertOnStockOut: true, alertOnExpiry: true };
+      return { email: user.email || "intellipantrynotify@gmail.com", alertOnStockOut: true, alertOnExpiry: true };
     }
   }
 

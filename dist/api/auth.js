@@ -8,7 +8,7 @@
  * - 6-Digit Time-Limited OTP Email Verification (10 min expiry)
  * - Rate Limiting & Attempt Protection
  * - Password Reset Flow
- * - Resend API Integration (Official Smart Pantry sender: smartpantry.notify@gmail.com)
+ * - Resend API Integration (Official IntelliPantry sender: intellipantrynotify@gmail.com)
  * - Zero plaintext passwords, Zero leaked secrets
  */
 
@@ -101,8 +101,8 @@ function verifySessionToken(token) {
 // Send Email via Resend REST API
 async function sendEmailViaResend({ to, subject, html, text }) {
   const apiKey = process.env.RESEND_API_KEY;
-  const from = process.env.RESEND_FROM_EMAIL || "Smart Pantry <onboarding@resend.dev>";
-  const replyTo = "smartpantry.notify@gmail.com";
+  const from = process.env.RESEND_FROM_EMAIL || "IntelliPantry <onboarding@resend.dev>";
+  const replyTo = "intellipantrynotify@gmail.com";
 
   if (!apiKey) {
     console.warn(`[Resend Notice] RESEND_API_KEY not configured. Email to ${to} logged on server.`);
@@ -274,7 +274,7 @@ async function handleAuth(event, context) {
       </p>
     </div>
     <div class="footer">
-      Official Contact: smartpantry.notify@gmail.com • Smart Pantry
+      Official Contact: intellipantrynotify@gmail.com • IntelliPantry
     </div>
   </div>
 </body>
@@ -473,7 +473,7 @@ async function handleAuth(event, context) {
       <p style="font-size:12.5px; color:#7a857c; line-height:1.5;">If this was you, no action is needed. If you did not log in, please secure your account.</p>
     </div>
     <div class="footer">
-      Official Contact: smartpantry.notify@gmail.com • Smart Pantry
+      Official Contact: intellipantrynotify@gmail.com • IntelliPantry
     </div>
   </div>
 </body>
@@ -481,7 +481,7 @@ async function handleAuth(event, context) {
 
       const secText = `Hello ${user.name},
 
-A successful login was detected on your Smart Pantry account.
+A successful login was detected on your IntelliPantry account.
 
 Login details:
 Email: ${user.email}
@@ -492,8 +492,8 @@ Device: ${userDevice}
 
 If this was you, no action is required.
 
-Smart Pantry
-Official Contact: smartpantry.notify@gmail.com`;
+IntelliPantry
+Official Contact: intellipantrynotify@gmail.com`;
 
       sendEmailViaResend({
         to: normalizedEmail,
