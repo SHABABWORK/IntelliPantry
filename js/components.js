@@ -219,7 +219,7 @@ function closeAddEditModal() {
   editingItemId = null;
 }
 
-function saveItemForm(e) {
+async function saveItemForm(e) {
   if (e) {
     e.preventDefault();
     e.stopPropagation();
@@ -244,7 +244,7 @@ function saveItemForm(e) {
   }
 
   if (editingItemId) {
-    window.store.updateItem(editingItemId, {
+    await window.store.updateItem(editingItemId, {
       name,
       category,
       quantity,
@@ -253,7 +253,7 @@ function saveItemForm(e) {
     });
     showToast(`Updated "${name}"`);
   } else {
-    window.store.addItem({
+    await window.store.addItem({
       name,
       category,
       quantity,
