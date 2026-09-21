@@ -34,9 +34,12 @@ fs.copyFileSync(path.join(srcDir, 'landing.html'), path.join(distDir, 'landing.h
 fs.copyFileSync(path.join(srcDir, 'login.html'), path.join(distDir, 'login.html'));
 fs.copyFileSync(path.join(srcDir, 'dashboard.html'), path.join(distDir, 'dashboard.html'));
 
-// 3. Copy vercel.json & robots.txt
+// 3. Copy vercel.json, robots.txt & supabase_schema.sql
 if (fs.existsSync(path.join(srcDir, 'vercel.json'))) {
   fs.copyFileSync(path.join(srcDir, 'vercel.json'), path.join(distDir, 'vercel.json'));
+}
+if (fs.existsSync(path.join(srcDir, 'supabase_schema.sql'))) {
+  fs.copyFileSync(path.join(srcDir, 'supabase_schema.sql'), path.join(distDir, 'supabase_schema.sql'));
 }
 
 const robotsContent = `User-agent: *\nAllow: /\n`;
