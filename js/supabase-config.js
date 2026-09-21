@@ -1,54 +1,92 @@
 /**
- * Smart Pantry - Supabase Production Configuration & Credentials
+ * IntelliPantry - Production Supabase Configuration & Auto-Discovery
  * 
- * Instructions:
- * Enter your Supabase Project URL and Anon Key below, or configure them
- * dynamically via the in-app Database Settings modal.
+ * Sources:
+ * 1. Dynamic Vercel Serverless Endpoint (/api/config)
+ * 2. Window ENV (if injected)
+ * 3. Local Storage Override (via Database Settings modal)
  */
 
 (function(window) {
-  // Default Project Credentials (replace with your production keys)
-  const DEFAULT_SUPABASE_URL = "https://your-project.supabase.co";
-  const DEFAULT_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.your-anon-key";
+  let cachedConfig = {
+    url: "",
+    key: "",
+    isConfigured: false
+  };
 
-  function getSupabaseConfig() {
+  function readLocalConfig() {
     let url = "";
     let key = "";
-
     try {
-      url = localStorage.getItem("smartpantry_supabase_url");
-      key = localStorage.getItem("smartpantry_supabase_key");
+      url = localStorage.getItem("smartpantry_supabase_url") || "";
+      key = localStorage.getItem("smartpantry_supabase_key") || "";
     } catch (e) {}
 
     if (!url || url.includes("your-project")) {
-      url = (typeof window.ENV !== "undefined" && window.ENV.SUPABASE_URL) 
-        ? window.ENV.SUPABASE_URL 
-        : DEFAULT_SUPABASE_URL;
+      url = (typeof window.ENV !== "undefined" && (window.ENV.NEXT_PUBLIC_SUPABASE_URL || window.ENV.SUPABASE_URL)) 
+        ? (window.ENV.NEXT_PUBLIC_SUPABASE_URL || window.ENV.SUPABASE_URL) 
+        : "";
     }
 
     if (!key || key.includes("your-anon-key")) {
-      key = (typeof window.ENV !== "undefined" && window.ENV.SUPABASE_ANON_KEY) 
-        ? window.ENV.SUPABASE_ANON_KEY 
-        : DEFAULT_SUPABASE_ANON_KEY;
+      key = (typeof window.ENV !== "undefined" && (window.ENV.NEXT_PUBLIC_SUPABASE_ANON_KEY || window.ENV.SUPABASE_ANON_KEY)) 
+        ? (window.ENV.NEXT_PUBLIC_SUPABASE_ANON_KEY || window.ENV.SUPABASE_ANON_KEY) 
+        : "";
     }
 
-    return {
-      url: url.trim(),
-      key: key.trim(),
-      isConfigured: Boolean(
-        url && 
-        key && 
-        !url.includes("your-project") && 
-        !key.includes("your-anon-key") &&
-        url.startsWith("https://")
-      )
-    };
+    const isValid = Boolean(
+      url && 
+      key && 
+      !url.includes("your-project") && 
+      !key.includes("your-anon-key") &&
+      url.startsWith("https://")
+    );
+
+    cachedConfig = { url: url.trim(), key: key.trim(), isConfigured: isValid };
+    return cachedConfig;
+  }
+
+  // Initial synchronous read
+  readLocalConfig();
+
+  // Asynchronous auto-discovery from Vercel environment variables via /api/config
+  const readyPromise = (async function autoDiscover() {
+    try {
+      const res = await fetch("/api/config", { cache: "no-store" });
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.supabaseUrl && data.supabaseAnonKey) {
+          // If local override doesn't already exist, use serverless env config
+          if (!localStorage.getItem("smartpantry_supabase_url")) {
+            cachedConfig = {
+              url: data.supabaseUrl.trim(),
+              key: data.supabaseAnonKey.trim(),
+              isConfigured: true
+            };
+            if (window.supabaseService && !window.supabaseService.isReady()) {
+              window.supabaseService.init();
+            }
+          }
+        }
+      }
+    } catch (e) {
+      // In offline or local preview mode, fallback to cachedConfig
+    }
+    return cachedConfig;
+  })();
+
+  function getSupabaseConfig() {
+    if (!cachedConfig.isConfigured) {
+      readLocalConfig();
+    }
+    return cachedConfig;
   }
 
   function saveSupabaseConfig(url, key) {
     try {
       if (url) localStorage.setItem("smartpantry_supabase_url", url.trim());
       if (key) localStorage.setItem("smartpantry_supabase_key", key.trim());
+      readLocalConfig();
       return true;
     } catch (e) {
       console.error("[Supabase Config] Save error:", e);
@@ -60,6 +98,7 @@
     try {
       localStorage.removeItem("smartpantry_supabase_url");
       localStorage.removeItem("smartpantry_supabase_key");
+      cachedConfig = { url: "", key: "", isConfigured: false };
     } catch (e) {}
   }
 
@@ -67,6 +106,7 @@
     get: getSupabaseConfig,
     save: saveSupabaseConfig,
     clear: clearSupabaseConfig,
-    isConfigured: () => getSupabaseConfig().isConfigured
+    isConfigured: () => getSupabaseConfig().isConfigured,
+    readyPromise
   };
 })(window);
