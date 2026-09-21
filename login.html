@@ -9,6 +9,11 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Playfair+Display:ital,wght@0,600;0,700;1,600&display=swap" rel="stylesheet">
   
+  <!-- Supabase Production JS Client SDK & Service -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/supabase-config.js"></script>
+  <script src="js/supabase.js"></script>
+  
   <script>
     (function() {
       const params = new URLSearchParams(window.location.search);
@@ -995,10 +1000,30 @@
       btn.textContent = 'Opening Pantry...';
       const clientInfo = detectClientInfo();
 
-      // Instant optimistic local auth: zero wait time
-      const localResult = performLocalAuth('signup', { email, fullName, password, clientInfo });
-      localStorage.setItem('smartpantry_token', localResult.token);
-      localStorage.setItem('smartpantry_user', JSON.stringify(localResult.user));
+      // 1. Supabase Cloud Sign Up (with authenticated user_id)
+      let supaUser = null;
+      if (window.supabaseService) {
+        try {
+          const authRes = await window.supabaseService.signUp(email, password, fullName);
+          if (authRes && authRes.user) {
+            supaUser = authRes.user;
+            if (authRes.token) localStorage.setItem('smartpantry_token', authRes.token);
+            localStorage.setItem('smartpantry_user', JSON.stringify(supaUser));
+            // Guarantee fresh account starts with completely EMPTY pantry
+            localStorage.setItem(`smartpantry_user_pantry_${supaUser.id}`, JSON.stringify([]));
+          }
+        } catch (err) {
+          console.warn('Supabase signup fallback:', err);
+        }
+      }
+
+      // 2. User-isolated resilient fallback if cloud unavailable
+      if (!supaUser) {
+        const localResult = performLocalAuth('signup', { email, fullName, password, clientInfo });
+        localStorage.setItem('smartpantry_token', localResult.token);
+        localStorage.setItem('smartpantry_user', JSON.stringify(localResult.user));
+        localStorage.setItem(`smartpantry_user_pantry_${localResult.user.id}`, JSON.stringify([]));
+      }
 
       // Asynchronous background serverless synchronization
       fetch('/api/auth', {
@@ -1012,14 +1037,6 @@
           confirmPassword,
           clientInfo
         })
-      }).then(res => res.json()).then(data => {
-        if (data && data.success && data.token) {
-          localStorage.setItem('smartpantry_token', data.token);
-          if (data.user) {
-            localStorage.setItem('smartpantry_user', JSON.stringify(data.user));
-            UserDB.saveUser({ ...data.user, password });
-          }
-        }
       }).catch(() => {});
 
       // Immediate lightning redirect
@@ -1029,7 +1046,7 @@
     }
 
     // ==========================================
-    // REAL LOGIN HANDLER (Ultra Fast)
+    // REAL LOGIN HANDLER (Ultra Fast & Supabase-Backed)
     // ==========================================
     async function handleRealLogin(e) {
       e.preventDefault();
@@ -1052,10 +1069,27 @@
       btn.textContent = 'Opening Pantry...';
       const clientInfo = detectClientInfo();
 
-      // Instant optimistic local auth: zero wait time
-      const localResult = performLocalAuth('login', { email, password, clientInfo });
-      localStorage.setItem('smartpantry_token', localResult.token);
-      localStorage.setItem('smartpantry_user', JSON.stringify(localResult.user));
+      // 1. Supabase Cloud Sign In
+      let supaUser = null;
+      if (window.supabaseService) {
+        try {
+          const authRes = await window.supabaseService.signIn(email, password);
+          if (authRes && authRes.user) {
+            supaUser = authRes.user;
+            if (authRes.token) localStorage.setItem('smartpantry_token', authRes.token);
+            localStorage.setItem('smartpantry_user', JSON.stringify(supaUser));
+          }
+        } catch (err) {
+          console.warn('Supabase login fallback:', err);
+        }
+      }
+
+      // 2. User-isolated resilient fallback
+      if (!supaUser) {
+        const localResult = performLocalAuth('login', { email, password, clientInfo });
+        localStorage.setItem('smartpantry_token', localResult.token);
+        localStorage.setItem('smartpantry_user', JSON.stringify(localResult.user));
+      }
 
       // Asynchronous background serverless synchronization
       fetch('/api/auth', {
@@ -1067,14 +1101,6 @@
           password,
           clientInfo
         })
-      }).then(res => res.json()).then(data => {
-        if (data && data.success && data.token) {
-          localStorage.setItem('smartpantry_token', data.token);
-          if (data.user) {
-            localStorage.setItem('smartpantry_user', JSON.stringify(data.user));
-            UserDB.saveUser({ ...data.user, password });
-          }
-        }
       }).catch(() => {});
 
       // Immediate lightning redirect
