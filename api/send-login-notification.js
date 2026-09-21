@@ -128,7 +128,8 @@ IntelliPantry`;
       </p>
     </div>
     <div class="footer">
-      © 2026 IntelliPantry • Fresh Food, Brighter Days.
+      © 2026 IntelliPantry • Fresh Food, Brighter Days.<br>
+      Need assistance? Contact support at <a href="mailto:intellipantrynotify@gmail.com" style="color: #2e9e5b; text-decoration: none; font-weight: 600;">intellipantrynotify@gmail.com</a>
     </div>
   </div>
 </body>
@@ -143,6 +144,7 @@ IntelliPantry`;
       body: JSON.stringify({
         from: fromAddress,
         to: [email],
+        reply_to: process.env.RESEND_REPLY_TO || "intellipantrynotify@gmail.com",
         subject: emailSubject,
         text: textContent,
         html: htmlContent
