@@ -60,6 +60,7 @@ IntelliPantry`;
       body: JSON.stringify({
         from: fromEmail,
         to: [email],
+        reply_to: "intellipantrynotify@gmail.com",
         subject,
         text: textContent,
       }),
