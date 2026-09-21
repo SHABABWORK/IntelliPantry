@@ -177,7 +177,8 @@ Inventory & Expiry Management`;
     console.error("[Server Error in send-pantry-alert]", err);
     return res.status(200).json({
       success: false,
-      error: "Server processing error"
+      error: "Server processing error",
+      details: err.message
     });
   }
 };

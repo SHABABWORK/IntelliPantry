@@ -172,7 +172,8 @@ IntelliPantry`;
     console.error("[Server Error in send-login-notification]", err);
     return res.status(200).json({
       success: false,
-      error: "Server processing error"
+      error: "Server processing error",
+      details: err.message
     });
   }
 };
