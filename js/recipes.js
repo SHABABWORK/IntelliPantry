@@ -326,6 +326,25 @@ class RecipeEngineManager {
     const countEl = document.getElementById("recipesMatchCount");
     if (!grid) return;
 
+    const pantryItems = (window.store && typeof window.store.getItems === "function") 
+      ? window.store.getItems() 
+      : [];
+
+    if (pantryItems.length === 0) {
+      if (countEl) {
+        countEl.innerHTML = `Pantry is empty • Add products to unlock real-time recipe matching`;
+      }
+      grid.innerHTML = `
+        <div class="no-recipes-card" style="grid-column: 1 / -1; text-align: center; padding: 48px 20px; background: #ffffff; border-radius: 20px; border: 1.5px dashed #e2e8f0;">
+          <div style="font-size: 44px; margin-bottom: 12px;">🍳</div>
+          <h3 style="font-size: 18px; font-weight: 800; color: #1e392a; margin-bottom: 6px;">Your pantry is empty. Add your first product to discover recipes!</h3>
+          <p style="font-size: 13.5px; color: #64748b; margin-bottom: 18px;">Once you add items to your pantry, our smart kitchen engine will instantly match and prioritize recipes with what you have.</p>
+          <button class="recipe-action-btn primary" onclick="openAddEditModal()" style="padding: 10px 22px; font-size: 13px; margin: 0 auto;">+ Add Your First Product</button>
+        </div>
+      `;
+      return;
+    }
+
     const recipes = this.getMatchedRecipes();
     const readyToCookCount = recipes.filter(r => r.matchPercent >= 80).length;
 
@@ -518,17 +537,17 @@ class RecipeEngineManager {
     if (!this.currentDetailRecipe) return;
     const recipe = this.currentDetailRecipe;
     
-    // Reduce matching items in pantry by 1
+    // Reduce matching items in pantry by 1 with Supabase database persistence
     if (window.store && typeof window.store.getItems === "function") {
       const items = window.store.getItems();
-      recipe.ingredients.forEach(ing => {
+      recipe.ingredients.forEach(async ing => {
         const ingNorm = this.normalizeString(ing);
         const match = items.find(i => this.normalizeString(i.name).includes(ingNorm) || ingNorm.includes(this.normalizeString(i.name)));
         if (match && Number(match.quantity) > 0) {
-          match.quantity = Math.max(0, Number(match.quantity) - 1);
+          const newQty = Math.max(0, Number(match.quantity) - 1);
+          await window.store.updateItem(match.id, { quantity: newQty });
         }
       });
-      window.store.saveItems(items);
     }
 
     this.closeRecipeDetail();
