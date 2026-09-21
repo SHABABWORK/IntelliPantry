@@ -962,16 +962,10 @@
       window.location.replace(target);
     }
 
-    // Quick 1-Click Guest Login (Instant)
+    // Quick 1-Click Guest Button: Guides user to real account registration
     function loginAsGuest() {
-      const guestResult = performLocalAuth('login', {
-        email: 'demo@smartpantry.app',
-        fullName: 'Demo User',
-        clientInfo: detectClientInfo()
-      });
-      localStorage.setItem('smartpantry_token', guestResult.token);
-      localStorage.setItem('smartpantry_user', JSON.stringify(guestResult.user));
-      navigateToDashboard();
+      switchView('viewSignup');
+      showAlert('signupAlert', 'In production mode, each user has a private PostgreSQL database. Create your free account below to start your pantry!', 'success');
     }
 
     // ==========================================
@@ -997,56 +991,49 @@
       }
 
       btn.disabled = true;
-      btn.textContent = 'Opening Pantry...';
-      const clientInfo = detectClientInfo();
+      btn.textContent = 'Creating Account...';
 
-      // 1. Supabase Cloud Sign Up (with authenticated user_id)
-      let supaUser = null;
-      if (window.supabaseService) {
-        try {
-          const authRes = await window.supabaseService.signUp(email, password, fullName);
-          if (authRes && authRes.user) {
-            supaUser = authRes.user;
-            if (authRes.token) localStorage.setItem('smartpantry_token', authRes.token);
-            localStorage.setItem('smartpantry_user', JSON.stringify(supaUser));
-            // Guarantee fresh account starts with completely EMPTY pantry
-            localStorage.setItem(`smartpantry_user_pantry_${supaUser.id}`, JSON.stringify([]));
-          }
-        } catch (err) {
-          console.warn('Supabase signup fallback:', err);
+      if (!window.supabaseService) {
+        btn.disabled = false;
+        btn.textContent = 'Create Account';
+        showAlert('signupAlert', 'Supabase service is initializing. Please try again in a moment.');
+        return;
+      }
+
+      const authRes = await window.supabaseService.signUp(email, password, fullName);
+
+      btn.disabled = false;
+      btn.textContent = 'Create Account';
+
+      if (!authRes.success) {
+        showAlert('signupAlert', authRes.error || 'Failed to create account. Please check your information.');
+        return;
+      }
+
+      // If email confirmation is required by Supabase project settings
+      if (authRes.needsEmailConfirmation) {
+        showAlert('signupAlert', `Account created! Please check ${email} to verify your account before logging in.`, 'success');
+        return;
+      }
+
+      // If direct session returned
+      if (authRes.user) {
+        if (authRes.token) localStorage.setItem('smartpantry_token', authRes.token);
+        localStorage.setItem('smartpantry_user', JSON.stringify(authRes.user));
+        // Ensure fresh account starts with completely EMPTY pantry
+        if (window.store) {
+          window.store.items = [];
+          window.store.userId = authRes.user.id;
         }
+        showAlert('signupAlert', `Welcome, ${authRes.user.name}! Opening your pantry...`, 'success');
+        setTimeout(() => {
+          navigateToDashboard();
+        }, 150);
       }
-
-      // 2. User-isolated resilient fallback if cloud unavailable
-      if (!supaUser) {
-        const localResult = performLocalAuth('signup', { email, fullName, password, clientInfo });
-        localStorage.setItem('smartpantry_token', localResult.token);
-        localStorage.setItem('smartpantry_user', JSON.stringify(localResult.user));
-        localStorage.setItem(`smartpantry_user_pantry_${localResult.user.id}`, JSON.stringify([]));
-      }
-
-      // Asynchronous background serverless synchronization
-      fetch('/api/auth', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'signup',
-          fullName,
-          email,
-          password,
-          confirmPassword,
-          clientInfo
-        })
-      }).catch(() => {});
-
-      // Immediate lightning redirect
-      setTimeout(() => {
-        navigateToDashboard();
-      }, 50);
     }
 
     // ==========================================
-    // REAL LOGIN HANDLER (Ultra Fast & Supabase-Backed)
+    // REAL LOGIN HANDLER (Strict Supabase Production Auth)
     // ==========================================
     async function handleRealLogin(e) {
       e.preventDefault();
@@ -1057,7 +1044,7 @@
       const btn = document.getElementById('btnLoginSubmit');
 
       if (!email) {
-        showAlert('loginAlert', 'Please enter your email address.');
+        showAlert('loginAlert', 'Please enter your registered email address.');
         return;
       }
       if (!password) {
@@ -1066,47 +1053,34 @@
       }
 
       btn.disabled = true;
-      btn.textContent = 'Opening Pantry...';
-      const clientInfo = detectClientInfo();
+      btn.textContent = 'Signing in...';
 
-      // 1. Supabase Cloud Sign In
-      let supaUser = null;
-      if (window.supabaseService) {
-        try {
-          const authRes = await window.supabaseService.signIn(email, password);
-          if (authRes && authRes.user) {
-            supaUser = authRes.user;
-            if (authRes.token) localStorage.setItem('smartpantry_token', authRes.token);
-            localStorage.setItem('smartpantry_user', JSON.stringify(supaUser));
-          }
-        } catch (err) {
-          console.warn('Supabase login fallback:', err);
-        }
+      if (!window.supabaseService) {
+        btn.disabled = false;
+        btn.textContent = 'Login';
+        showAlert('loginAlert', 'Supabase service is initializing. Please try again in a moment.');
+        return;
       }
 
-      // 2. User-isolated resilient fallback
-      if (!supaUser) {
-        const localResult = performLocalAuth('login', { email, password, clientInfo });
-        localStorage.setItem('smartpantry_token', localResult.token);
-        localStorage.setItem('smartpantry_user', JSON.stringify(localResult.user));
+      const authRes = await window.supabaseService.signIn(email, password);
+
+      btn.disabled = false;
+      btn.textContent = 'Login';
+
+      if (!authRes.success) {
+        // STRICT REJECTION: Invalid password, unregistered email, or unverified email
+        showAlert('loginAlert', authRes.error || 'Invalid email or password. Please verify your credentials.');
+        return;
       }
 
-      // Asynchronous background serverless synchronization
-      fetch('/api/auth', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'login',
-          email,
-          password,
-          clientInfo
-        })
-      }).catch(() => {});
-
-      // Immediate lightning redirect
-      setTimeout(() => {
-        navigateToDashboard();
-      }, 50);
+      if (authRes.user) {
+        if (authRes.token) localStorage.setItem('smartpantry_token', authRes.token);
+        localStorage.setItem('smartpantry_user', JSON.stringify(authRes.user));
+        showAlert('loginAlert', `Welcome back, ${authRes.user.name}!`, 'success');
+        setTimeout(() => {
+          navigateToDashboard();
+        }, 100);
+      }
     }
 
     // ==========================================

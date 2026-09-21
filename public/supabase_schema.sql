@@ -1,6 +1,17 @@
 -- ==============================================================================
--- SMART PANTRY — PRODUCTION SUPABASE DATABASE SCHEMA
+-- INTELLIPANTRY — MASTER PRODUCTION SUPABASE DATABASE SCHEMA
 -- Row Level Security (RLS) Enabled & User-Specific Pantry Isolation
+-- ==============================================================================
+--
+-- CONFIGURATION INSTRUCTIONS:
+-- 1. Open your Supabase Dashboard -> SQL Editor
+-- 2. Paste this entire file and click "Run"
+-- 3. Go to Authentication -> URL Configuration:
+--    Site URL: https://www.intellipantry.in
+--    Redirect URLs:
+--      https://www.intellipantry.in/**
+--      https://intellipantry.vercel.app/**
+--      http://localhost:3000/**
 -- ==============================================================================
 
 -- 1. Create the Products Table
@@ -15,12 +26,24 @@ CREATE TABLE IF NOT EXISTS public.products (
   expiry_date DATE,
   barcode TEXT,
   price NUMERIC DEFAULT 0,
+  storage_location TEXT DEFAULT 'Pantry',
   location TEXT DEFAULT 'Pantry',
   emoji TEXT,
   status TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now()),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
 );
+
+-- Ensure storage_location column exists if table was previously created
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_schema = 'public' AND table_name = 'products' AND column_name = 'storage_location'
+  ) THEN
+    ALTER TABLE public.products ADD COLUMN storage_location TEXT DEFAULT 'Pantry';
+  END IF;
+END $$;
 
 -- 2. Performance Indexes for User Queries & Expiry Sorting
 CREATE INDEX IF NOT EXISTS idx_products_user_id ON public.products (user_id);

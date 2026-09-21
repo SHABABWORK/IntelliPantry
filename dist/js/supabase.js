@@ -1,12 +1,13 @@
 /**
- * Smart Pantry - Master Supabase Client & Real-Time Database Engine
+ * IntelliPantry - Master Production Supabase Engine
  * 
  * Features:
- * - Supabase JS SDK v2 integration
- * - PostgreSQL Authentication (signUp, signInWithPassword, signOut)
- * - Row Level Security (RLS) query isolation by auth.uid()
- * - Full CRUD on public.products table
- * - Supabase Realtime channel subscription for instant multi-tab sync
+ * - Real Supabase Authentication (signInWithPassword, signUp, signOut)
+ * - STRICT Production Validation (Rejects invalid password, unregistered email, empty inputs)
+ * - ZERO Fake Fallbacks / ZERO Mock Auth Bypass
+ * - Real PostgreSQL Row Level Security (RLS) Query Execution
+ * - Realtime Postgres Changes Listener
+ * - Automated Transactional Login Alert Dispatch via Resend
  */
 
 (function(window) {
@@ -33,93 +34,137 @@
               storage: window.localStorage
             }
           });
-          console.log("[Supabase] Connected successfully to:", config.url);
-        } else {
-          console.info("[Supabase] Running in local-isolated mode. Configure SUPABASE_URL and SUPABASE_ANON_KEY in js/supabase-config.js or via Database Settings to connect live cloud PostgreSQL.");
+          console.log("[Supabase] Connected to production PostgreSQL at:", config.url);
         }
       } catch (err) {
-        console.error("[Supabase] Init error:", err);
+        console.error("[Supabase] Initialization error:", err);
       }
     }
 
     isReady() {
+      if (!this.client && window.SupabaseConfig && window.SupabaseConfig.isConfigured()) {
+        this.init();
+      }
       return Boolean(this.client);
     }
 
     // ==========================================
-    // AUTHENTICATION METHODS
+    // STRICT PRODUCTION AUTHENTICATION
     // ==========================================
 
     async signUp(email, password, fullName) {
+      if (!email || !email.includes('@')) {
+        return { success: false, error: "Please enter a valid email address." };
+      }
+      if (!password || password.length < 6) {
+        return { success: false, error: "Password must be at least 6 characters long." };
+      }
+
       if (!this.isReady()) {
-        return this.localAuthFallback('signup', { email, password, fullName });
+        return { 
+          success: false, 
+          error: "Supabase connection required. Please configure NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in Vercel or via Database Settings." 
+        };
       }
 
       try {
+        const cleanEmail = email.trim().toLowerCase();
         const { data, error } = await this.client.auth.signUp({
-          email: email.trim().toLowerCase(),
+          email: cleanEmail,
           password,
           options: {
             data: {
-              full_name: fullName.trim() || email.split('@')[0]
+              full_name: (fullName || cleanEmail.split('@')[0]).trim()
             }
           }
         });
 
-        if (error) throw error;
+        if (error) {
+          return { success: false, error: error.message };
+        }
 
         const user = data.user;
         const session = data.session;
 
+        // If user already exists in Supabase
+        if (user && user.identities && user.identities.length === 0) {
+          return { success: false, error: "An account with this email already exists. Please log in." };
+        }
+
+        const userObj = {
+          id: user.id,
+          email: user.email,
+          name: user.user_metadata?.full_name || fullName || 'Pantry Chef',
+          emailVerified: Boolean(user.email_confirmed_at || user.confirmed_at)
+        };
+
+        if (session) {
+          localStorage.setItem('smartpantry_token', session.access_token);
+          localStorage.setItem('smartpantry_user', JSON.stringify(userObj));
+        }
+
         return {
           success: true,
-          user: {
-            id: user.id,
-            email: user.email,
-            name: user.user_metadata?.full_name || fullName || 'Pantry Chef',
-            emailVerified: Boolean(user.email_confirmed_at || user.confirmed_at)
-          },
+          user: userObj,
           session,
           token: session ? session.access_token : null,
           needsEmailConfirmation: !session
         };
       } catch (err) {
-        console.warn("[Supabase Auth] SignUp warning:", err.message);
-        // Fall back gracefully to local isolated user store if cloud rate-limited or unconfirmed
-        return this.localAuthFallback('signup', { email, password, fullName, error: err.message });
+        return { success: false, error: err.message || "Signup failed on Supabase server." };
       }
     }
 
     async signIn(email, password) {
+      if (!email || !email.includes('@')) {
+        return { success: false, error: "Please enter your registered email address." };
+      }
+      if (!password) {
+        return { success: false, error: "Please enter your password." };
+      }
+
       if (!this.isReady()) {
-        return this.localAuthFallback('login', { email, password });
+        return { 
+          success: false, 
+          error: "Supabase connection required. Please configure NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in Vercel or via Database Settings." 
+        };
       }
 
       try {
+        const cleanEmail = email.trim().toLowerCase();
         const { data, error } = await this.client.auth.signInWithPassword({
-          email: email.trim().toLowerCase(),
+          email: cleanEmail,
           password
         });
 
-        if (error) throw error;
+        if (error) {
+          return { success: false, error: error.message };
+        }
 
         const user = data.user;
         const session = data.session;
 
+        const userObj = {
+          id: user.id,
+          email: user.email,
+          name: user.user_metadata?.full_name || cleanEmail.split('@')[0] || 'Pantry Chef',
+          emailVerified: Boolean(user.email_confirmed_at || user.confirmed_at)
+        };
+
+        localStorage.setItem('smartpantry_token', session.access_token);
+        localStorage.setItem('smartpantry_user', JSON.stringify(userObj));
+
+        // Dispatch real-time login email notification via serverless Resend function
+        this.dispatchLoginNotification(userObj);
+
         return {
           success: true,
-          user: {
-            id: user.id,
-            email: user.email,
-            name: user.user_metadata?.full_name || 'Pantry Chef',
-            emailVerified: Boolean(user.email_confirmed_at || user.confirmed_at)
-          },
+          user: userObj,
           session,
           token: session.access_token
         };
       } catch (err) {
-        console.warn("[Supabase Auth] SignIn warning:", err.message);
-        return this.localAuthFallback('login', { email, password, error: err.message });
+        return { success: false, error: err.message || "Authentication error." };
       }
     }
 
@@ -134,6 +179,9 @@
         }
       } catch (err) {
         console.warn("[Supabase Auth] SignOut error:", err);
+      } finally {
+        localStorage.removeItem('smartpantry_token');
+        localStorage.removeItem('smartpantry_user');
       }
     }
 
@@ -170,33 +218,35 @@
     }
 
     // ==========================================
-    // PRODUCTS CRUD (ROW LEVEL SECURITY FILTERED)
+    // REAL USER-SPECIFIC PRODUCTS CRUD
     // ==========================================
 
     async getProducts(userId) {
       if (!userId) return [];
 
-      if (this.isReady()) {
-        try {
-          const { data, error } = await this.client
-            .from('products')
-            .select('*')
-            .eq('user_id', userId)
-            .order('created_at', { ascending: false });
-
-          if (error) throw error;
-          return (data || []).map(this.mapFromDB);
-        } catch (err) {
-          console.error("[Supabase DB] getProducts error:", err.message);
-        }
+      if (!this.isReady()) {
+        console.warn("[Supabase DB] Supabase not connected. Set credentials in Vercel or Settings.");
+        return [];
       }
 
-      // Local isolated storage fallback strictly keyed by user_id
-      return this.getLocalUserProducts(userId);
+      try {
+        const { data, error } = await this.client
+          .from('products')
+          .select('*')
+          .eq('user_id', userId)
+          .order('created_at', { ascending: false });
+
+        if (error) throw error;
+        return (data || []).map(this.mapFromDB);
+      } catch (err) {
+        console.error("[Supabase DB] getProducts query failed:", err.message);
+        return [];
+      }
     }
 
     async insertProduct(productData, userId) {
-      if (!userId) throw new Error("User ID is required to insert product");
+      if (!userId) throw new Error("Authenticated user_id is required");
+      if (!this.isReady()) throw new Error("Supabase is not configured");
 
       const dbRecord = {
         user_id: userId,
@@ -208,46 +258,27 @@
         purchase_date: productData.purchaseDate || null,
         barcode: productData.barcode || null,
         price: Number(productData.price) || 0,
-        location: productData.location || 'Pantry',
+        storage_location: productData.location || productData.storageLocation || 'Pantry',
+        location: productData.location || productData.storageLocation || 'Pantry',
         emoji: productData.emoji || '📦',
         status: productData.status || 'Fresh'
       };
 
-      if (this.isReady()) {
-        try {
-          const { data, error } = await this.client
-            .from('products')
-            .insert([dbRecord])
-            .select();
+      const { data, error } = await this.client
+        .from('products')
+        .insert([dbRecord])
+        .select();
 
-          if (error) throw error;
-          if (data && data[0]) {
-            const mapped = this.mapFromDB(data[0]);
-            this.syncLocalUserProducts(userId, mapped, 'insert');
-            return mapped;
-          }
-        } catch (err) {
-          console.error("[Supabase DB] insertProduct error:", err.message);
-        }
+      if (error) throw error;
+      if (data && data[0]) {
+        return this.mapFromDB(data[0]);
       }
-
-      // Local isolated fallback
-      const fallbackItem = {
-        id: 'prod_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
-        ...productData,
-        quantity: Number(productData.quantity) || 1,
-        unit: productData.unit || 'pcs',
-        expiryDate: productData.expiryDate || '',
-        status: productData.status || 'Fresh',
-        emoji: productData.emoji || '📦',
-        addedAt: new Date().toISOString()
-      };
-      this.syncLocalUserProducts(userId, fallbackItem, 'insert');
-      return fallbackItem;
+      throw new Error("Failed to insert product record");
     }
 
     async updateProduct(id, updates, userId) {
-      if (!userId || !id) throw new Error("User ID and Product ID required");
+      if (!userId || !id) throw new Error("user_id and product id are required");
+      if (!this.isReady()) throw new Error("Supabase is not configured");
 
       const dbPayload = {
         updated_at: new Date().toISOString()
@@ -259,57 +290,42 @@
       if (updates.expiryDate !== undefined) dbPayload.expiry_date = updates.expiryDate || null;
       if (updates.barcode !== undefined) dbPayload.barcode = updates.barcode;
       if (updates.price !== undefined) dbPayload.price = Number(updates.price);
-      if (updates.location !== undefined) dbPayload.location = updates.location;
+      if (updates.location !== undefined) {
+        dbPayload.storage_location = updates.location;
+        dbPayload.location = updates.location;
+      }
       if (updates.emoji !== undefined) dbPayload.emoji = updates.emoji;
       if (updates.status !== undefined) dbPayload.status = updates.status;
 
-      if (this.isReady()) {
-        try {
-          const { data, error } = await this.client
-            .from('products')
-            .update(dbPayload)
-            .eq('id', id)
-            .eq('user_id', userId)
-            .select();
+      const { data, error } = await this.client
+        .from('products')
+        .update(dbPayload)
+        .eq('id', id)
+        .eq('user_id', userId)
+        .select();
 
-          if (error) throw error;
-          if (data && data[0]) {
-            const mapped = this.mapFromDB(data[0]);
-            this.syncLocalUserProducts(userId, mapped, 'update');
-            return mapped;
-          }
-        } catch (err) {
-          console.error("[Supabase DB] updateProduct error:", err.message);
-        }
+      if (error) throw error;
+      if (data && data[0]) {
+        return this.mapFromDB(data[0]);
       }
-
-      // Local fallback
-      this.syncLocalUserProducts(userId, { id, ...updates }, 'update');
       return { id, ...updates };
     }
 
     async deleteProduct(id, userId) {
       if (!userId || !id) return false;
+      if (!this.isReady()) throw new Error("Supabase is not configured");
 
-      if (this.isReady()) {
-        try {
-          const { error } = await this.client
-            .from('products')
-            .delete()
-            .eq('id', id)
-            .eq('user_id', userId);
+      const { error } = await this.client
+        .from('products')
+        .delete()
+        .eq('id', id)
+        .eq('user_id', userId);
 
-          if (error) throw error;
-        } catch (err) {
-          console.error("[Supabase DB] deleteProduct error:", err.message);
-        }
-      }
-
-      this.syncLocalUserProducts(userId, { id }, 'delete');
+      if (error) throw error;
       return true;
     }
 
-    // Real-time Postgres Channel Listener
+    // Realtime PostgreSQL Channel Subscription
     subscribeToUserProducts(userId, onDataChange) {
       if (!this.isReady() || !userId) return null;
 
@@ -319,7 +335,7 @@
         }
 
         this.activeChannel = this.client
-          .channel(`user-products-${userId}`)
+          .channel(`products-user-${userId}`)
           .on(
             'postgres_changes',
             {
@@ -329,7 +345,7 @@
               filter: `user_id=eq.${userId}`
             },
             (payload) => {
-              console.log("[Supabase Realtime] Event received:", payload.eventType);
+              console.log("[Supabase Realtime] Product change detected:", payload.eventType);
               if (typeof onDataChange === 'function') {
                 onDataChange(payload);
               }
@@ -344,10 +360,6 @@
       }
     }
 
-    // ==========================================
-    // HELPERS: DATA MAPPING & ISOLATED FALLBACK
-    // ==========================================
-
     mapFromDB(row) {
       if (!row) return null;
       return {
@@ -360,7 +372,8 @@
         purchaseDate: row.purchase_date || '',
         barcode: row.barcode || '',
         price: Number(row.price) || 0,
-        location: row.location || 'Pantry',
+        location: row.storage_location || row.location || 'Pantry',
+        storageLocation: row.storage_location || row.location || 'Pantry',
         emoji: row.emoji || '📦',
         status: row.status || 'Fresh',
         addedAt: row.created_at || new Date().toISOString(),
@@ -368,67 +381,31 @@
       };
     }
 
-    getLocalUserProducts(userId) {
-      try {
-        const key = `smartpantry_user_pantry_${userId}`;
-        const raw = localStorage.getItem(key);
-        // FRESH ACCOUNT STARTS COMPLETELY EMPTY
-        return raw ? JSON.parse(raw) : [];
-      } catch (e) {
-        return [];
-      }
-    }
+    // Trigger secure backend login notification via Resend
+    dispatchLoginNotification(user) {
+      if (!user || !user.email) return;
 
-    syncLocalUserProducts(userId, item, action) {
-      try {
-        const key = `smartpantry_user_pantry_${userId}`;
-        let items = this.getLocalUserProducts(userId);
-
-        if (action === 'insert') {
-          items = [item, ...items.filter(i => i.id !== item.id)];
-        } else if (action === 'update') {
-          items = items.map(i => i.id === item.id ? { ...i, ...item } : i);
-        } else if (action === 'delete') {
-          items = items.filter(i => i.id !== item.id);
-        }
-
-        localStorage.setItem(key, JSON.stringify(items));
-      } catch (e) {
-        console.error("[Local Storage Sync Error]", e);
-      }
-    }
-
-    localAuthFallback(action, { email, password, fullName, error }) {
-      const normalizedEmail = (email || 'user@example.com').trim().toLowerCase();
-      const userName = fullName || normalizedEmail.split('@')[0];
-      const userId = 'usr_' + btoa(normalizedEmail).replace(/=/g, '').slice(0, 16);
-
-      const userObj = {
-        id: userId,
-        email: normalizedEmail,
-        name: userName,
-        emailVerified: true
+      const clientInfo = {
+        loginDate: new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }),
+        loginTime: new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", timeZoneName: "short" }),
+        browser: navigator.userAgent.includes("Chrome") ? "Chrome" : (navigator.userAgent.includes("Firefox") ? "Firefox" : "Web Browser"),
+        device: window.innerWidth < 768 ? "Mobile Device" : "Desktop PC / Mac"
       };
 
-      const token = 'sp_tok_' + Date.now();
-      localStorage.setItem('smartpantry_token', token);
-      localStorage.setItem('smartpantry_user', JSON.stringify(userObj));
-
-      // Note: for fresh signups, ensure their pantry is 100% EMPTY
-      if (action === 'signup') {
-        const key = `smartpantry_user_pantry_${userId}`;
-        if (!localStorage.getItem(key)) {
-          localStorage.setItem(key, JSON.stringify([]));
-        }
-      }
-
-      return {
-        success: true,
-        user: userObj,
-        token,
-        fallback: true,
-        note: error || "Operating with user-isolated persistence"
-      };
+      fetch("/api/send-login-notification", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: user.email,
+          name: user.name,
+          loginDate: clientInfo.loginDate,
+          loginTime: clientInfo.loginTime,
+          browser: clientInfo.browser,
+          device: clientInfo.device
+        })
+      }).catch((e) => {
+        console.warn("[Resend Notification Error]", e);
+      });
     }
   }
 

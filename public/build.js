@@ -41,6 +41,12 @@ if (fs.existsSync(path.join(srcDir, 'vercel.json'))) {
 if (fs.existsSync(path.join(srcDir, 'supabase_schema.sql'))) {
   fs.copyFileSync(path.join(srcDir, 'supabase_schema.sql'), path.join(distDir, 'supabase_schema.sql'));
 }
+if (fs.existsSync(path.join(srcDir, '.env.example'))) {
+  fs.copyFileSync(path.join(srcDir, '.env.example'), path.join(distDir, '.env.example'));
+}
+if (fs.existsSync(path.join(srcDir, 'supabase'))) {
+  copyRecursiveSync(path.join(srcDir, 'supabase'), path.join(distDir, 'supabase'));
+}
 
 const robotsContent = `User-agent: *\nAllow: /\n`;
 fs.writeFileSync(path.join(distDir, 'robots.txt'), robotsContent, 'utf8');

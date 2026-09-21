@@ -12,23 +12,17 @@
   <!-- Tesseract.js for AI Bill & OCR Receipt Scanning -->
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <script>
-    // Smart Session Guard (Prevents redirect loops & ensures dashboard is always accessible)
+    // Production Session Guard: Redirects unauthenticated visits to login
     (function() {
       try {
         const token = localStorage.getItem('smartpantry_token');
         const userRaw = localStorage.getItem('smartpantry_user');
         if (!token || !userRaw) {
-          const defaultSession = {
-            id: 'user_' + Date.now(),
-            name: 'Pantry Chef',
-            email: 'user@smartpantry.app',
-            emailVerified: true
-          };
-          localStorage.setItem('smartpantry_token', 'sp_active_' + Date.now());
-          localStorage.setItem('smartpantry_user', JSON.stringify(defaultSession));
+          const isHtml = window.location.pathname.endsWith('.html');
+          window.location.replace(isHtml ? 'login.html' : 'login');
         }
       } catch(e) {
-        console.warn('Session init:', e);
+        console.warn('Session check:', e);
       }
     })();
   </script>
