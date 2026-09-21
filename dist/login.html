@@ -953,10 +953,11 @@
 
     function navigateToDashboard() {
       const isHtml = window.location.pathname.endsWith('.html');
-      window.location.href = isHtml ? 'dashboard.html' : 'dashboard';
+      const target = isHtml ? 'dashboard.html' : 'dashboard';
+      window.location.replace(target);
     }
 
-    // Quick 1-Click Guest Login
+    // Quick 1-Click Guest Login (Instant)
     function loginAsGuest() {
       const guestResult = performLocalAuth('login', {
         email: 'demo@smartpantry.app',
@@ -965,14 +966,11 @@
       });
       localStorage.setItem('smartpantry_token', guestResult.token);
       localStorage.setItem('smartpantry_user', JSON.stringify(guestResult.user));
-      showAlert('loginAlert', 'Welcome! Opening Smart Pantry...', 'success');
-      setTimeout(() => {
-        navigateToDashboard();
-      }, 350);
+      navigateToDashboard();
     }
 
     // ==========================================
-    // REAL SIGNUP HANDLER
+    // REAL SIGNUP HANDLER (Ultra Fast)
     // ==========================================
     async function handleRealSignup(e) {
       e.preventDefault();
@@ -994,56 +992,44 @@
       }
 
       btn.disabled = true;
-      btn.textContent = 'Creating Account...';
+      btn.textContent = 'Opening Pantry...';
       const clientInfo = detectClientInfo();
 
-      try {
-        const res = await fetch('/api/auth', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            action: 'signup',
-            fullName,
-            email,
-            password,
-            confirmPassword,
-            clientInfo
-          })
-        });
-
-        if (res.ok) {
-          const data = await res.json();
-          if (data && data.success && data.token && data.user) {
-            btn.disabled = false;
-            btn.textContent = 'Create Account';
-            showAlert('signupAlert', `Account created! Welcome, ${data.user.name}! Opening pantry...`, 'success');
-            UserDB.saveUser({ ...data.user, password });
-            localStorage.setItem('smartpantry_token', data.token);
-            localStorage.setItem('smartpantry_user', JSON.stringify(data.user));
-            setTimeout(() => {
-              navigateToDashboard();
-            }, 300);
-            return;
-          }
-        }
-      } catch (err) {
-        console.warn('Backend signup fallback:', err);
-      }
-
-      // Resilient Fallback
+      // Instant optimistic local auth: zero wait time
       const localResult = performLocalAuth('signup', { email, fullName, password, clientInfo });
-      btn.disabled = false;
-      btn.textContent = 'Create Account';
-      showAlert('signupAlert', `Account created! Welcome, ${localResult.user.name}! Opening pantry...`, 'success');
       localStorage.setItem('smartpantry_token', localResult.token);
       localStorage.setItem('smartpantry_user', JSON.stringify(localResult.user));
+
+      // Asynchronous background serverless synchronization
+      fetch('/api/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'signup',
+          fullName,
+          email,
+          password,
+          confirmPassword,
+          clientInfo
+        })
+      }).then(res => res.json()).then(data => {
+        if (data && data.success && data.token) {
+          localStorage.setItem('smartpantry_token', data.token);
+          if (data.user) {
+            localStorage.setItem('smartpantry_user', JSON.stringify(data.user));
+            UserDB.saveUser({ ...data.user, password });
+          }
+        }
+      }).catch(() => {});
+
+      // Immediate lightning redirect
       setTimeout(() => {
         navigateToDashboard();
-      }, 300);
+      }, 50);
     }
 
     // ==========================================
-    // REAL LOGIN HANDLER
+    // REAL LOGIN HANDLER (Ultra Fast)
     // ==========================================
     async function handleRealLogin(e) {
       e.preventDefault();
@@ -1063,50 +1049,38 @@
       }
 
       btn.disabled = true;
-      btn.textContent = 'Logging in...';
+      btn.textContent = 'Opening Pantry...';
       const clientInfo = detectClientInfo();
 
-      try {
-        const res = await fetch('/api/auth', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            action: 'login',
-            email,
-            password,
-            clientInfo
-          })
-        });
-
-        if (res.ok) {
-          const data = await res.json();
-          if (data && data.success && data.token && data.user) {
-            btn.disabled = false;
-            btn.textContent = 'Login';
-            showAlert('loginAlert', `Login successful — Welcome, ${data.user.name}!`, 'success');
-            UserDB.saveUser({ ...data.user, password });
-            localStorage.setItem('smartpantry_token', data.token);
-            localStorage.setItem('smartpantry_user', JSON.stringify(data.user));
-            setTimeout(() => {
-              navigateToDashboard();
-            }, 300);
-            return;
-          }
-        }
-      } catch (err) {
-        console.warn('Backend login fallback:', err);
-      }
-
-      // Resilient Fallback: Always allow legitimate login smoothly
+      // Instant optimistic local auth: zero wait time
       const localResult = performLocalAuth('login', { email, password, clientInfo });
-      btn.disabled = false;
-      btn.textContent = 'Login';
-      showAlert('loginAlert', `Login successful — Welcome, ${localResult.user.name}!`, 'success');
       localStorage.setItem('smartpantry_token', localResult.token);
       localStorage.setItem('smartpantry_user', JSON.stringify(localResult.user));
+
+      // Asynchronous background serverless synchronization
+      fetch('/api/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'login',
+          email,
+          password,
+          clientInfo
+        })
+      }).then(res => res.json()).then(data => {
+        if (data && data.success && data.token) {
+          localStorage.setItem('smartpantry_token', data.token);
+          if (data.user) {
+            localStorage.setItem('smartpantry_user', JSON.stringify(data.user));
+            UserDB.saveUser({ ...data.user, password });
+          }
+        }
+      }).catch(() => {});
+
+      // Immediate lightning redirect
       setTimeout(() => {
         navigateToDashboard();
-      }, 300);
+      }, 50);
     }
 
     // ==========================================
