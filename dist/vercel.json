@@ -3,9 +3,10 @@
   "cleanUrls": true,
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/$1" },
-    { "source": "/login", "destination": "/login.html" },
+    { "source": "/login", "destination": "/dashboard.html" },
     { "source": "/dashboard", "destination": "/dashboard.html" },
-    { "source": "/", "destination": "/index.html" }
+    { "source": "/landing", "destination": "/index.html" },
+    { "source": "/", "destination": "/dashboard.html" }
   ],
   "headers": [
     {
