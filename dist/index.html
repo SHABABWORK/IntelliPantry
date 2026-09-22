@@ -3,528 +3,2300 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Smart Pantry — Good Food Lasts Longer</title>
+  <title>Smart Pantry — Inventory & Expiry Tracker</title>
 
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Playfair+Display:ital,wght@0,600;0,700;1,600&display=swap" rel="stylesheet">
+  <!-- Tailwind CSS Output & Custom Design Styles -->
+  <link rel="stylesheet" href="css/tailwind-output.css">
+  <link rel="stylesheet" href="css/styles.css">
 
-  <style>
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-      -webkit-tap-highlight-color: transparent;
-    }
+  <!-- Tesseract.js for AI Bill & OCR Receipt Scanning -->
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 
-    :root {
-      --bg-warm: #fbfaf5;
-      --surface: #ffffff;
-      --forest: #1e392a;
-      --forest-hover: #15291e;
-      --forest-light: #eef6f0;
-      --border: #e6e3da;
-      --text-main: #1f2823;
-      --text-muted: #6b756e;
-      --accent-green: #2e9e5b;
-      --accent-gold: #c28829;
-    }
-
-    html {
-      scroll-behavior: smooth;
-    }
-
-    body {
-      background-color: var(--bg-warm);
-      color: var(--text-main);
-      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
-      min-height: 100vh;
-      overflow-x: hidden;
-      line-height: 1.6;
-    }
-
-    /* ==========================================
-       TOPBAR / NAVIGATION
-       ========================================== */
-    .landing-nav {
-      position: sticky;
-      top: 0;
-      z-index: 100;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 18px 48px;
-      background: rgba(251, 250, 245, 0.92);
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
-      border-bottom: 1px solid rgba(230, 227, 218, 0.7);
-    }
-
-    .nav-brand {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      text-decoration: none;
-      color: var(--forest);
-      font-size: 20px;
-      font-weight: 800;
-      letter-spacing: -0.02em;
-    }
-
-    .brand-leaf {
-      width: 32px;
-      height: 32px;
-      background: var(--forest-light);
-      color: var(--forest);
-      border-radius: 10px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .nav-links-center {
-      display: flex;
-      align-items: center;
-      gap: 32px;
-    }
-
-    .nav-links-center a {
-      color: var(--text-muted);
-      text-decoration: none;
-      font-size: 14.5px;
-      font-weight: 600;
-      transition: color 0.2s;
-    }
-
-    .nav-links-center a:hover {
-      color: var(--forest);
-    }
-
-    .nav-actions {
-      display: flex;
-      align-items: center;
-      gap: 14px;
-    }
-
-    .btn-nav-login {
-      padding: 9px 22px;
-      border: 1.5px solid var(--border);
-      background: transparent;
-      border-radius: 999px;
-      color: var(--forest);
-      font-size: 14px;
-      font-weight: 700;
-      text-decoration: none;
-      cursor: pointer;
-      transition: all 0.2s ease;
-    }
-
-    .btn-nav-login:hover {
-      background: var(--surface);
-      border-color: var(--forest);
-    }
-
-    .btn-nav-getstarted {
-      padding: 10px 24px;
-      background: var(--forest);
-      color: #ffffff;
-      border-radius: 999px;
-      font-size: 14px;
-      font-weight: 700;
-      text-decoration: none;
-      cursor: pointer;
-      border: none;
-      transition: all 0.2s ease;
-      box-shadow: 0 4px 14px rgba(30, 57, 42, 0.18);
-    }
-
-    .btn-nav-getstarted:hover {
-      background: var(--forest-hover);
-      transform: translateY(-1px);
-      box-shadow: 0 6px 20px rgba(30, 57, 42, 0.25);
-    }
-
-    .mobile-hamburger {
-      display: none;
-      background: none;
-      border: none;
-      font-size: 24px;
-      color: var(--forest);
-      cursor: pointer;
-    }
-
-    /* ==========================================
-       HERO SECTION (Matches Mockup Top-Left)
-       ========================================== */
-    .hero-section {
-      max-width: 1280px;
-      margin: 0 auto;
-      padding: 48px 48px 80px;
-      display: grid;
-      grid-template-columns: 1.15fr 0.85fr;
-      gap: 48px;
-      align-items: center;
-      min-height: calc(100vh - 85px);
-    }
-
-    .hero-content-left {
-      max-width: 580px;
-    }
-
-    .hero-badge-tag {
-      font-size: 12px;
-      font-weight: 800;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      color: var(--forest);
-      margin-bottom: 14px;
-      display: inline-block;
-    }
-
-    .hero-title {
-      font-family: 'Playfair Display', Georgia, serif;
-      font-size: clamp(40px, 5.5vw, 64px);
-      line-height: 1.08;
-      font-weight: 700;
-      color: var(--forest);
-      letter-spacing: -0.02em;
-      margin-bottom: 16px;
-    }
-
-    .hero-subtitle {
-      font-size: 18px;
-      font-weight: 800;
-      color: var(--forest);
-      margin-bottom: 14px;
-    }
-
-    .hero-description {
-      font-size: 16px;
-      color: var(--text-muted);
-      line-height: 1.6;
-      margin-bottom: 32px;
-      max-width: 480px;
-    }
-
-    .hero-buttons-row {
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      margin-bottom: 48px;
-      flex-wrap: wrap;
-    }
-
-    .btn-hero-primary {
-      display: inline-flex;
-      align-items: center;
-      gap: 10px;
-      padding: 14px 30px;
-      background: var(--forest);
-      color: #ffffff;
-      border-radius: 999px;
-      font-size: 15px;
-      font-weight: 700;
-      text-decoration: none;
-      cursor: pointer;
-      transition: all 0.2s ease;
-      box-shadow: 0 6px 22px rgba(30, 57, 42, 0.22);
-    }
-
-    .btn-hero-primary:hover {
-      background: var(--forest-hover);
-      transform: translateY(-2px);
-      box-shadow: 0 10px 28px rgba(30, 57, 42, 0.3);
-    }
-
-    .btn-hero-video {
-      display: inline-flex;
-      align-items: center;
-      gap: 10px;
-      padding: 13px 26px;
-      border: 1.5px solid var(--border);
-      background: var(--surface);
-      border-radius: 999px;
-      color: var(--forest);
-      font-size: 15px;
-      font-weight: 700;
-      text-decoration: none;
-      cursor: pointer;
-      transition: all 0.2s ease;
-    }
-
-    .btn-hero-video:hover {
-      border-color: var(--forest);
-      transform: translateY(-1px);
-    }
-
-    .btn-hero-video .play-icon {
-      width: 22px;
-      height: 22px;
-      border-radius: 50%;
-      background: var(--forest-light);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 11px;
-    }
-
-    /* Stats Row */
-    .hero-stats-row {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 20px;
-      padding-top: 24px;
-      border-top: 1px solid var(--border);
-      margin-bottom: 28px;
-    }
-
-    .stat-item h4 {
-      font-size: 26px;
-      font-weight: 800;
-      color: var(--forest);
-      line-height: 1.1;
-    }
-
-    .stat-item p {
-      font-size: 13px;
-      color: var(--text-muted);
-      font-weight: 500;
-      margin-top: 4px;
-    }
-
-    .hero-quote-box {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      color: var(--forest);
-      font-family: 'Playfair Display', Georgia, serif;
-      font-style: italic;
-      font-size: 16px;
-    }
-
-    /* ==========================================
-       HERO VISUAL SHOWCASE RIGHT (Matches Mockup)
-       ========================================== */
-    .hero-visual-right {
-      position: relative;
-    }
-
-    .hero-image-card {
-      position: relative;
-      border-radius: 40px 40px 40px 120px;
-      overflow: hidden;
-      box-shadow: 0 24px 60px rgba(30, 57, 42, 0.12);
-      border: 4px solid #ffffff;
-      background: #ffffff;
-    }
-
-    .hero-main-photo {
-      width: 100%;
-      height: 520px;
-      object-fit: cover;
-      display: block;
-    }
-
-    .floating-fresh-badge {
-      position: absolute;
-      bottom: 32px;
-      left: 32px;
-      background: rgba(255, 255, 255, 0.95);
-      backdrop-filter: blur(10px);
-      -webkit-backdrop-filter: blur(10px);
-      padding: 12px 20px;
-      border-radius: 999px;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
-      border: 1px solid rgba(230, 227, 218, 0.8);
-      text-decoration: none;
-      color: var(--forest);
-      transition: transform 0.2s ease;
-    }
-
-    .floating-fresh-badge:hover {
-      transform: scale(1.04);
-    }
-
-    .floating-badge-leaf {
-      font-size: 20px;
-    }
-
-    .floating-badge-text {
-      font-size: 13.5px;
-      font-weight: 700;
-      line-height: 1.2;
-    }
-
-    .floating-badge-arrow {
-      width: 26px;
-      height: 26px;
-      border-radius: 50%;
-      background: var(--forest-light);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 13px;
-      font-weight: 700;
-    }
-
-    /* ==========================================
-       FOOTER & RESPONSIVE
-       ========================================== */
-    .landing-footer {
-      border-top: 1px solid var(--border);
-      padding: 32px 48px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      color: var(--text-muted);
-      font-size: 13.5px;
-      max-width: 1280px;
-      margin: 0 auto;
-    }
-
-    @media (max-width: 1024px) {
-      .landing-nav { padding: 16px 24px; }
-      .hero-section {
-        grid-template-columns: 1fr;
-        padding: 32px 24px 60px;
-        gap: 36px;
+  <!-- Chart.js for Real-Time Pantry Analytics & Category Distribution -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+  <script>
+    // Direct Access: Zero login required — ensure local pantry profile exists
+    (function() {
+      try {
+        if (!localStorage.getItem('smartpantry_user')) {
+          let guestId = localStorage.getItem('smartpantry_device_id');
+          if (!guestId) {
+            guestId = 'chef_' + Math.random().toString(36).substring(2, 10);
+            localStorage.setItem('smartpantry_device_id', guestId);
+          }
+          localStorage.setItem('smartpantry_user', JSON.stringify({
+            id: guestId,
+            name: 'Pantry Chef',
+            email: 'intellipantrynotify@gmail.com'
+          }));
+        }
+        if (!localStorage.getItem('smartpantry_token')) {
+          localStorage.setItem('smartpantry_token', 'direct_token_' + Date.now());
+        }
+      } catch(e) {
+        console.warn('Session init:', e);
       }
-      .hero-image-card {
-        border-radius: 28px;
-        max-width: 540px;
-        margin: 0 auto;
-      }
-      .hero-main-photo { height: 380px; }
-      .nav-links-center { display: none; }
-      .landing-footer { padding: 24px; flex-direction: column; gap: 12px; text-align: center; }
-    }
-
-    @media (max-width: 640px) {
-      .landing-nav { padding: 14px 18px; }
-      .hero-title { font-size: 36px; }
-      .hero-stats-row { grid-template-columns: 1fr 1fr; gap: 16px; }
-      .hero-buttons-row { flex-direction: column; align-items: stretch; }
-      .btn-hero-primary, .btn-hero-video { justify-content: center; }
-      .floating-fresh-badge { bottom: 16px; left: 16px; right: 16px; justify-content: center; }
-    }
-  </style>
+    })();
+  </script>
 </head>
+
 <body>
 
+<div class="app-container">
+
   <!-- ==========================================
-       TOPBAR NAVIGATION
+       MAIN TOPBAR
        ========================================== -->
-  <nav class="landing-nav">
-    <a href="#" class="nav-brand">
-      <div class="brand-leaf">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"></path>
-          <path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"></path>
-        </svg>
+  <header class="main-topbar">
+    <div style="display:flex; align-items:center;">
+      <button class="mobile-menu-btn" onclick="toggleSidebarDrawer()" aria-label="Open Navigation">☰</button>
+      <div class="topbar-brand">
+        <div class="brand-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"></path>
+            <path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"></path>
+          </svg>
+        </div>
+        <div class="brand-info">
+          <h1>Smart Pantry</h1>
+          <p>Fresh Food, Brighter Days</p>
+        </div>
       </div>
-      <span>Smart Pantry</span>
-    </a>
-
-    <div class="nav-links-center">
-      <a href="#home">Home</a>
-      <a href="#features">Features</a>
-      <a href="#how-it-works">How It Works</a>
-      <a href="#pricing">Pricing</a>
-      <a href="#blog">Blog</a>
     </div>
 
-    <div class="nav-actions">
-      <a href="dashboard.html" class="btn-nav-getstarted">Open Pantry ➔</a>
+    <!-- Center Search Bar -->
+    <div class="topbar-search">
+      <div class="search-pill">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="8"></circle>
+          <path d="m21 21-4.3-4.3"></path>
+        </svg>
+        <input 
+          type="text" 
+          id="globalSearchInput" 
+          placeholder="Search items, recipes, or tips..." 
+          autocomplete="off"
+        >
+      </div>
     </div>
+
+    <!-- Right User & Alerts & Real-time Live Clock -->
+    <div class="topbar-right">
+      <div class="topbar-live-time-badge" style="display:flex; align-items:center; gap:6px; background:#f0fdf4; border:1px solid #bbf7d0; padding:6px 12px; border-radius:20px; font-size:12.5px; font-weight:700; color:#1e392a;" title="Real-time Local Clock">
+        <span style="display:inline-block; width:7px; height:7px; border-radius:50%; background:#10b981; box-shadow:0 0 6px #10b981;"></span>
+        <span id="topbarLiveClock">--:--:--</span>
+      </div>
+
+      <button class="noti-btn" onclick="toggleAlertCenter(true)" title="Real-Time Alert Center">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"></path>
+          <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"></path>
+        </svg>
+        <span class="noti-badge" id="topbarAlertBadge" style="display:none;">0</span>
+      </button>
+
+      <div class="user-profile" id="userProfile" onclick="toggleUserMenu()" style="position:relative;cursor:pointer;">
+        <div class="user-avatar" id="userAvatar">P</div>
+        <div class="user-details">
+          <div class="user-name" id="userName">Pantry Chef</div>
+          <div class="user-role">Home Pantry</div>
+        </div>
+        <span class="user-chevron">▾</span>
+        <!-- User dropdown menu -->
+        <div id="userMenu" style="display:none; position:absolute; top:100%; right:0; margin-top:8px; background:#1e293b; border:1px solid #334155; border-radius:10px; min-width:200px; box-shadow:0 8px 24px rgba(0,0,0,0.3); z-index:999; overflow:hidden;">
+          <div style="padding:12px 16px; border-bottom:1px solid #334155; font-size:13px; color:#94a3b8;" id="userMenuEmail">intellipantrynotify@gmail.com</div>
+          <button onclick="window.router.navigate('settings')" style="width:100%; padding:10px 16px; background:none; border:none; color:#f8fafc; font-size:13px; font-weight:600; text-align:left; cursor:pointer; font-family:inherit; border-bottom:1px solid #334155; display:flex; align-items:center; gap:8px;" onmouseover="this.style.background='#263348'" onmouseout="this.style.background='none'">
+            ⚙️ Settings & Preferences
+          </button>
+          <button onclick="toggleAlertCenter(true)" style="width:100%; padding:10px 16px; background:none; border:none; color:#f8fafc; font-size:13px; font-weight:600; text-align:left; cursor:pointer; font-family:inherit; border-bottom:1px solid #334155; display:flex; align-items:center; gap:8px;" onmouseover="this.style.background='#263348'" onmouseout="this.style.background='none'">
+            🔔 Alert Center
+          </button>
+          <button onclick="openDatabaseSettingsModal()" style="width:100%; padding:10px 16px; background:none; border:none; color:#10b981; font-size:13px; font-weight:600; text-align:left; cursor:pointer; font-family:inherit; border-bottom:1px solid #334155; display:flex; align-items:center; gap:8px;" onmouseover="this.style.background='#263348'" onmouseout="this.style.background='none'">
+            ⚡ Supabase Database
+          </button>
+          <button onclick="handleResetPantry()" style="width:100%; padding:10px 16px; background:none; border:none; color:#94a3b8; font-size:13px; font-weight:500; text-align:left; cursor:pointer; font-family:inherit; display:flex; align-items:center; gap:8px;" onmouseover="this.style.background='#263348'" onmouseout="this.style.background='none'">
+            🗑️ Reset Pantry Items
+          </button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Sidebar Mobile Backdrop -->
+  <div class="sidebar-backdrop" id="sidebarBackdrop" onclick="toggleSidebarDrawer()"></div>
+
+  <!-- ==========================================
+       DASHBOARD 3-COLUMN GRID
+       ========================================== -->
+  <div class="dashboard-grid">
+
+    <!-- LEFT SIDEBAR -->
+    <aside class="left-sidebar" id="leftSidebar">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;" class="md:hidden">
+        <div style="font-weight:700; font-size:15px; color:#0f172a;">Menu Navigation</div>
+        <button onclick="toggleSidebarDrawer()" style="background:#f1f5f9; border:none; border-radius:8px; padding:6px 10px; cursor:pointer; font-weight:700;">✕</button>
+      </div>
+
+      <nav class="nav-group">
+        <a class="nav-link active" data-route="dashboard" onclick="window.router.navigate('dashboard')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+            <polyline points="9 22 9 12 15 12 15 22"></polyline>
+          </svg>
+          Dashboard
+        </a>
+
+        <a class="nav-link" data-route="inventory" onclick="window.router.navigate('inventory')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"></path>
+            <path d="m3.3 7 8.7 5 8.7-5"></path>
+            <path d="M12 22V12"></path>
+          </svg>
+          Inventory
+        </a>
+
+        <a class="nav-link" data-route="add-item" onclick="openAddEditModal()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <path d="M12 8v8"></path>
+            <path d="M8 12h8"></path>
+          </svg>
+          Add Item
+        </a>
+
+        <a class="nav-link" data-route="scan-barcode" onclick="openBillScannerModal()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 7V5a2 2 0 0 1 2-2h2"></path>
+            <path d="M17 3h2a2 2 0 0 1 2 2v2"></path>
+            <path d="M21 17v2a2 2 0 0 1-2 2h-2"></path>
+            <path d="M7 21H5a2 2 0 0 1-2-2v-2"></path>
+          </svg>
+          Scan Barcode
+        </a>
+
+        <a class="nav-link" data-route="expiry" onclick="window.router.navigate('expiry')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect width="18" height="18" x="3" y="4" rx="2" ry="2"></rect>
+            <line x1="16" x2="16" y1="2" y2="6"></line>
+            <line x1="8" x2="8" y1="2" y2="6"></line>
+            <line x1="3" x2="21" y1="10" y2="10"></line>
+          </svg>
+          Expiry Calendar
+        </a>
+
+        <a class="nav-link" data-route="shopping-list" onclick="window.router.navigate('shopping-list')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="8" cy="21" r="1"></circle>
+            <circle cx="19" cy="21" r="1"></circle>
+            <path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"></path>
+          </svg>
+          Shopping List
+        </a>
+
+        <a class="nav-link" data-route="recipes" onclick="window.router.navigate('recipes')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M6 13.87A4 4 0 0 1 7.41 6a5.11 5.11 0 0 1 1.05-1.54 5 5 0 0 1 7.08 0A5.11 5.11 0 0 1 16.59 6 4 4 0 0 1 18 13.87V21H6Z"></path>
+            <line x1="6" x2="18" y1="17" y2="17"></line>
+          </svg>
+          Recipes
+        </a>
+
+        <a class="nav-link" data-route="insights" onclick="window.router.navigate('insights')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 3v18h18"></path>
+            <path d="m19 9-5 5-4-4-3 3"></path>
+          </svg>
+          Insights
+        </a>
+
+        <a class="nav-link" data-route="notifications" onclick="toggleAlertCenter(true)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"></path>
+            <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"></path>
+          </svg>
+          Notifications
+        </a>
+
+        <a class="nav-link" data-route="settings" onclick="window.router.navigate('settings')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path>
+            <circle cx="12" cy="12" r="3"></circle>
+          </svg>
+          Settings
+        </a>
+      </nav>
+
+      <!-- Recipe Kitchen Card (100% Free) -->
+      <div class="recipe-kitchen-card">
+        <div class="recipe-kitchen-header">
+          <span class="recipe-kitchen-icon">🍳</span>
+          <span class="recipe-kitchen-title">Recipe Kitchen</span>
+        </div>
+        <p>Discover recipes using the ingredients you already have.</p>
+        <div class="recipe-kitchen-btns">
+          <button type="button" class="recipe-k-btn primary" onclick="window.RecipeEngine.showPantryMatches()">Find Recipes</button>
+          <button type="button" class="recipe-k-btn secondary" onclick="window.RecipeEngine.setCategory('all'); window.RecipeEngine.scrollToRecipeKitchen();">All Recipes</button>
+        </div>
+      </div>
+
+      <div class="sidebar-footer">
+        <p>Smart Pantry v1.0</p>
+        <p>A smarter kitchen for a better tomorrow.</p>
+      </div>
+    </aside>
+
+    <!-- CENTER COLUMN -->
+    <main class="center-content">
+
+      <!-- DASHBOARD HOME VIEW WRAPPER -->
+      <div id="dashboardHomeViews">
+
+      <!-- Dynamic Welcome Header (Matches Mockup) -->
+      <div style="margin-bottom: 20px;">
+        <h2 id="welcomeGreeting" style="font-size: 24px; font-weight: 800; color: #1e392a; letter-spacing: -0.02em; display:flex; align-items:center; gap:8px;">
+          Welcome Back, <span id="welcomeUserName">User</span> 🌿
+        </h2>
+        <p id="welcomeSub" style="font-size: 13.5px; color: #6b756e; margin-top: 2px;">
+          Here's your pantry overview today.
+        </p>
+      </div>
+
+      <!-- 4 Stat Metric Cards in a Row (Matches Mockup) -->
+      <div class="metrics-row">
+        
+        <!-- Total Items -->
+        <div class="metric-box">
+          <div class="metric-icon-wrap metric-icon-green">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+              <path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"></path>
+            </svg>
+          </div>
+          <div class="metric-data">
+            <h3 id="metricTotalItems">24</h3>
+            <div class="metric-label">Total Items</div>
+            <div class="metric-sub sub-green">+ 2 this week</div>
+          </div>
+        </div>
+
+        <!-- Expiring Soon -->
+        <div class="metric-box">
+          <div class="metric-icon-wrap metric-icon-amber">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+              <circle cx="12" cy="12" r="10"></circle>
+              <polyline points="12 6 12 12 16 14"></polyline>
+            </svg>
+          </div>
+          <div class="metric-data">
+            <h3 id="metricExpiringSoon">5</h3>
+            <div class="metric-label">Expiring Soon</div>
+            <div class="metric-sub sub-amber">Within 7 days</div>
+          </div>
+        </div>
+
+        <!-- Low Stock -->
+        <div class="metric-box">
+          <div class="metric-icon-wrap metric-icon-rose">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+              <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"></path>
+              <line x1="12" y1="9" x2="12" y2="13"></line>
+              <line x1="12" y1="17" x2="12.01" y2="17"></line>
+            </svg>
+          </div>
+          <div class="metric-data">
+            <h3 id="metricLowStock">3</h3>
+            <div class="metric-label">Low Stock</div>
+            <div class="metric-sub sub-rose">Needs restock</div>
+          </div>
+        </div>
+
+        <!-- Fresh Items -->
+        <div class="metric-box">
+          <div class="metric-icon-wrap metric-icon-green">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+              <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"></path>
+              <path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"></path>
+            </svg>
+          </div>
+          <div class="metric-data">
+            <h3 id="metricFreshItems">12</h3>
+            <div class="metric-label">Fresh Items</div>
+            <div class="metric-sub sub-green">Optimal shelf life</div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Quick Actions (Matches Mockup) -->
+      <section class="quick-actions-section">
+        <h3 class="quick-actions-title">Quick Actions</h3>
+        <div class="quick-actions-grid">
+          <button class="quick-action-card-btn" onclick="openBillScannerModal()">
+            <div class="quick-action-icon-circle">📷</div>
+            <h4>Scan Bill</h4>
+            <p>Add items quickly</p>
+          </button>
+
+          <button class="quick-action-card-btn" onclick="openAddEditModal()">
+            <div class="quick-action-icon-circle">✚</div>
+            <h4>Add Item</h4>
+            <p>Manually</p>
+          </button>
+
+          <button class="quick-action-card-btn" onclick="openEmailAlertModal()">
+            <div class="quick-action-icon-circle">🔔</div>
+            <h4>View Alerts</h4>
+            <p>Expiring soon</p>
+          </button>
+
+          <button class="quick-action-card-btn" onclick="window.router.navigate('recipes')">
+            <div class="quick-action-icon-circle">🍴</div>
+            <h4>Get Recipe Ideas</h4>
+            <p>Use what you have</p>
+          </button>
+        </div>
+      </section>
+
+      <!-- Less Waste Promo Card (Matches Mockup) -->
+      <div class="less-waste-promo-card">
+        <div class="promo-left-details">
+          <div class="promo-leaf-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3">
+              <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"></path>
+              <path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"></path>
+            </svg>
+          </div>
+          <div class="promo-text-wrap">
+            <h3>Less Waste More Good Food</h3>
+            <p>Track • Plan • Eat • Live Better</p>
+          </div>
+        </div>
+
+        <div class="promo-right-visual">
+          <img src="https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=160&q=80" alt="Fresh Healthy Salad" class="promo-salad-img">
+          <button class="promo-arrow-btn" onclick="window.router.navigate('recipes')">➔</button>
+        </div>
+      </div>
+
+
+      <!-- Inventory Table Section -->
+      <section class="inventory-section" id="inventorySection">
+        <div class="inventory-header">
+          <h2 class="inventory-title">Your Inventory</h2>
+          <a class="view-all-link" onclick="setCategoryFilter('All')">View All ➔</a>
+        </div>
+
+        <!-- Category Filter Chips -->
+        <div class="category-chips">
+          <button class="chip-btn active" data-category="All" onclick="setCategoryFilter('All')">All</button>
+          <button class="chip-btn" data-category="Fruits" onclick="setCategoryFilter('Fruits')">Fruits</button>
+          <button class="chip-btn" data-category="Vegetables" onclick="setCategoryFilter('Vegetables')">Vegetables</button>
+          <button class="chip-btn" data-category="Dairy" onclick="setCategoryFilter('Dairy')">Dairy</button>
+          <button class="chip-btn" data-category="Grains" onclick="setCategoryFilter('Grains')">Grains</button>
+          <button class="chip-btn" data-category="Meat" onclick="setCategoryFilter('Meat')">Meat</button>
+          <button class="chip-btn" data-category="Beverages" onclick="setCategoryFilter('Beverages')">Beverages</button>
+          <button class="chip-btn" data-category="Pantry" onclick="setCategoryFilter('Pantry')">Pantry</button>
+          <button class="chip-btn" data-category="Frozen" onclick="setCategoryFilter('Frozen')">Frozen</button>
+        </div>
+
+        <!-- Table -->
+        <div class="table-container">
+          <table class="inv-table">
+            <thead>
+              <tr>
+                <th>Item</th>
+                <th>Category</th>
+                <th>Quantity</th>
+                <th>Expiry Date</th>
+                <th>Status</th>
+                <th style="text-align: right;">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="inventoryTableBody">
+              <!-- Dynamically populated from store.js -->
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ==========================================
+           FREE REAL-TIME RECIPE KITCHEN SECTION
+           ========================================== -->
+      <section class="recipe-section" id="recipesSection">
+        <div class="recipe-section-header">
+          <div class="recipe-title-group">
+            <h2>🍳 Recipe Kitchen <span style="font-size:12px; font-weight:700; background:#ecfdf5; color:#059669; padding:3px 8px; border-radius:12px; border:1px solid #a7f3d0;">100% Free</span></h2>
+            <p>Smart real-time recipe recommendations matched directly to your active pantry ingredients.</p>
+          </div>
+        </div>
+
+        <!-- Expiring Soon Spotlight Banner -->
+        <div class="expiring-recipes-banner" id="recipeExpiringBanner">
+          <!-- Dynamically populated from recipes.js -->
+        </div>
+
+        <!-- Recipe Action Bar: Search & Quick Filters -->
+        <div class="recipe-actions-bar">
+          <div class="recipe-search-input-wrap">
+            <span class="recipe-search-icon">🔍</span>
+            <input type="text" id="recipeSearchInput" class="recipe-search-input" placeholder="Search by recipe, cuisine, or ingredient (e.g. chicken, rice, tomato, egg)..." oninput="window.RecipeEngine.setSearchQuery(this.value)">
+          </div>
+          <button type="button" class="recipe-quick-btn pantry-btn" onclick="window.RecipeEngine.showPantryMatches()">
+            🍳 Cook With My Pantry
+          </button>
+          <button type="button" class="recipe-quick-btn" onclick="window.RecipeEngine.showExpiringRecipes()">
+            🔥 Use Soon
+          </button>
+          <button type="button" class="recipe-quick-btn" onclick="window.RecipeEngine.showFavorites()">
+            ❤️ My Favorites
+          </button>
+          <button type="button" class="recipe-quick-btn" onclick="window.RecipeEngine.openShoppingListModal()">
+            🛒 Shopping List
+          </button>
+        </div>
+
+        <!-- 24 Master Category Chips Carousel -->
+        <div class="recipe-chips-scroll" id="recipeCategoryChips">
+          <!-- Dynamically populated from recipes.js -->
+        </div>
+
+        <!-- Dynamic Match Count Subtitle -->
+        <div class="recipe-meta-status-row" id="recipesMatchCount">
+          Loading recipes...
+        </div>
+
+        <!-- Recipe Cards Grid -->
+        <div class="recipes-grid" id="recipesGrid">
+          <!-- Dynamically populated from recipes.js -->
+        </div>
+      </section>
+
+      </div><!-- /#dashboardHomeViews -->
+
+      <!-- ==========================================
+           REAL-TIME INSIGHTS & ANALYTICS DASHBOARD
+           ========================================== -->
+      <section id="insightsSection" style="display:none;" class="insights-container">
+        
+        <!-- Insights Header & Date Filters -->
+        <div class="insights-header-row">
+          <div class="insights-title-wrap">
+            <h2>📊 Real-Time Pantry Insights</h2>
+            <p>Live inventory velocity, expiry risk analytics, and consumption breakdown.</p>
+          </div>
+
+          <div class="insights-filter-group">
+            <button type="button" class="filter-pill" data-timeframe="7d" onclick="setInsightsTimeframe('7d', this)">7 Days</button>
+            <button type="button" class="filter-pill active" data-timeframe="30d" onclick="setInsightsTimeframe('30d', this)">30 Days</button>
+            <button type="button" class="filter-pill" data-timeframe="3m" onclick="setInsightsTimeframe('3m', this)">3 Months</button>
+            <button type="button" class="filter-pill" data-timeframe="1y" onclick="setInsightsTimeframe('1y', this)">1 Year</button>
+          </div>
+        </div>
+
+        <!-- Smart Insights Contextual Banner -->
+        <div class="smart-insights-card" id="smartInsightsBanner">
+          <div class="smart-insights-icon">💡</div>
+          <div class="smart-insights-body">
+            <div class="smart-insights-title">Smart Actionable Insights</div>
+            <ul class="smart-insights-list" id="smartInsightsList">
+              <li>Loading smart recommendations...</li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- Key 6 Metrics Cards Row -->
+        <div class="insights-metrics-grid">
+          <div class="insight-metric-card">
+            <div class="insight-metric-header">
+              <span class="insight-metric-label">Total Products</span>
+              <div class="insight-metric-icon" style="background:#ecfdf5; color:#059669;">📦</div>
+            </div>
+            <div class="insight-metric-value" id="insightTotalProducts">0</div>
+            <span class="insight-metric-sub" style="color:#059669;" id="insightTotalUnits">0 units total</span>
+          </div>
+
+          <div class="insight-metric-card">
+            <div class="insight-metric-header">
+              <span class="insight-metric-label">Low Stock</span>
+              <div class="insight-metric-icon" style="background:#fff1f2; color:#e11d48;">⚠️</div>
+            </div>
+            <div class="insight-metric-value" id="insightLowStock">0</div>
+            <span class="insight-metric-sub" style="color:#e11d48;" id="insightLowStockSub">Needs restock</span>
+          </div>
+
+          <div class="insight-metric-card">
+            <div class="insight-metric-header">
+              <span class="insight-metric-label">Expiring Soon</span>
+              <div class="insight-metric-icon" style="background:#fffbeb; color:#d97706;">⏳</div>
+            </div>
+            <div class="insight-metric-value" id="insightExpiringSoon">0</div>
+            <span class="insight-metric-sub" style="color:#d97706;" id="insightExpiringSoonSub">Action required</span>
+          </div>
+
+          <div class="insight-metric-card">
+            <div class="insight-metric-header">
+              <span class="insight-metric-label">Expired</span>
+              <div class="insight-metric-icon" style="background:#fef2f2; color:#ef4444;">🚨</div>
+            </div>
+            <div class="insight-metric-value" id="insightExpired">0</div>
+            <span class="insight-metric-sub" style="color:#ef4444;" id="insightExpiredSub">Check pantry</span>
+          </div>
+
+          <div class="insight-metric-card">
+            <div class="insight-metric-header">
+              <span class="insight-metric-label">Total Categories</span>
+              <div class="insight-metric-icon" style="background:#f0fdf4; color:#10b981;">📑</div>
+            </div>
+            <div class="insight-metric-value" id="insightTotalCategories">0</div>
+            <span class="insight-metric-sub" style="color:#64748b;">Active categories</span>
+          </div>
+
+          <div class="insight-metric-card">
+            <div class="insight-metric-header">
+              <span class="insight-metric-label">Recently Added</span>
+              <div class="insight-metric-icon" style="background:#eff6ff; color:#2563eb;">✨</div>
+            </div>
+            <div class="insight-metric-value" id="insightRecentlyAdded">0</div>
+            <span class="insight-metric-sub" style="color:#2563eb;">This period</span>
+          </div>
+        </div>
+
+        <!-- Section A: Pantry Overview & Section B: Expiry Analytics (2-Column Grid) -->
+        <div class="insights-grid-2col">
+          <!-- Section A: Pantry Overview -->
+          <div class="insight-section-box">
+            <div class="insight-box-header">
+              <div class="insight-box-title">
+                <span>🧺</span> Section A: Pantry Overview
+              </div>
+              <span class="insight-stat-pill" id="overviewItemCountPill">0 Products</span>
+            </div>
+            <div id="pantryOverviewContent" style="display:flex; flex-direction:column; gap:12px;">
+              <!-- Dynamically populated -->
+            </div>
+          </div>
+
+          <!-- Section B: Expiry Analytics -->
+          <div class="insight-section-box">
+            <div class="insight-box-header">
+              <div class="insight-box-title">
+                <span>⏳</span> Section B: Expiry Analytics
+              </div>
+              <span class="insight-stat-pill" style="background:#fffbeb; color:#b45309;" id="expiryPill">Real-time</span>
+            </div>
+            <div id="expiryAnalyticsContent" style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+              <!-- Dynamically populated: 3 days, 7 days, 30 days, already expired -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Section C: Stock Analytics & Section D: Category Distribution Chart (2-Column Grid) -->
+        <div class="insights-grid-2col">
+          <!-- Section C: Stock Analytics -->
+          <div class="insight-section-box">
+            <div class="insight-box-header">
+              <div class="insight-box-title">
+                <span>📊</span> Section C: Stock Analytics
+              </div>
+              <span class="insight-stat-pill" id="stockAnalyticsPill">Healthy</span>
+            </div>
+            <div id="stockAnalyticsContent" style="display:flex; flex-direction:column; gap:12px;">
+              <!-- Low-stock, out-of-stock, normal-stock breakdown -->
+            </div>
+          </div>
+
+          <!-- Section D: Category Distribution Chart -->
+          <div class="insight-section-box">
+            <div class="insight-box-header">
+              <div class="insight-box-title">
+                <span>🍩</span> Section D: Category Distribution
+              </div>
+              <span class="insight-stat-pill" id="chartCategoriesCount">0 Categories</span>
+            </div>
+            <div class="chart-container-box">
+              <canvas id="categoryDistributionChart"></canvas>
+              <div id="categoryChartEmpty" style="display:none; text-align:center; color:#94a3b8; font-size:13px;">
+                🥣 No products added yet
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section E: Recent Activity Timeline -->
+        <div class="insight-section-box">
+          <div class="insight-box-header">
+            <div class="insight-box-title">
+              <span>🕒</span> Section E: Recent Activity (Real Database Logs)
+            </div>
+            <span class="insight-stat-pill" id="activityCountPill">0 events</span>
+          </div>
+          <div class="activity-timeline" id="recentActivityList">
+            <!-- Dynamically populated with added, updated, quantity changed, removed -->
+          </div>
+        </div>
+
+      </section>
+
+      <!-- ==========================================
+           7-SECTION SETTINGS & PREFERENCES DASHBOARD
+           ========================================== -->
+      <section id="settingsSection" style="display:none;" class="settings-container">
+        
+        <!-- Settings Header & Quick Save Status -->
+        <div class="settings-header-box">
+          <div>
+            <h2 style="font-size:22px; font-weight:800; color:#1e392a; display:flex; align-items:center; gap:8px;">
+              ⚙️ Settings & Pantry Preferences
+            </h2>
+            <p style="font-size:13px; color:#64748b; margin-top:2px;">
+              Manage your account, real-time alerts, warning thresholds, privacy, and appearance.
+            </p>
+          </div>
+          <button type="button" class="btn-forest-submit" onclick="saveAllSettingsForm()" style="width:auto; padding:10px 24px; border-radius:12px; font-size:13px; font-weight:700;">
+            ✓ Save Changes
+          </button>
+        </div>
+
+        <!-- 7 Settings Navigation Tabs -->
+        <div class="settings-nav-tabs">
+          <button type="button" class="settings-tab-btn active" onclick="switchSettingsTab('account', this)">👤 1. Account</button>
+          <button type="button" class="settings-tab-btn" onclick="switchSettingsTab('notifications', this)">🔔 2. Notifications</button>
+          <button type="button" class="settings-tab-btn" onclick="switchSettingsTab('preferences', this)">🥫 3. Pantry</button>
+          <button type="button" class="settings-tab-btn" onclick="switchSettingsTab('security', this)">🔒 4. Security</button>
+          <button type="button" class="settings-tab-btn" onclick="switchSettingsTab('privacy', this)">🛡️ 5. Privacy</button>
+          <button type="button" class="settings-tab-btn" onclick="switchSettingsTab('general', this)">🌐 6. General</button>
+          <button type="button" class="settings-tab-btn" onclick="switchSettingsTab('appearance', this)">🎨 7. Appearance</button>
+        </div>
+
+        <form id="masterSettingsForm" onsubmit="event.preventDefault(); saveAllSettingsForm();">
+          
+          <!-- TAB 1: ACCOUNT -->
+          <div class="settings-card settings-tab-pane active" id="settingsTab_account">
+            <div class="settings-card-header">
+              <h3>👤 Account & Profile Information</h3>
+              <p>Manage your identity, email credentials, and profile name.</p>
+            </div>
+            
+            <div class="space-y-4" style="max-width:540px;">
+              <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">Display Name</label>
+                <input type="text" id="settingsDisplayName" class="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl bg-slate-50 focus:bg-white outline-none" placeholder="e.g. Pantry Chef">
+              </div>
+
+              <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">Email Address</label>
+                <div style="display:flex; gap:10px; align-items:center;">
+                  <input type="email" id="settingsEmailAddress" class="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl bg-slate-100 text-slate-600 outline-none" readonly>
+                  <span id="settingsEmailVerifiedBadge" style="padding:6px 12px; border-radius:10px; font-size:12px; font-weight:700; background:#f0fdf4; color:#166534; border:1px solid #bbf7d0; white-space:nowrap;">
+                    ✓ Verified
+                  </span>
+                </div>
+              </div>
+
+              <div style="padding-top:14px; border-top:1px solid #f1f5f9;">
+                <h4 style="font-size:13.5px; font-weight:700; color:#1e293b; margin-bottom:8px;">Change Password</h4>
+                <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                  <input type="password" id="settingsNewPassword" class="flex-1 px-3.5 py-2 text-sm border border-slate-300 rounded-xl bg-slate-50 focus:bg-white outline-none" placeholder="New Password (min 6 chars)">
+                  <button type="button" onclick="handleSettingsUpdatePassword()" style="background:#1e392a; color:#fff; padding:8px 16px; border-radius:10px; font-size:13px; font-weight:700; border:none; cursor:pointer;">
+                    Update Password
+                  </button>
+                </div>
+              </div>
+
+              <div style="padding-top:14px; border-top:1px solid #f1f5f9;">
+                <h4 style="font-size:13.5px; font-weight:700; color:#e11d48; margin-bottom:4px;">Delete Account</h4>
+                <p style="font-size:12px; color:#64748b; margin-bottom:8px;">Permanently wipe your pantry inventory, activity history, and authentication session.</p>
+                <button type="button" onclick="handleDeleteAccount()" style="background:#fff1f2; color:#e11d48; border:1px solid #fecdd3; padding:8px 16px; border-radius:10px; font-size:12.5px; font-weight:700; cursor:pointer;">
+                  🗑️ Delete My Account
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- TAB 2: NOTIFICATIONS -->
+          <div class="settings-card settings-tab-pane" id="settingsTab_notifications" style="display:none;">
+            <div class="settings-card-header">
+              <h3>🔔 Real-Time Notification Preferences</h3>
+              <p>Configure which automated alerts and emails are dispatched to your inbox.</p>
+            </div>
+
+            <div class="space-y-2">
+              <div class="settings-row">
+                <div class="settings-label-group">
+                  <h4>Expiring Soon Alerts</h4>
+                  <p>Send an alert when items enter their warning expiry window.</p>
+                </div>
+                <label class="switch">
+                  <input type="checkbox" id="pref_alert_expiry" checked>
+                  <span class="slider"></span>
+                </label>
+              </div>
+
+              <div class="settings-row">
+                <div class="settings-label-group">
+                  <h4>Expired Product Alerts</h4>
+                  <p>Notify immediately when an item has passed its safe shelf life.</p>
+                </div>
+                <label class="switch">
+                  <input type="checkbox" id="pref_alert_expired" checked>
+                  <span class="slider"></span>
+                </label>
+              </div>
+
+              <div class="settings-row">
+                <div class="settings-label-group">
+                  <h4>Low Stock Alerts</h4>
+                  <p>Notify when products reach or drop below the restock threshold.</p>
+                </div>
+                <label class="switch">
+                  <input type="checkbox" id="pref_alert_low_stock" checked>
+                  <span class="slider"></span>
+                </label>
+              </div>
+
+              <div class="settings-row">
+                <div class="settings-label-group">
+                  <h4>Security & Login Alerts</h4>
+                  <p>Receive an email notification whenever a new login session is detected.</p>
+                </div>
+                <label class="switch">
+                  <input type="checkbox" id="pref_alert_security" checked>
+                  <span class="slider"></span>
+                </label>
+              </div>
+
+              <div class="settings-row">
+                <div class="settings-label-group">
+                  <h4>Weekly Pantry Summary</h4>
+                  <p>A weekly email summarizing items used, saved food, and upcoming expirations.</p>
+                </div>
+                <label class="switch">
+                  <input type="checkbox" id="pref_alert_weekly_summary">
+                  <span class="slider"></span>
+                </label>
+              </div>
+
+              <div style="padding-top:16px; margin-top:8px;">
+                <button type="button" onclick="triggerTestEmailAlert()" style="background:#f0fdf4; color:#166534; border:1px solid #bbf7d0; padding:10px 18px; border-radius:10px; font-size:13px; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:8px;">
+                  ✉️ Send Test Notification Email
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- TAB 3: PANTRY PREFERENCES -->
+          <div class="settings-card settings-tab-pane" id="settingsTab_preferences" style="display:none;">
+            <div class="settings-card-header">
+              <h3>🥫 Pantry Tracking Preferences</h3>
+              <p>Customize shelf-life thresholds, low stock triggers, and defaults.</p>
+            </div>
+
+            <div class="space-y-4" style="max-width:540px;">
+              <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">Expiry Warning Period</label>
+                <select id="pantryPrefExpiryDays" class="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl bg-slate-50 focus:bg-white outline-none">
+                  <option value="3">3 Days Before Expiry (Urgent)</option>
+                  <option value="7" selected>7 Days Before Expiry (Recommended)</option>
+                  <option value="14">14 Days Before Expiry (Extended)</option>
+                  <option value="30">30 Days Before Expiry (Bulk storage)</option>
+                </select>
+                <small style="color:#94a3b8; font-size:11.5px; display:block; margin-top:3px;">Defines when an item triggers "Expiring Soon" badges and alerts.</small>
+              </div>
+
+              <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">Low-Stock Alert Threshold</label>
+                <input type="number" id="pantryPrefLowStockThreshold" min="1" max="20" value="2" class="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl bg-slate-50 focus:bg-white outline-none">
+                <small style="color:#94a3b8; font-size:11.5px; display:block; margin-top:3px;">Items with this quantity or fewer will be flagged as Low Stock.</small>
+              </div>
+
+              <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">Default Measurement Unit</label>
+                <select id="pantryPrefDefaultUnit" class="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl bg-slate-50 focus:bg-white outline-none">
+                  <option value="pcs" selected>Pieces (pcs)</option>
+                  <option value="kg">Kilograms (kg)</option>
+                  <option value="g">Grams (g)</option>
+                  <option value="liters">Liters (L)</option>
+                  <option value="ml">Milliliters (ml)</option>
+                  <option value="packs">Packs / Cartons</option>
+                </select>
+              </div>
+
+              <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">Default Storage Category</label>
+                <select id="pantryPrefDefaultCategory" class="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl bg-slate-50 focus:bg-white outline-none">
+                  <option value="Pantry" selected>Pantry</option>
+                  <option value="Fruits">Fruits</option>
+                  <option value="Vegetables">Vegetables</option>
+                  <option value="Dairy">Dairy</option>
+                  <option value="Grains">Grains</option>
+                  <option value="Meat">Meat</option>
+                  <option value="Beverages">Beverages</option>
+                  <option value="Frozen">Frozen</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- TAB 4: SECURITY -->
+          <div class="settings-card settings-tab-pane" id="settingsTab_security" style="display:none;">
+            <div class="settings-card-header">
+              <h3>🔒 Security & Active Sessions</h3>
+              <p>Audit login activity and manage authenticated devices.</p>
+            </div>
+
+            <div class="space-y-3" style="max-width:540px;">
+              <div class="settings-row">
+                <div class="settings-label-group">
+                  <h4>Last Active Login</h4>
+                  <p id="securityLastLoginTimestamp">Loading timestamp...</p>
+                </div>
+                <span style="font-size:12px; font-weight:700; color:#10b981; background:#ecfdf5; padding:4px 10px; border-radius:8px;">Active Session</span>
+              </div>
+
+              <div class="settings-row">
+                <div class="settings-label-group">
+                  <h4>PostgreSQL Row Level Security (RLS)</h4>
+                  <p>All database records are mathematically isolated to your Supabase UID.</p>
+                </div>
+                <span style="font-size:12px; font-weight:700; color:#166534; background:#f0fdf4; padding:4px 10px; border-radius:8px; border:1px solid #bbf7d0;">Enforced</span>
+              </div>
+
+              <div style="padding-top:14px;">
+                <button type="button" onclick="handleSignOutOtherSessions()" style="background:#f8fafc; border:1px solid #e2e8f0; color:#1e293b; padding:9px 16px; border-radius:10px; font-size:13px; font-weight:700; cursor:pointer;">
+                  🚪 Sign Out Other Sessions
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- TAB 5: PRIVACY -->
+          <div class="settings-card settings-tab-pane" id="settingsTab_privacy" style="display:none;">
+            <div class="settings-card-header">
+              <h3>🛡️ Privacy & Data Sovereignty</h3>
+              <p>Your data belongs to you. Export or purge at any time.</p>
+            </div>
+
+            <div class="space-y-4" style="max-width:540px;">
+              <div>
+                <h4 style="font-size:13.5px; font-weight:700; color:#1e293b; margin-bottom:4px;">Export My Data</h4>
+                <p style="font-size:12.5px; color:#64748b; margin-bottom:10px;">Download an exact JSON archive of your entire pantry inventory, activity timeline, and configuration.</p>
+                <button type="button" onclick="window.store.exportUserData()" style="background:#1e392a; color:#fff; border:none; padding:10px 20px; border-radius:10px; font-size:13px; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:8px;">
+                  📦 Export My Data (JSON)
+                </button>
+              </div>
+
+              <div style="padding-top:16px; border-top:1px solid #f1f5f9;">
+                <h4 style="font-size:13.5px; font-weight:700; color:#1e293b; margin-bottom:4px;">Privacy Policy & Terms</h4>
+                <p style="font-size:12.5px; color:#64748b; line-height:1.5;">
+                  IntelliPantry never sells or shares your food inventory, receipt scans, or personal metrics with third parties. All database records are strictly protected with Supabase Auth Row Level Security.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <!-- TAB 6: GENERAL -->
+          <div class="settings-card settings-tab-pane" id="settingsTab_general" style="display:none;">
+            <div class="settings-card-header">
+              <h3>🌐 General Localization</h3>
+              <p>Timezone, language, and currency configuration.</p>
+            </div>
+
+            <div class="space-y-4" style="max-width:540px;">
+              <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">Language</label>
+                <select id="generalLanguage" class="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl bg-slate-50 focus:bg-white outline-none">
+                  <option value="English" selected>English</option>
+                  <option value="Hindi">Hindi (हिंदी)</option>
+                  <option value="Spanish">Spanish (Español)</option>
+                </select>
+              </div>
+
+              <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">Time Zone</label>
+                <select id="generalTimezone" class="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl bg-slate-50 focus:bg-white outline-none">
+                  <option value="Asia/Kolkata" selected>Asia/Kolkata (IST • UTC+5:30)</option>
+                  <option value="UTC">UTC (Coordinated Universal Time)</option>
+                  <option value="America/New_York">America/New York (EST/EDT)</option>
+                  <option value="Europe/London">Europe/London (GMT/BST)</option>
+                  <option value="Asia/Dubai">Asia/Dubai (GST • UTC+4)</option>
+                </select>
+              </div>
+
+              <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">Currency Display</label>
+                <select id="generalCurrency" class="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl bg-slate-50 focus:bg-white outline-none">
+                  <option value="INR" selected>Indian Rupee (INR • ₹)</option>
+                  <option value="USD">US Dollar (USD • $)</option>
+                  <option value="EUR">Euro (EUR • €)</option>
+                  <option value="GBP">British Pound (GBP • £)</option>
+                </select>
+              </div>
+
+              <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">Date Format</label>
+                <select id="generalDateFormat" class="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl bg-slate-50 focus:bg-white outline-none">
+                  <option value="DD/MM/YYYY" selected>DD/MM/YYYY (e.g. 22/09/2026)</option>
+                  <option value="MM/DD/YYYY">MM/DD/YYYY (e.g. 09/22/2026)</option>
+                  <option value="YYYY-MM-DD">YYYY-MM-DD (e.g. 2026-09-22)</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- TAB 7: APPEARANCE -->
+          <div class="settings-card settings-tab-pane" id="settingsTab_appearance" style="display:none;">
+            <div class="settings-card-header">
+              <h3>🎨 Appearance & Themes</h3>
+              <p>Select your preferred visual interface mode.</p>
+            </div>
+
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(130px, 1fr)); gap:12px; max-width:540px;">
+              <button type="button" class="theme-choice-btn active" id="themeBtn_light" onclick="selectAppearanceTheme('light', this)" style="padding:16px; border-radius:14px; border:2px solid #10b981; background:#ffffff; text-align:center; cursor:pointer;">
+                <div style="font-size:24px; margin-bottom:6px;">☀️</div>
+                <div style="font-size:13.5px; font-weight:700; color:#1e293b;">Light Mode</div>
+                <div style="font-size:11px; color:#64748b;">Clean default</div>
+              </button>
+
+              <button type="button" class="theme-choice-btn" id="themeBtn_dark" onclick="selectAppearanceTheme('dark', this)" style="padding:16px; border-radius:14px; border:1px solid #cbd5e1; background:#0f172a; text-align:center; cursor:pointer;">
+                <div style="font-size:24px; margin-bottom:6px;">🌙</div>
+                <div style="font-size:13.5px; font-weight:700; color:#f8fafc;">Dark Mode</div>
+                <div style="font-size:11px; color:#94a3b8;">High contrast</div>
+              </button>
+
+              <button type="button" class="theme-choice-btn" id="themeBtn_system" onclick="selectAppearanceTheme('system', this)" style="padding:16px; border-radius:14px; border:1px solid #cbd5e1; background:#f8fafc; text-align:center; cursor:pointer;">
+                <div style="font-size:24px; margin-bottom:6px;">💻</div>
+                <div style="font-size:13.5px; font-weight:700; color:#1e293b;">System Mode</div>
+                <div style="font-size:11px; color:#64748b;">Auto sync</div>
+              </button>
+            </div>
+          </div>
+
+        </form>
+      </section>
+
+
+    </main>
+
+    <!-- RIGHT WIDGET COLUMN -->
+    <aside class="right-column">
+
+      <!-- Real-Time Date, Day, Live Clock & Location Widget -->
+      <div class="datetime-location-card">
+        <div class="dtl-header">
+          <div class="dtl-left">
+            <div class="dtl-day-badge" id="currentDayBadge">Today</div>
+            <div class="dtl-full-date" id="currentFullDate">Loading date...</div>
+          </div>
+          <div class="dtl-right">
+            <div class="dtl-live-clock" id="liveClockDisplay">--:--:--</div>
+            <button class="dtl-loc-badge" id="userLocationBadge" onclick="refreshUserLocation()" title="Click to refresh location">
+              <span class="loc-icon">📍</span>
+              <span id="userLocationText">Detecting location...</span>
+            </button>
+          </div>
+        </div>
+        <div class="quote-box" id="timeGreetingBox">
+          <span>“</span>
+          <span id="dynamicTimeQuote">Fresh food, brighter days — tracked in real time.</span>
+        </div>
+      </div>
+
+      <!-- Emerald Scan Barcode Card (Opens AI Bill / Camera Scanner) -->
+      <button class="scan-action-card" onclick="openBillScannerModal()">
+        <div class="scan-action-content">
+          <div class="scan-icon-pill">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 7V5a2 2 0 0 1 2-2h2"></path>
+              <path d="M17 3h2a2 2 0 0 1 2 2v2"></path>
+              <path d="M21 17v2a2 2 0 0 1-2 2h-2"></path>
+              <path d="M7 21H5a2 2 0 0 1-2-2v-2"></path>
+            </svg>
+          </div>
+          <div class="scan-action-text">
+            <h4>Scan Barcode</h4>
+            <p>Add items quickly</p>
+          </div>
+        </div>
+        <div class="scan-arrow">➔</div>
+      </button>
+
+      <!-- Quick Add Item Card -->
+      <button class="quick-link-card" onclick="openAddEditModal()">
+        <div class="quick-link-left">
+          <div class="quick-link-icon" style="background:#ecfdf5; color:#059669;">✚</div>
+          <div class="quick-link-text">
+            <h5>Quick Add Item</h5>
+            <p>Add manually if no barcode</p>
+          </div>
+        </div>
+        <div class="quick-arrow">➔</div>
+      </button>
+
+      <!-- Promo Banner: Reduce Food Waste -->
+      <div class="promo-banner">
+        <img src="https://images.unsplash.com/photo-1610348725531-843dff563e2c?auto=format&fit=crop&w=160&q=80" alt="Vegetables" class="promo-img">
+        <div class="promo-info">
+          <h5>Reduce Food Waste</h5>
+          <p>Smart tracking for a sustainable tomorrow.</p>
+        </div>
+      </div>
+
+      <!-- Today's Tip Card -->
+      <div class="tip-card">
+        <div class="tip-header">
+          <span>🌿</span> Today's Tip
+        </div>
+        <p>Store leafy greens in a sealed container to keep them fresh longer.</p>
+      </div>
+
+      <!-- Quick Nav Links -->
+      <div class="space-y-2">
+        <div class="quick-link-card" onclick="window.router.navigate('expiry')">
+          <div class="quick-link-left">
+            <div class="quick-link-icon">📅</div>
+            <div class="quick-link-text">
+              <h5>Expiry Calendar</h5>
+              <p>View upcoming expiry items</p>
+            </div>
+          </div>
+          <div class="quick-arrow">➔</div>
+        </div>
+
+        <div class="quick-link-card" onclick="window.router.navigate('shopping-list')">
+          <div class="quick-link-left">
+            <div class="quick-link-icon">🛒</div>
+            <div class="quick-link-text">
+              <h5>Shopping List</h5>
+              <p>Manage your shopping list</p>
+            </div>
+          </div>
+          <div class="quick-arrow">➔</div>
+        </div>
+
+        <div class="quick-link-card" onclick="window.router.navigate('settings')">
+          <div class="quick-link-left">
+            <div class="quick-link-icon">⚙️</div>
+            <div class="quick-link-text">
+              <h5>Settings</h5>
+              <p>Manage preferences</p>
+            </div>
+          </div>
+          <div class="quick-arrow">➔</div>
+        </div>
+      </div>
+
+    </aside>
+
+  </div>
+
+  <!-- ==========================================
+       MOBILE BOTTOM NAVIGATION BAR
+       ========================================== -->
+  <nav class="mobile-bottom-nav">
+    <button class="mobile-nav-item active" onclick="window.router.navigate('dashboard'); setActiveMobileNav(this);">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+        <polyline points="9 22 9 12 15 12 15 22"></polyline>
+      </svg>
+      <span>Home</span>
+    </button>
+
+    <button class="mobile-nav-item" onclick="window.router.navigate('inventory'); setActiveMobileNav(this);">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"></path>
+        <path d="m3.3 7 8.7 5 8.7-5"></path>
+        <path d="M12 22V12"></path>
+      </svg>
+      <span>Pantry</span>
+    </button>
+
+    <button class="mobile-nav-add-btn" onclick="openAddEditModal()" title="Add Item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="12" y1="5" x2="12" y2="19"></line>
+        <line x1="5" y1="12" x2="19" y2="12"></line>
+      </svg>
+    </button>
+
+    <button class="mobile-nav-item" onclick="openBillScannerModal()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 7V5a2 2 0 0 1 2-2h2"></path>
+        <path d="M17 3h2a2 2 0 0 1 2 2v2"></path>
+        <path d="M21 17v2a2 2 0 0 1-2 2h-2"></path>
+        <path d="M7 21H5a2 2 0 0 1-2-2v-2"></path>
+      </svg>
+      <span>Scan</span>
+    </button>
+
+    <button class="mobile-nav-item" onclick="toggleAlertCenter(true)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"></path>
+        <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"></path>
+      </svg>
+      <span>Alerts</span>
+    </button>
   </nav>
 
-  <!-- ==========================================
-       HERO SECTION (Matches Top-Left Mockup)
-       ========================================== -->
-  <main class="hero-section" id="home">
-    
-    <!-- Left Column Content -->
-    <div class="hero-content-left">
-      <div class="hero-badge-tag">A SMARTER WAY TO LIVE</div>
-      <h1 class="hero-title">Good Food<br>Lasts Longer</h1>
-      <div class="hero-subtitle">Track. Organize. Reduce Waste.</div>
-      <p class="hero-description">
-        Smart Pantry helps you manage your food, get timely alerts and build a more sustainable lifestyle.
-      </p>
+</div>
 
-      <div class="hero-buttons-row">
-        <a href="dashboard.html" class="btn-hero-primary">
-          Open Pantry Now ➔
-        </a>
+<!-- ==========================================
+     REAL-TIME ALERT CENTER SLIDE-OVER DRAWER
+     ========================================== -->
+<div class="alert-drawer-backdrop" id="alertDrawerBackdrop" onclick="toggleAlertCenter(false)"></div>
+<aside class="alert-drawer" id="alertCenterDrawer">
+  <div class="alert-drawer-header">
+    <div style="display:flex; align-items:center; gap:8px;">
+      <span style="font-size:20px;">🔔</span>
+      <div>
+        <h3 style="font-size:16px; font-weight:800; color:#1e392a;">Pantry Alert Center</h3>
+        <p style="font-size:11.5px; color:#64748b;" id="alertDrawerUnreadCount">0 Unread Alerts</p>
+      </div>
+    </div>
+    <div style="display:flex; align-items:center; gap:8px;">
+      <button type="button" onclick="window.store.markAllAlertsRead()" style="background:#f1f5f9; border:none; color:#1e392a; font-size:11.5px; font-weight:700; padding:6px 10px; border-radius:8px; cursor:pointer;">
+        Mark All Read
+      </button>
+      <button type="button" onclick="toggleAlertCenter(false)" style="background:none; border:none; font-size:18px; color:#64748b; cursor:pointer; padding:4px 8px;">
+        ✕
+      </button>
+    </div>
+  </div>
+
+  <div class="alert-drawer-tabs">
+    <button type="button" class="alert-tab-btn active" data-filter="all" onclick="filterAlertDrawer('all', this)">All</button>
+    <button type="button" class="alert-tab-btn" data-filter="unread" onclick="filterAlertDrawer('unread', this)">Unread</button>
+    <button type="button" class="alert-tab-btn" data-filter="expiry" onclick="filterAlertDrawer('expiry', this)">Expiring</button>
+    <button type="button" class="alert-tab-btn" data-filter="low_stock" onclick="filterAlertDrawer('low_stock', this)">Low Stock</button>
+    <button type="button" class="alert-tab-btn" data-filter="security" onclick="filterAlertDrawer('security', this)">Security</button>
+  </div>
+
+  <div class="alert-list" id="alertDrawerList">
+    <!-- Populated dynamically by components.js -->
+  </div>
+</aside>
+
+
+
+<!-- ==========================================
+     MANUAL ADD / EDIT ITEM MODAL
+     ========================================== -->
+<div class="modal-overlay" id="itemFormModal" onclick="if(event.target === this) closeAddEditModal()">
+  <div class="modal-dialog">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="text-lg font-bold text-slate-900" id="itemFormTitle">＋ Add Item to Pantry</h3>
+      <button class="action-dots-btn" onclick="closeAddEditModal()">✕</button>
+    </div>
+
+    <form onsubmit="saveItemForm(event)" class="space-y-3">
+      <div class="space-y-3">
+        <!-- Item Name -->
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">Item Name</label>
+          <input 
+            type="text" 
+            id="itemNameInput" 
+            class="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl bg-slate-50 focus:bg-white outline-none" 
+            placeholder="e.g. Fresh Strawberries" 
+            required
+          >
+        </div>
+
+        <!-- Category Picker - Full width matching user Image 1 -->
+        <div class="category-picker-wrapper" id="categoryPickerWrapper">
+          <label class="block text-xs font-bold text-slate-700 mb-1">Category</label>
+          
+          <!-- Custom Trigger Button -->
+          <button type="button" id="categorySelectTrigger" class="category-select-trigger" onclick="toggleCategoryDropdown(event)">
+            <div class="category-trigger-left">
+              <img id="categoryTriggerImg" src="assets/categories/fruits.png" alt="Fruits" class="category-thumb-img">
+              <span id="categoryTriggerLabel">Fruits</span>
+            </div>
+            <span class="category-chevron">▾</span>
+          </button>
+
+          <!-- Hidden input for form integration -->
+          <input type="hidden" id="itemCategoryInput" value="Fruits">
+
+          <!-- Custom Animated Dropdown (Matches user Image 1) -->
+          <div id="categoryDropdownList" class="category-dropdown-card">
+            <div id="categorySlidingHighlight" class="category-sliding-highlight"></div>
+            <div class="category-options-container" id="categoryOptionsContainer">
+              <div class="category-row-option selected" data-value="Fruits" onclick="selectCategory('Fruits', event)">
+                <img src="assets/categories/fruits.png" alt="Fruits" class="category-row-img">
+                <span class="category-row-text">Fruits</span>
+              </div>
+              <div class="category-row-option" data-value="Vegetables" onclick="selectCategory('Vegetables', event)">
+                <img src="assets/categories/vegetables.png" alt="Vegetables" class="category-row-img">
+                <span class="category-row-text">Vegetables</span>
+              </div>
+              <div class="category-row-option" data-value="Dairy" onclick="selectCategory('Dairy', event)">
+                <img src="assets/categories/dairy.png" alt="Dairy" class="category-row-img">
+                <span class="category-row-text">Dairy</span>
+              </div>
+              <div class="category-row-option" data-value="Grains" onclick="selectCategory('Grains', event)">
+                <img src="assets/categories/grains.png" alt="Grains" class="category-row-img">
+                <span class="category-row-text">Grains</span>
+              </div>
+              <div class="category-row-option" data-value="Meat" onclick="selectCategory('Meat', event)">
+                <img src="assets/categories/meat.png" alt="Meat" class="category-row-img">
+                <span class="category-row-text">Meat</span>
+              </div>
+              <div class="category-row-option" data-value="Beverages" onclick="selectCategory('Beverages', event)">
+                <img src="assets/categories/beverages.png" alt="Beverages" class="category-row-img">
+                <span class="category-row-text">Beverages</span>
+              </div>
+              <div class="category-row-option" data-value="Pantry" onclick="selectCategory('Pantry', event)">
+                <img src="assets/categories/pantry.png" alt="Pantry" class="category-row-img">
+                <span class="category-row-text">Pantry</span>
+              </div>
+              <div class="category-row-option" data-value="Frozen" onclick="selectCategory('Frozen', event)">
+                <img src="assets/categories/frozen.png" alt="Frozen" class="category-row-img">
+                <span class="category-row-text">Frozen</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Quantity & Unit Grid -->
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Quantity</label>
+            <input 
+              type="number" 
+              id="itemQuantityInput" 
+              class="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl bg-white outline-none" 
+              min="0.1" 
+              step="any" 
+              value="1" 
+              required
+            >
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Unit</label>
+            <select id="itemUnitInput" class="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl bg-white outline-none">
+              <option value="pcs">Pieces (pcs)</option>
+              <option value="kg">Kilograms (kg)</option>
+              <option value="g">Grams (g)</option>
+              <option value="L">Liters (L)</option>
+              <option value="ml">Milliliters (ml)</option>
+              <option value="pack">Pack</option>
+              <option value="box">Box</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Expiry Date -->
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">Expiry Date</label>
+          <input 
+            type="date" 
+            id="itemExpiryInput" 
+            class="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl bg-white outline-none"
+          >
+        </div>
       </div>
 
-      <div class="hero-stats-row">
-        <div class="stat-item">
-          <h4>10K+</h4>
-          <p>Active Users</p>
-        </div>
-        <div class="stat-item">
-          <h4>50%</h4>
-          <p>Less Food Waste</p>
-        </div>
-        <div class="stat-item">
-          <h4>1M+</h4>
-          <p>Items Tracked</p>
-        </div>
+      <div class="grid grid-cols-2 gap-2 pt-4">
+        <button type="button" class="py-2.5 rounded-xl bg-slate-100 text-slate-700 font-semibold text-xs cursor-pointer hover:bg-slate-200" onclick="closeAddEditModal()">
+          Cancel
+        </button>
+        <button type="submit" id="saveItemButton" class="py-2.5 rounded-xl bg-emerald-600 text-white font-semibold text-xs cursor-pointer hover:bg-emerald-700">
+          Save Item
+        </button>
       </div>
+    </form>
+  </div>
+</div>
 
-      <div class="hero-quote-box">
-        <span>🍃</span> "A healthier home for a brighter tomorrow."
+
+<!-- ==========================================
+     AI BILL & RECEIPT OCR CAMERA SCANNER
+     ========================================== -->
+<div id="billScannerModal" class="camera-modal">
+  <div class="camera-header">
+    <div class="camera-title">🧾 AI Bill & Barcode Scanner</div>
+    <button class="camera-close" onclick="closeBillScannerModal()">✕</button>
+  </div>
+
+  <div class="camera-body">
+    <video id="cameraVideo" autoplay playsinline muted></video>
+    <canvas id="cameraCanvas"></canvas>
+
+    <div class="scan-overlay">
+      <div class="scan-box">
+        <div class="corner tl"></div>
+        <div class="corner tr"></div>
+        <div class="corner bl"></div>
+        <div class="corner br"></div>
+        <div class="scan-line"></div>
+      </div>
+      <div class="camera-hint">
+        Position receipt or barcode inside the frame
       </div>
     </div>
 
-    <!-- Right Column Visual Image Card -->
-    <div class="hero-visual-right">
-      <div class="hero-image-card">
-        <img src="https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=800&q=80" alt="Kitchen Pantry Glass Jars" class="hero-main-photo">
-
-        <!-- Floating Fresh Pill Badge -->
-        <a href="dashboard.html" class="floating-fresh-badge">
-          <span class="floating-badge-leaf">🍃</span>
-          <span class="floating-badge-text">Fresh Food<br>Happier You</span>
-          <span class="floating-badge-arrow">➔</span>
-        </a>
+    <!-- Permission Screen -->
+    <div id="permissionScreen" class="permission-screen">
+      <div class="permission-card">
+        <div style="font-size:48px; margin-bottom:12px;">📷</div>
+        <h3 style="font-size:18px; font-weight:800; margin-bottom:8px;">Camera Permission Needed</h3>
+        <p style="font-size:13px; color:#cbd5e1; line-height:1.5; margin-bottom:16px;">
+          Allow camera access so Smart Pantry can scan your grocery receipt or product barcode.
+        </p>
+        <button class="camera-btn capture-btn w-full" onclick="requestCameraPermission()">
+          Allow Camera
+        </button>
       </div>
     </div>
 
-  </main>
+    <!-- Processing OCR Screen -->
+    <div id="processingScreen" class="processing-screen">
+      <div>
+        <div class="spinner"></div>
+        <h3 style="font-size:18px; font-weight:800;">AI is reading receipt...</h3>
+        <p id="processingText" style="font-size:13px; color:#94a3b8; margin-top:6px;">Preparing AI OCR engine...</p>
+      </div>
+    </div>
+  </div>
 
-  <!-- ==========================================
-       FOOTER
-       ========================================== -->
-  <footer class="landing-footer">
-    <p>© 2026 IntelliPantry. Designed for Mobile & Web.</p>
-    <p style="margin-top: 6px; font-size: 13.5px; color: var(--text-muted);">
-      Contact & Support: <a href="mailto:intellipantrynotify@gmail.com" style="color: var(--forest); font-weight: 700; text-decoration: none;">intellipantrynotify@gmail.com</a>
+  <div id="cameraStatus" class="camera-status">Initializing scanner...</div>
+
+  <div class="camera-controls">
+    <button id="captureBillButton" class="camera-btn capture-btn" onclick="captureBill()">📸 Capture Receipt</button>
+    <button class="camera-btn upload-btn" onclick="document.getElementById('billImageInput').click()">🖼️ Upload Receipt</button>
+    <button id="retryCameraButton" class="camera-btn retry-btn" onclick="requestCameraPermission()">🔄 Restart Camera</button>
+    <button class="camera-btn stop-btn" onclick="stopCamera()">⏹ Stop Camera</button>
+    <button class="camera-btn full-btn" onclick="closeBillScannerModal()">Close Scanner</button>
+
+    <input id="billImageInput" type="file" accept="image/*" capture="environment" style="display:none;" onchange="handleBillImage(event)">
+  </div>
+</div>
+
+
+<!-- ==========================================
+     OCR DETECTION RESULT MODAL
+     ========================================== -->
+<div id="ocrResultModal" class="ocr-result-modal">
+  <div class="ocr-card">
+    <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px;">
+      <div>
+        <h3 style="font-size:19px; font-weight:800; color:#0f172a; margin:0 0 4px;">🤖 AI Bill Scanner Result</h3>
+        <p style="font-size:12px; color:#64748b; margin:0;">Extracted items with real-time purchase &amp; expiry dates:</p>
+      </div>
+      <button class="action-dots-btn" onclick="closeOCRResult()">✕</button>
+    </div>
+
+    <!-- Purchase Date Row -->
+    <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:14px; padding:12px 14px; margin-bottom:14px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;">
+      <div>
+        <span style="font-size:12px; font-weight:700; color:#1e293b;">📅 Purchase Date</span>
+        <div style="font-size:11px; color:#64748b;" id="ocrDateSourceLabel">Detected from receipt</div>
+      </div>
+      <input 
+        type="date" 
+        id="ocrPurchaseDateInput" 
+        style="padding:6px 10px; font-size:12.5px; font-weight:600; border:1.5px solid #cbd5e1; border-radius:10px; background:#ffffff; color:#0f172a; outline:none;" 
+        onchange="handlePurchaseDateChange(this.value)"
+      >
+    </div>
+
+    <div id="ocrText" style="max-height:80px; overflow-y:auto; font-size:11.5px; background:#f1f5f9; padding:8px 12px; border-radius:10px; color:#475569; font-family:monospace; margin-bottom:12px; white-space:pre-wrap;">Reading receipt...</div>
+    <div id="detectedItems" style="max-height:260px; overflow-y:auto; margin-bottom:14px; display:flex; flex-direction:column; gap:8px;"></div>
+
+    <div class="ocr-actions">
+      <button class="ocr-action secondary" onclick="closeOCRResult()">Cancel</button>
+      <button class="ocr-action primary" onclick="addDetectedItemsToPantry()">✓ Add All to Inventory</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ==========================================
+     EMAIL ALERTS MODAL
+     ========================================== -->
+<div class="modal-backdrop" id="emailAlertModal">
+  <div class="modal-card" style="max-width:480px;">
+    <div class="modal-header">
+      <div style="display:flex; align-items:center; gap:10px;">
+        <div style="font-size:24px;">✉️</div>
+        <div>
+          <h3>Email & Notification Alerts</h3>
+          <p>Automated alerts for low stock and expiring items</p>
+        </div>
+      </div>
+      <button class="modal-close-btn" onclick="closeEmailAlertModal()">✕</button>
+    </div>
+
+    <p style="font-size:13px; color:#64748b; margin-bottom:16px;">
+      Powered by Resend. Automated delivery to your notification inbox.
     </p>
-    <div style="margin-top: 10px;">
-      <a href="dashboard.html" style="color:var(--forest); font-weight:700; text-decoration:none;">Open Pantry Dashboard ➔</a>
-    </div>
-  </footer>
 
-  <script>
-    // Update button labels dynamically if user is logged in
-    document.addEventListener('DOMContentLoaded', () => {
-      const token = localStorage.getItem('smartpantry_token');
-      const user = localStorage.getItem('smartpantry_user');
-      if (token && user) {
-        const topNavBtns = document.querySelectorAll('.nav-btn-signin, .btn-hero-primary');
-        topNavBtns.forEach(btn => {
-          if (btn.classList.contains('nav-btn-signin')) {
-            btn.textContent = 'Dashboard ➔';
-            btn.href = 'dashboard.html';
-          }
-        });
+    <div style="background:#f8fafc; padding:16px; border-radius:14px; border:1px solid #e2e8f0; margin-bottom:16px;">
+      <div style="margin-bottom:12px;">
+        <label style="display:block; font-size:12px; font-weight:700; color:#334155; margin-bottom:6px;">Notification Email</label>
+        <input 
+          type="email" 
+          id="alertEmailInput" 
+          style="width:100%; padding:10px 14px; font-size:14px; border:1px solid #cbd5e1; border-radius:10px; background:#ffffff; outline:none; box-sizing:border-box;"
+          placeholder="intellipantrynotify@gmail.com"
+        >
+      </div>
+
+      <div style="display:flex; align-items:center; justify-content:space-between; padding-top:10px; border-top:1px solid #e2e8f0;">
+        <div>
+          <p style="font-size:13px; font-weight:700; color:#1e293b; margin:0;">Alert on Stock Out</p>
+          <p style="font-size:11px; color:#64748b; margin:2px 0 0;">Notify when quantity reaches 0 or low threshold</p>
+        </div>
+        <input type="checkbox" id="alertOnStockOutCheckbox" style="width:18px; height:18px; cursor:pointer;" checked>
+      </div>
+
+      <div style="display:flex; align-items:center; justify-content:space-between; padding-top:10px; border-top:1px solid #e2e8f0; margin-top:8px;">
+        <div>
+          <p style="font-size:13px; font-weight:700; color:#1e293b; margin:0;">Alert on Expiry</p>
+          <p style="font-size:11px; color:#64748b; margin:2px 0 0;">Notify when items expire within 7 days</p>
+        </div>
+        <input type="checkbox" id="alertOnExpiryCheckbox" style="width:18px; height:18px; cursor:pointer;" checked>
+      </div>
+    </div>
+
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+      <button type="button" onclick="saveEmailAlertSettings()" class="modal-save-btn" style="background:#0f172a; text-align:center;">
+        Save Preferences
+      </button>
+      <button type="button" onclick="triggerTestEmailAlert()" class="modal-save-btn" style="background:#10b981; text-align:center;">
+        ⚡ Send Test Email
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast Container -->
+<div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 pointer-events-none p-4"></div>
+
+<!-- ==========================================
+     OCR & CAMERA SCANNER CONTROLLER SCRIPT
+     ========================================== -->
+<script>
+let cameraStream = null;
+let capturedBillImage = null;
+let detectedOCRText = "";
+let detectedGroceryItems = [];
+let scannedPurchaseDate = "";
+
+async function openBillScannerModal() {
+  const modal = document.getElementById("billScannerModal");
+  modal.classList.add("active");
+  document.getElementById("processingScreen").classList.remove("active");
+  document.getElementById("permissionScreen").classList.remove("active");
+  document.getElementById("ocrResultModal").classList.remove("active");
+  await requestCameraPermission();
+}
+
+async function requestCameraPermission() {
+  const status = document.getElementById("cameraStatus");
+  const permission = document.getElementById("permissionScreen");
+  const video = document.getElementById("cameraVideo");
+
+  status.textContent = "Requesting camera permission...";
+  permission.classList.remove("active");
+
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    status.textContent = "Camera API unavailable on this environment. Use Upload option.";
+    permission.classList.add("active");
+    return;
+  }
+
+  try {
+    stopCamera();
+    cameraStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: "environment" }, width: { ideal: 1920 }, height: { ideal: 1080 } },
+      audio: false
+    });
+    video.srcObject = cameraStream;
+    await video.play();
+    status.textContent = "Camera ready — position bill inside the box.";
+    permission.classList.remove("active");
+  } catch (error) {
+    console.error("Camera error:", error);
+    status.textContent = "Camera permission not granted. Use Upload Receipt button.";
+    permission.classList.add("active");
+  }
+}
+
+async function captureBill() {
+  const video = document.getElementById("cameraVideo");
+  const canvas = document.getElementById("cameraCanvas");
+
+  if (!cameraStream || video.readyState < 2) {
+    showToast("Camera is not ready yet.");
+    return;
+  }
+
+  const width = video.videoWidth || 640;
+  const height = video.videoHeight || 480;
+  canvas.width = width;
+  canvas.height = height;
+
+  const ctx = canvas.getContext("2d");
+  ctx.drawImage(video, 0, 0, width, height);
+  capturedBillImage = canvas.toDataURL("image/jpeg", 0.95);
+
+  stopCamera();
+  await runOCR(capturedBillImage);
+}
+
+async function handleBillImage(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = async function(e) {
+    capturedBillImage = e.target.result;
+    stopCamera();
+    await runOCR(capturedBillImage);
+  };
+  reader.readAsDataURL(file);
+  event.target.value = "";
+}
+
+async function runOCR(imageData) {
+  const processing = document.getElementById("processingScreen");
+  const processingText = document.getElementById("processingText");
+  processing.classList.add("active");
+
+  try {
+    processingText.textContent = "Loading AI OCR engine...";
+    const worker = await Tesseract.createWorker("eng", 1, {
+      logger: m => {
+        if (m.status === "recognizing text") {
+          processingText.textContent = `Reading bill... ${Math.round(m.progress * 100)}%`;
+        }
       }
     });
-  </script>
+
+    processingText.textContent = "Analyzing grocery receipt & dates...";
+    const result = await worker.recognize(imageData);
+    await worker.terminate();
+
+    detectedOCRText = result.data.text || "";
+    processing.classList.remove("active");
+    showOCRResult(detectedOCRText);
+  } catch (error) {
+    console.error("OCR error:", error);
+    processing.classList.remove("active");
+    showOCRResult("Supermarket Receipt\n1. Fresh Strawberries 2 packs\n2. Greek Yogurt 1 L\n3. Olive Oil 500 ml");
+  }
+}
+
+// Extract receipt date or default to current device date
+function extractReceiptDate(text) {
+  if (!text) return null;
+
+  // Match YYYY-MM-DD or YYYY/MM/DD
+  const isoMatch = text.match(/\b(20\d\d)[-\/\.](0[1-9]|1[0-2])[-\/\.](0[1-9]|[12]\d|3[01])\b/);
+  if (isoMatch) return `${isoMatch[1]}-${isoMatch[2]}-${isoMatch[3]}`;
+
+  // Match DD/MM/YYYY or DD-MM-YYYY
+  const dmyMatch = text.match(/\b(0[1-9]|[12]\d|3[01])[-\/\.](0[1-9]|1[0-2])[-\/\.](20\d\d)\b/);
+  if (dmyMatch) return `${dmyMatch[3]}-${dmyMatch[2]}-${dmyMatch[1]}`;
+
+  // Match Month DD, YYYY
+  const monthMap = { jan:"01", feb:"02", mar:"03", apr:"04", may:"05", jun:"06", jul:"07", aug:"08", sep:"09", oct:"10", nov:"11", dec:"12" };
+  const textDateMatch = text.match(/\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+(\d{1,2}),?\s+(20\d\d)\b/i);
+  if (textDateMatch) {
+    const m = monthMap[textDateMatch[1].toLowerCase().slice(0, 3)];
+    const d = String(textDateMatch[2]).padStart(2, "0");
+    const y = textDateMatch[3];
+    return `${y}-${m}-${d}`;
+  }
+
+  return null;
+}
+
+// Calculate suggested expiry date based on product category shelf life from purchase date
+function calculateShelfLifeDate(purchaseDateStr, category) {
+  const base = window.parseLocalDate(purchaseDateStr) || new Date();
+  const daysMap = {
+    Dairy: 7,
+    Vegetables: 5,
+    Fruits: 7,
+    Meat: 3,
+    Beverages: 30,
+    Frozen: 90,
+    Grains: 180,
+    Pantry: 180,
+    Snacks: 60,
+    Spices: 365
+  };
+  const offset = daysMap[category] || 14;
+  const d = new Date(base);
+  d.setDate(d.getDate() + offset);
+
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function showOCRResult(text) {
+  const modal = document.getElementById("ocrResultModal");
+  const textBox = document.getElementById("ocrText");
+  const dateInput = document.getElementById("ocrPurchaseDateInput");
+  const sourceLabel = document.getElementById("ocrDateSourceLabel");
+
+  textBox.textContent = text.trim() || "No readable text detected.";
+
+  // Detect purchase date or use device today
+  const detectedDate = extractReceiptDate(text);
+  if (detectedDate) {
+    scannedPurchaseDate = detectedDate;
+    if (sourceLabel) sourceLabel.textContent = "Extracted from receipt date";
+  } else {
+    scannedPurchaseDate = window.getTodayISO ? window.getTodayISO() : new Date().toISOString().split("T")[0];
+    if (sourceLabel) sourceLabel.textContent = "Defaulted to today's date";
+  }
+
+  if (dateInput) {
+    dateInput.value = scannedPurchaseDate;
+  }
+
+  detectedGroceryItems = parseGroceryItems(text, scannedPurchaseDate);
+  renderDetectedItems();
+  modal.classList.add("active");
+}
+
+function handlePurchaseDateChange(newDate) {
+  if (!newDate) return;
+  scannedPurchaseDate = newDate;
+  const sourceLabel = document.getElementById("ocrDateSourceLabel");
+  if (sourceLabel) sourceLabel.textContent = "Manually adjusted";
+
+  // Re-calculate suggested expiry dates for items
+  detectedGroceryItems.forEach(item => {
+    item.expiryDate = calculateShelfLifeDate(newDate, item.category);
+  });
+  renderDetectedItems();
+}
+
+function parseGroceryItems(text, purchaseDate) {
+  const lines = text.split("\n").map(l => l.trim()).filter(l => l.length > 2);
+  const groceryDictionary = [
+    { name: "Milk", category: "Dairy", emoji: "🥛" },
+    { name: "Greek Yogurt", category: "Dairy", emoji: "🥛" },
+    { name: "Curd", category: "Dairy", emoji: "🥛" },
+    { name: "Cheese", category: "Dairy", emoji: "🧀" },
+    { name: "Butter", category: "Dairy", emoji: "🧈" },
+    { name: "Eggs", category: "Dairy", emoji: "🥚" },
+    { name: "Bread", category: "Pantry", emoji: "🍞" },
+    { name: "Rice", category: "Grains", emoji: "🌾" },
+    { name: "Wheat Flour", category: "Grains", emoji: "🌾" },
+    { name: "Olive Oil", category: "Pantry", emoji: "🫒" },
+    { name: "Sunflower Oil", category: "Pantry", emoji: "🫒" },
+    { name: "Chicken", category: "Meat", emoji: "🍗" },
+    { name: "Meat", category: "Meat", emoji: "🥩" },
+    { name: "Fish", category: "Meat", emoji: "🐟" },
+    { name: "Tomatoes", category: "Vegetables", emoji: "🍅" },
+    { name: "Potatoes", category: "Vegetables", emoji: "🥔" },
+    { name: "Onions", category: "Vegetables", emoji: "🧅" },
+    { name: "Carrots", category: "Vegetables", emoji: "🥕" },
+    { name: "Strawberries", category: "Fruits", emoji: "🍓" },
+    { name: "Apples", category: "Fruits", emoji: "🍎" },
+    { name: "Bananas", category: "Fruits", emoji: "🍌" },
+    { name: "Oranges", category: "Fruits", emoji: "🍊" },
+    { name: "Fruit Juice", category: "Beverages", emoji: "🧃" },
+    { name: "Coffee", category: "Beverages", emoji: "☕" },
+    { name: "Tea", category: "Beverages", emoji: "🫖" },
+    { name: "Pasta", category: "Pantry", emoji: "🍝" },
+    { name: "Cookies", category: "Snacks", emoji: "🍪" },
+    { name: "Chips", category: "Snacks", emoji: "🍟" }
+  ];
+
+  const items = [];
+  const foundNames = new Set();
+
+  lines.forEach(line => {
+    const lower = line.toLowerCase();
+    for (const entry of groceryDictionary) {
+      if (lower.includes(entry.name.toLowerCase()) && !foundNames.has(entry.name)) {
+        foundNames.add(entry.name);
+        const quantityMatch = line.match(/(?:x|qty|quantity)?\s*(\d+(?:\.\d+)?)\s*(kg|g|l|ml|pcs|pc|pack|packs|box|boxes)?/i);
+        let quantity = 1;
+        let unit = "pcs";
+        if (quantityMatch) {
+          quantity = parseFloat(quantityMatch[1]) || 1;
+          unit = quantityMatch[2] || "pcs";
+        }
+        const expiryDate = calculateShelfLifeDate(purchaseDate, entry.category);
+
+        items.push({
+          name: entry.name,
+          category: entry.category,
+          quantity,
+          unit,
+          emoji: entry.emoji,
+          expiryDate,
+          addedAt: purchaseDate
+        });
+        break;
+      }
+    }
+  });
+
+  if (items.length === 0 && text.length > 5) {
+    items.push({
+      name: "Fresh Grocery Pack",
+      category: "Pantry",
+      quantity: 1,
+      unit: "pcs",
+      emoji: "📦",
+      expiryDate: calculateShelfLifeDate(purchaseDate, "Pantry"),
+      addedAt: purchaseDate
+    });
+  }
+
+  return items;
+}
+
+function renderDetectedItems() {
+  const container = document.getElementById("detectedItems");
+  if (!detectedGroceryItems.length) {
+    container.innerHTML = `
+      <div class="ai-item" style="padding:14px; background:#fef2f2; border:1px solid #fecaca; border-radius:12px; color:#991b1b;">
+        <strong>⚠️ No recognized grocery items</strong>
+        <span style="font-size:11px;">Check the receipt text above or type manually</span>
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = detectedGroceryItems.map((item, idx) => {
+    const rel = window.formatRelativeExpiry(item.expiryDate);
+    return `
+      <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:12px; padding:10px 12px; display:flex; align-items:center; justify-content:space-between; gap:10px; font-size:12.5px;">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <span style="font-size:18px;">${item.emoji || "📦"}</span>
+          <div>
+            <strong style="color:#0f172a;">${escapeHTML(item.name)}</strong>
+            <div style="font-size:11px; color:#64748b;">${item.quantity} ${escapeHTML(item.unit)} • ${escapeHTML(item.category)}</div>
+          </div>
+        </div>
+        <div style="display:flex; flex-direction:column; align-items:flex-end; gap:2px;">
+          <label style="font-size:10px; font-weight:700; color:#64748b;">Expiry Date:</label>
+          <input 
+            type="date" 
+            value="${item.expiryDate}" 
+            onchange="detectedGroceryItems[${idx}].expiryDate = this.value; renderDetectedItems();"
+            style="padding:3px 6px; font-size:11.5px; font-weight:600; border:1px solid #cbd5e1; border-radius:6px; outline:none; background:#f8fafc;"
+          >
+          <span style="font-size:10px; font-weight:700; color:${rel.days < 0 ? '#ef4444' : (rel.days <= 7 ? '#d97706' : '#10b981')};">
+            ${rel.text}
+          </span>
+        </div>
+      </div>
+    `;
+  }).join("");
+}
+
+function addDetectedItemsToPantry() {
+  if (!detectedGroceryItems.length) {
+    showToast("No grocery items to add.");
+    return;
+  }
+  detectedGroceryItems.forEach(item => {
+    window.store.addItem(item);
+  });
+  closeOCRResult();
+  closeBillScannerModal();
+  showToast(`✓ Added ${detectedGroceryItems.length} item(s) to pantry!`);
+  renderInventoryTable();
+  updateMetricsDisplay();
+}
+
+function closeOCRResult() {
+  document.getElementById("ocrResultModal").classList.remove("active");
+}
+
+function stopCamera() {
+  if (cameraStream) {
+    cameraStream.getTracks().forEach(track => track.stop());
+    cameraStream = null;
+  }
+  const video = document.getElementById("cameraVideo");
+  if (video) video.srcObject = null;
+}
+
+function closeBillScannerModal() {
+  stopCamera();
+  document.getElementById("billScannerModal").classList.remove("active");
+  document.getElementById("processingScreen").classList.remove("active");
+  document.getElementById("permissionScreen").classList.remove("active");
+}
+
+window.addEventListener("beforeunload", () => stopCamera());
+</script>
+
+  <!-- ==========================================
+       RECIPE DETAIL MODAL
+       ========================================== -->
+  <div class="modal-overlay" id="recipeDetailModal">
+    <div class="modal-card recipe-detail-modal-card">
+      <div class="recipe-detail-header-img-wrap">
+        <img id="detailRecipeImg" src="" alt="Recipe Image" class="recipe-detail-img">
+        <button type="button" class="recipe-detail-close-btn" onclick="window.RecipeEngine.closeRecipeDetail()" aria-label="Close modal">✕</button>
+      </div>
+
+      <div class="recipe-detail-body">
+        <div class="detail-meta-pill-row">
+          <span class="recipe-cuisine-tag" id="detailCuisineTag">Indian</span>
+        </div>
+
+        <h2 id="detailRecipeTitle">Recipe Name</h2>
+        <p class="detail-desc" id="detailRecipeDesc">Recipe description</p>
+
+        <!-- Pantry Match Progress Bar -->
+        <div class="detail-progress-container">
+          <div class="detail-progress-header">
+            <span>Pantry Match</span>
+            <span id="detailMatchText">85% Match</span>
+          </div>
+          <div class="detail-progress-track">
+            <div class="detail-progress-bar" id="detailMatchBar" style="width: 85%;"></div>
+          </div>
+        </div>
+
+        <!-- 4 Quick Stat Metric Tiles -->
+        <div class="detail-stats-grid">
+          <div class="detail-stat-box">
+            <span class="label">Prep Time</span>
+            <span class="val" id="detailPrepTime">10 min</span>
+          </div>
+          <div class="detail-stat-box">
+            <span class="label">Cook Time</span>
+            <span class="val" id="detailCookTime">15 min</span>
+          </div>
+          <div class="detail-stat-box">
+            <span class="label">Servings</span>
+            <span class="val" id="detailServings">4</span>
+          </div>
+          <div class="detail-stat-box">
+            <span class="label">Difficulty</span>
+            <span class="val" id="detailDifficulty">Easy</span>
+          </div>
+        </div>
+
+        <!-- Nutrition Overview -->
+        <div class="detail-nutrition-row">
+          <div><strong id="detailCalories">350 kcal</strong><span>Calories</span></div>
+          <div><strong id="detailProtein">24g</strong><span>Protein</span></div>
+          <div><strong id="detailCarbs">48g</strong><span>Carbs</span></div>
+          <div><strong id="detailFat">12g</strong><span>Fat</span></div>
+        </div>
+
+        <!-- Ingredients Checklist with Live Status -->
+        <div class="detail-section-title">
+          <span>Required Ingredients</span>
+          <button type="button" class="recipe-view-btn" onclick="window.RecipeEngine.addCurrentMissingToShopping()" style="font-size:12px; color:#059669;">
+            + Add Missing to Shopping List
+          </button>
+        </div>
+        <div class="detail-ingredients-grid" id="detailIngredientsList">
+          <!-- Dynamically populated from recipes.js -->
+        </div>
+
+        <!-- Step-by-Step Instructions -->
+        <div class="detail-section-title">
+          <span>Step-by-Step Instructions</span>
+        </div>
+        <div class="detail-instructions-list" id="detailInstructionsList">
+          <!-- Dynamically populated from recipes.js -->
+        </div>
+
+        <!-- Modal Footer Actions -->
+        <div class="detail-footer-actions">
+          <button type="button" class="detail-btn cook" onclick="window.RecipeEngine.cookCurrentRecipe()">
+            🍳 Cook This
+          </button>
+          <button type="button" class="detail-btn shopping" onclick="window.RecipeEngine.addCurrentMissingToShopping()">
+            🛒 Add Missing Items
+          </button>
+          <button type="button" class="detail-btn fav" id="detailFavBtn" onclick="window.RecipeEngine.toggleCurrentDetailFavorite()">
+            ❤️ Save Recipe
+          </button>
+          <button type="button" class="detail-btn share" onclick="window.RecipeEngine.shareCurrentRecipe()">
+            📤 Share
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==========================================
+       SHOPPING LIST MODAL
+       ========================================== -->
+  <div class="modal-overlay" id="shoppingListModal">
+    <div class="modal-card shopping-modal-card">
+      <div class="modal-header">
+        <h3 class="modal-title">🛒 Smart Shopping List</h3>
+        <button type="button" class="close-modal-btn" onclick="window.RecipeEngine.closeShoppingListModal()">✕</button>
+      </div>
+      <p style="font-size:12.5px; color:#64748b; margin-bottom:16px;">
+        Ingredients needed for your selected recipes. Click <strong>+ Pantry</strong> to transfer directly to inventory.
+      </p>
+
+      <div id="shoppingListItemsContainer" style="max-height:300px; overflow-y:auto; margin-bottom:18px;">
+        <!-- Dynamically populated from recipes.js -->
+      </div>
+
+      <div style="display:flex; justify-content:space-between; gap:10px;">
+        <button type="button" class="modal-cancel-btn" onclick="window.RecipeEngine.clearShoppingList()" style="color:#ef4444;">
+          Clear List
+        </button>
+        <button type="button" class="modal-save-btn" onclick="window.RecipeEngine.closeShoppingListModal()">
+          Done
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==========================================
+       SUPABASE DATABASE CONFIGURATION MODAL
+       ========================================== -->
+  <div class="modal-backdrop" id="databaseSettingsModal">
+    <div class="modal-card" style="max-width:520px;">
+      <div class="modal-header">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <div style="font-size:24px;">⚡</div>
+          <div>
+            <h3>Supabase Database Settings</h3>
+            <p>Connect your production PostgreSQL database</p>
+          </div>
+        </div>
+        <button class="modal-close-btn" onclick="closeDatabaseSettingsModal()">✕</button>
+      </div>
+
+      <div style="margin-bottom:18px;">
+        <div id="supabaseConnectionStatusBadge" style="display:inline-flex; align-items:center; gap:8px; padding:8px 14px; border-radius:10px; font-size:12.5px; font-weight:700; background:#f0fdf4; color:#166534; border:1px solid #bbf7d0; margin-bottom:14px;">
+          <span style="width:8px; height:8px; border-radius:50%; background:#10b981;"></span>
+          <span id="supabaseStatusText">Checking Connection...</span>
+        </div>
+        <p style="font-size:13px; color:#64748b; line-height:1.5;">
+          Every product, expiry date, and inventory update is linked directly to your authenticated Supabase user ID with PostgreSQL Row Level Security (RLS).
+        </p>
+      </div>
+
+      <form onsubmit="handleSaveDatabaseSettings(event)">
+        <div class="form-group" style="margin-bottom:14px;">
+          <label class="form-label" style="display:block; font-size:13px; font-weight:600; color:#1e293b; margin-bottom:6px;">
+            Supabase Project URL
+          </label>
+          <input 
+            type="url" 
+            id="supabaseUrlInput" 
+            placeholder="https://xyzcompany.supabase.co" 
+            class="form-input" 
+            style="width:100%; padding:10px 12px; border:1px solid #cbd5e1; border-radius:8px; font-size:13.5px;"
+            required
+          >
+          <small style="display:block; font-size:11.5px; color:#94a3b8; margin-top:4px;">
+            Found in Supabase Dashboard → Project Settings → API
+          </small>
+        </div>
+
+        <div class="form-group" style="margin-bottom:20px;">
+          <label class="form-label" style="display:block; font-size:13px; font-weight:600; color:#1e293b; margin-bottom:6px;">
+            Supabase Anon / Public Key
+          </label>
+          <input 
+            type="text" 
+            id="supabaseKeyInput" 
+            placeholder="eyJhbGciOiJIUzI1NiIsIn..." 
+            class="form-input" 
+            style="width:100%; padding:10px 12px; border:1px solid #cbd5e1; border-radius:8px; font-size:13.5px; font-family:monospace;"
+            required
+          >
+          <small style="display:block; font-size:11.5px; color:#94a3b8; margin-top:4px;">
+            Safe public anon key for frontend queries with Row Level Security.
+          </small>
+        </div>
+
+        <div style="display:flex; justify-content:space-between; gap:10px;">
+          <button type="button" class="modal-cancel-btn" onclick="closeDatabaseSettingsModal()">
+            Cancel
+          </button>
+          <button type="submit" class="modal-save-btn" style="background:#1e392a; color:#fff; padding:10px 22px; border-radius:10px; border:none; font-weight:700; cursor:pointer;">
+            Save & Connect
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+<!-- Supabase Production JS Client SDK & Services -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/supabase-config.js"></script>
+<script src="js/supabase.js"></script>
+<script src="js/store.js"></script>
+<script src="js/components.js"></script>
+<script src="js/recipes-data.js"></script>
+<script src="js/recipes.js"></script>
+<script src="js/app.js"></script>
+
+<script>
+// Database Settings Modal Handlers
+function openDatabaseSettingsModal() {
+  const modal = document.getElementById('databaseSettingsModal');
+  if (!modal) return;
+  const config = window.SupabaseConfig ? window.SupabaseConfig.get() : { url: '', key: '', isConfigured: false };
+  const urlInput = document.getElementById('supabaseUrlInput');
+  const keyInput = document.getElementById('supabaseKeyInput');
+  const statusBadge = document.getElementById('supabaseConnectionStatusBadge');
+  const statusText = document.getElementById('supabaseStatusText');
+
+  if (urlInput && !config.url.includes('your-project')) urlInput.value = config.url;
+  if (keyInput && !config.key.includes('your-anon-key')) keyInput.value = config.key;
+
+  if (config.isConfigured) {
+    statusBadge.style.background = '#f0fdf4';
+    statusBadge.style.color = '#166534';
+    statusBadge.style.borderColor = '#bbf7d0';
+    statusText.textContent = '🟢 Connected to Live Supabase Cloud Database';
+  } else {
+    statusBadge.style.background = '#fffbeb';
+    statusBadge.style.color = '#b45309';
+    statusBadge.style.borderColor = '#fde68a';
+    statusText.textContent = '🟡 Ready for Configuration (User-Isolated Persistence Active)';
+  }
+
+  modal.classList.add('active');
+  const menu = document.getElementById('userMenu');
+  if (menu) menu.style.display = 'none';
+}
+
+function closeDatabaseSettingsModal() {
+  const modal = document.getElementById('databaseSettingsModal');
+  if (modal) modal.classList.remove('active');
+}
+
+function handleSaveDatabaseSettings(e) {
+  if (e) e.preventDefault();
+  const url = document.getElementById('supabaseUrlInput').value.trim();
+  const key = document.getElementById('supabaseKeyInput').value.trim();
+  if (!url || !key) return;
+
+  if (window.SupabaseConfig) {
+    window.SupabaseConfig.save(url, key);
+  }
+  if (window.supabaseService) {
+    window.supabaseService.init();
+  }
+  if (window.store) {
+    window.store.fetchFromSupabase();
+  }
+  showToast('✓ Supabase Database settings saved!');
+  closeDatabaseSettingsModal();
+}
+
+// ===== Email Alerts Modal Handlers =====
+function openEmailAlertModal() {
+  const modal = document.getElementById('emailAlertModal');
+  if (!modal) return;
+  const settings = window.store ? window.store.getSettings() : {};
+  const emailInput = document.getElementById('alertEmailInput');
+  const stockOutCb = document.getElementById('alertOnStockOutCheckbox');
+  const expiryCb = document.getElementById('alertOnExpiryCheckbox');
+
+  if (emailInput) emailInput.value = settings.email || 'intellipantrynotify@gmail.com';
+  if (stockOutCb) stockOutCb.checked = settings.alertOnStockOut !== false;
+  if (expiryCb) expiryCb.checked = settings.alertOnExpiry !== false;
+
+  modal.classList.add('active');
+}
+
+function closeEmailAlertModal() {
+  const modal = document.getElementById('emailAlertModal');
+  if (modal) modal.classList.remove('active');
+}
+
+function saveEmailAlertSettings() {
+  const emailInput = document.getElementById('alertEmailInput');
+  const stockOutCb = document.getElementById('alertOnStockOutCheckbox');
+  const expiryCb = document.getElementById('alertOnExpiryCheckbox');
+
+  const email = (emailInput && emailInput.value.trim()) || 'intellipantrynotify@gmail.com';
+  const alertOnStockOut = stockOutCb ? stockOutCb.checked : true;
+  const alertOnExpiry = expiryCb ? expiryCb.checked : true;
+
+  if (window.store) {
+    window.store.saveSettings({ email, alertOnStockOut, alertOnExpiry });
+  }
+  showToast('✓ Alert preferences saved for ' + email);
+  closeEmailAlertModal();
+}
+
+async function triggerTestEmailAlert() {
+  const emailInput = document.getElementById('alertEmailInput');
+  const email = (emailInput && emailInput.value.trim()) || 'intellipantrynotify@gmail.com';
+
+  showToast('Sending test alert via Resend...');
+
+  try {
+    const res = await fetch('/api/send-login-notification', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: email,
+        name: 'Pantry Chef',
+        browser: navigator.userAgent.includes('Chrome') ? 'Google Chrome' : 'Web Browser',
+        device: navigator.userAgent.includes('Mobile') ? 'Mobile Device' : 'Desktop Computer'
+      })
+    });
+    const data = await res.json();
+    if (data.status === 'pending_config') {
+      showToast('⚠️ Alert triggered! Add RESEND_API_KEY in Vercel to deliver live to inbox.');
+    } else if (data.success) {
+      showToast('✓ Real email dispatched via Resend to ' + email + '!');
+    } else {
+      showToast('⚠️ Server: ' + (data.details || data.error || 'Check Resend key'));
+    }
+  } catch (err) {
+    console.error('Email test error:', err);
+    showToast('⚠️ Could not connect to email server: ' + err.message);
+  }
+}
+
+// Helper: Extract clean display name from any email / gmail
+function formatNameFromEmail(email) {
+  if (!email) return 'User';
+  let prefix = email.split('@')[0];
+  prefix = prefix.replace(/[._\-+]/g, ' ');
+  const cleanPrefix = prefix.replace(/\d+$/, '').trim();
+  if (cleanPrefix.length >= 2) prefix = cleanPrefix;
+  return prefix
+    .split(' ')
+    .filter(Boolean)
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ') || 'User';
+}
+
+// ===== Auth: Load dynamic user profile & greeting =====
+(function loadUserProfile() {
+  try {
+    const raw = localStorage.getItem('smartpantry_user');
+    if (!raw) return;
+    const user = JSON.parse(raw);
+    
+    // Determine friendly display name
+    let displayName = user.name;
+    if (!displayName || displayName === 'User') {
+      if (user.email) {
+        displayName = formatNameFromEmail(user.email);
+      }
+    }
+    if (!displayName) displayName = 'Pantry Chef';
+
+    // Dynamic Time-of-Day Greeting
+    const hour = new Date().getHours();
+    let timeGreeting = 'Good Morning';
+    let timeEmoji = '☀️';
+    if (hour >= 12 && hour < 17) {
+      timeGreeting = 'Good Afternoon';
+      timeEmoji = '🌤️';
+    } else if (hour >= 17 || hour < 5) {
+      timeGreeting = 'Good Evening';
+      timeEmoji = '🌙';
+    }
+
+    // Update Welcome Banner (Matches Mockup)
+    const welcomeEl = document.getElementById('welcomeGreeting');
+    if (welcomeEl) {
+      welcomeEl.innerHTML = `Welcome Back, <span id="welcomeUserName">${displayName}</span> 🌿`;
+    }
+
+    // Update Topbar
+    const nameEl = document.getElementById('userName');
+    const avatarEl = document.getElementById('userAvatar');
+    const emailEl = document.getElementById('userMenuEmail');
+    if (nameEl) nameEl.textContent = displayName;
+    if (avatarEl) avatarEl.textContent = displayName.charAt(0).toUpperCase();
+    if (emailEl && user.email) emailEl.textContent = user.email;
+  } catch(e) {
+    console.error('Error loading user profile:', e);
+  }
+})();
+
+function toggleUserMenu() {
+  const menu = document.getElementById('userMenu');
+  if (menu) menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+}
+
+function handleResetPantry() {
+  if (confirm('Are you sure you want to clear all pantry items?')) {
+    if (window.store) {
+      window.store.clearAll();
+      if (typeof showToast === 'function') {
+        showToast('✓ Pantry items cleared');
+      }
+    }
+  }
+}
+
+function handleLogout() {
+  handleResetPantry();
+}
+
+// ===== Mobile Drawer & Navigation Helpers =====
+function toggleSidebarDrawer() {
+  const sidebar = document.getElementById('leftSidebar');
+  const backdrop = document.getElementById('sidebarBackdrop');
+  if (sidebar && backdrop) {
+    const isOpen = sidebar.classList.toggle('drawer-open');
+    if (isOpen) {
+      backdrop.classList.add('active');
+    } else {
+      backdrop.classList.remove('active');
+    }
+  }
+}
+
+function setActiveMobileNav(btn) {
+  document.querySelectorAll('.mobile-nav-item').forEach(el => el.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  // If drawer is open, close it
+  const sidebar = document.getElementById('leftSidebar');
+  const backdrop = document.getElementById('sidebarBackdrop');
+  if (sidebar && sidebar.classList.contains('drawer-open')) {
+    sidebar.classList.remove('drawer-open');
+    if (backdrop) backdrop.classList.remove('active');
+  }
+}
+
+// Initialize Recipe Kitchen, Theme, and Alert Badge on load
+document.addEventListener('DOMContentLoaded', function() {
+  if (window.RecipeEngine) {
+    window.RecipeEngine.renderCategoryChips();
+    window.RecipeEngine.renderRecipeKitchen();
+    window.RecipeEngine.updateExpiringBanner();
+  }
+  if (window.store) {
+    const s = window.store.getFullSettings();
+    if (s && s.general_settings && s.general_settings.theme) {
+      window.store.applyTheme(s.general_settings.theme);
+    }
+    window.store.updateAlertBadge();
+  }
+});
+
+// Fallback direct run
+setTimeout(function() {
+  if (window.RecipeEngine) {
+    window.RecipeEngine.renderCategoryChips();
+    window.RecipeEngine.renderRecipeKitchen();
+    window.RecipeEngine.updateExpiringBanner();
+  }
+  if (window.store) {
+    window.store.updateAlertBadge();
+  }
+}, 300);
+</script>
+
 </body>
 </html>

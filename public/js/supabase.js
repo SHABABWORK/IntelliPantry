@@ -325,17 +325,237 @@
       return true;
     }
 
-    // Realtime PostgreSQL Channel Subscription
+    getLocalUserProducts(userId) {
+      if (!userId) return [];
+      try {
+        const raw = localStorage.getItem(`smartpantry_user_pantry_${userId}`);
+        return raw ? JSON.parse(raw) : [];
+      } catch(e) {
+        return [];
+      }
+    }
+
+    // ==========================================
+    // USER SETTINGS CRUD
+    // ==========================================
+
+    async getUserSettings(userId) {
+      if (!userId || !this.isReady()) return null;
+      try {
+        const { data, error } = await this.client
+          .from('user_settings')
+          .select('*')
+          .eq('user_id', userId)
+          .maybeSingle();
+
+        if (error) throw error;
+        return data || null;
+      } catch (err) {
+        console.warn("[Supabase DB] getUserSettings notice:", err.message);
+        return null;
+      }
+    }
+
+    async saveUserSettings(userId, settingsData) {
+      if (!userId || !this.isReady()) return false;
+      try {
+        const payload = {
+          user_id: userId,
+          preferences: settingsData.preferences || {},
+          pantry_settings: settingsData.pantry_settings || {},
+          general_settings: settingsData.general_settings || {},
+          updated_at: new Date().toISOString()
+        };
+
+        const { data, error } = await this.client
+          .from('user_settings')
+          .upsert(payload, { onConflict: 'user_id' })
+          .select();
+
+        if (error) throw error;
+        return data ? data[0] : true;
+      } catch (err) {
+        console.warn("[Supabase DB] saveUserSettings notice:", err.message);
+        return false;
+      }
+    }
+
+    // ==========================================
+    // PANTRY ACTIVITY LOGS
+    // ==========================================
+
+    async getActivity(userId, limit = 50) {
+      if (!userId || !this.isReady()) return [];
+      try {
+        const { data, error } = await this.client
+          .from('pantry_activity')
+          .select('*')
+          .eq('user_id', userId)
+          .order('created_at', { ascending: false })
+          .limit(limit);
+
+        if (error) throw error;
+        return data || [];
+      } catch (err) {
+        console.warn("[Supabase DB] getActivity notice:", err.message);
+        return [];
+      }
+    }
+
+    async logActivity(userId, { action, productId, productName, details }) {
+      if (!userId || !this.isReady()) return null;
+      try {
+        const dbRecord = {
+          user_id: userId,
+          action: action || 'updated',
+          product_id: productId ? String(productId) : null,
+          product_name: productName || 'Item',
+          details: details || '',
+          created_at: new Date().toISOString()
+        };
+
+        const { data, error } = await this.client
+          .from('pantry_activity')
+          .insert([dbRecord])
+          .select();
+
+        if (error) throw error;
+        return data ? data[0] : null;
+      } catch (err) {
+        console.warn("[Supabase DB] logActivity notice:", err.message);
+        return null;
+      }
+    }
+
+    // ==========================================
+    // PANTRY ALERTS CRUD
+    // ==========================================
+
+    async getAlerts(userId) {
+      if (!userId || !this.isReady()) return [];
+      try {
+        const { data, error } = await this.client
+          .from('pantry_alerts')
+          .select('*')
+          .eq('user_id', userId)
+          .order('created_at', { ascending: false });
+
+        if (error) throw error;
+        return data || [];
+      } catch (err) {
+        console.warn("[Supabase DB] getAlerts notice:", err.message);
+        return [];
+      }
+    }
+
+    async createAlert(userId, { title, message, type }) {
+      if (!userId || !this.isReady()) return null;
+      try {
+        const dbRecord = {
+          user_id: userId,
+          title: title || 'Pantry Alert',
+          message: message || '',
+          type: type || 'system',
+          is_read: false,
+          created_at: new Date().toISOString()
+        };
+
+        const { data, error } = await this.client
+          .from('pantry_alerts')
+          .insert([dbRecord])
+          .select();
+
+        if (error) throw error;
+        return data ? data[0] : null;
+      } catch (err) {
+        console.warn("[Supabase DB] createAlert notice:", err.message);
+        return null;
+      }
+    }
+
+    async markAlertAsRead(alertId, userId) {
+      if (!userId || !alertId || !this.isReady()) return false;
+      try {
+        const { error } = await this.client
+          .from('pantry_alerts')
+          .update({ is_read: true })
+          .eq('id', alertId)
+          .eq('user_id', userId);
+
+        if (error) throw error;
+        return true;
+      } catch (err) {
+        console.warn("[Supabase DB] markAlertAsRead notice:", err.message);
+        return false;
+      }
+    }
+
+    async markAllAlertsAsRead(userId) {
+      if (!userId || !this.isReady()) return false;
+      try {
+        const { error } = await this.client
+          .from('pantry_alerts')
+          .update({ is_read: true })
+          .eq('user_id', userId)
+          .eq('is_read', false);
+
+        if (error) throw error;
+        return true;
+      } catch (err) {
+        console.warn("[Supabase DB] markAllAlertsAsRead notice:", err.message);
+        return false;
+      }
+    }
+
+    async deleteAlert(alertId, userId) {
+      if (!userId || !alertId || !this.isReady()) return false;
+      try {
+        const { error } = await this.client
+          .from('pantry_alerts')
+          .delete()
+          .eq('id', alertId)
+          .eq('user_id', userId);
+
+        if (error) throw error;
+        return true;
+      } catch (err) {
+        console.warn("[Supabase DB] deleteAlert notice:", err.message);
+        return false;
+      }
+    }
+
+    // ==========================================
+    // SECURITY & PASSWORD UPDATE
+    // ==========================================
+
+    async updatePassword(newPassword) {
+      if (!newPassword || newPassword.length < 6) {
+        return { success: false, error: "Password must be at least 6 characters." };
+      }
+      if (!this.isReady()) {
+        return { success: false, error: "Supabase connection is not active." };
+      }
+
+      try {
+        const { data, error } = await this.client.auth.updateUser({
+          password: newPassword
+        });
+
+        if (error) throw error;
+        return { success: true, user: data.user };
+      } catch (err) {
+        return { success: false, error: err.message };
+      }
+    }
+
+    // Realtime PostgreSQL Channel Subscriptions
     subscribeToUserProducts(userId, onDataChange) {
       if (!this.isReady() || !userId) return null;
 
       try {
-        if (this.activeChannel) {
-          this.client.removeChannel(this.activeChannel);
-        }
-
-        this.activeChannel = this.client
-          .channel(`products-user-${userId}`)
+        const channelName = `products-user-${userId}`;
+        const channel = this.client
+          .channel(channelName)
           .on(
             'postgres_changes',
             {
@@ -353,9 +573,71 @@
           )
           .subscribe();
 
-        return this.activeChannel;
+        return channel;
       } catch (err) {
-        console.warn("[Supabase Realtime] Subscription error:", err);
+        console.warn("[Supabase Realtime] Product subscription error:", err);
+        return null;
+      }
+    }
+
+    subscribeToUserActivity(userId, onDataChange) {
+      if (!this.isReady() || !userId) return null;
+
+      try {
+        const channelName = `activity-user-${userId}`;
+        const channel = this.client
+          .channel(channelName)
+          .on(
+            'postgres_changes',
+            {
+              event: '*',
+              schema: 'public',
+              table: 'pantry_activity',
+              filter: `user_id=eq.${userId}`
+            },
+            (payload) => {
+              console.log("[Supabase Realtime] Activity event detected:", payload.eventType);
+              if (typeof onDataChange === 'function') {
+                onDataChange(payload);
+              }
+            }
+          )
+          .subscribe();
+
+        return channel;
+      } catch (err) {
+        console.warn("[Supabase Realtime] Activity subscription error:", err);
+        return null;
+      }
+    }
+
+    subscribeToUserAlerts(userId, onDataChange) {
+      if (!this.isReady() || !userId) return null;
+
+      try {
+        const channelName = `alerts-user-${userId}`;
+        const channel = this.client
+          .channel(channelName)
+          .on(
+            'postgres_changes',
+            {
+              event: '*',
+              schema: 'public',
+              table: 'pantry_alerts',
+              filter: `user_id=eq.${userId}`
+            },
+            (payload) => {
+              console.log("[Supabase Realtime] Alerts change detected:", payload.eventType);
+              if (typeof onDataChange === 'function') {
+                onDataChange(payload);
+              }
+            }
+          )
+          .subscribe();
+
+        return channel;
+      } catch (err) {
+        console.warn("[Supabase Realtime] Alerts subscription error:", err);
         return null;
       }
     }

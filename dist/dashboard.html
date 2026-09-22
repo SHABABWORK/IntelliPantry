@@ -11,6 +11,9 @@
 
   <!-- Tesseract.js for AI Bill & OCR Receipt Scanning -->
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+
+  <!-- Chart.js for Real-Time Pantry Analytics & Category Distribution -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
   <script>
     // Direct Access: Zero login required — ensure local pantry profile exists
     (function() {
@@ -84,12 +87,12 @@
         <span id="topbarLiveClock">--:--:--</span>
       </div>
 
-      <button class="noti-btn" onclick="openEmailAlertModal()" title="Email & Stock Alerts">
+      <button class="noti-btn" onclick="toggleAlertCenter(true)" title="Real-Time Alert Center">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"></path>
           <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"></path>
         </svg>
-        <span class="noti-badge">2</span>
+        <span class="noti-badge" id="topbarAlertBadge" style="display:none;">0</span>
       </button>
 
       <div class="user-profile" id="userProfile" onclick="toggleUserMenu()" style="position:relative;cursor:pointer;">
@@ -100,8 +103,14 @@
         </div>
         <span class="user-chevron">▾</span>
         <!-- User dropdown menu -->
-        <div id="userMenu" style="display:none; position:absolute; top:100%; right:0; margin-top:8px; background:#1e293b; border:1px solid #334155; border-radius:10px; min-width:180px; box-shadow:0 8px 24px rgba(0,0,0,0.3); z-index:999; overflow:hidden;">
+        <div id="userMenu" style="display:none; position:absolute; top:100%; right:0; margin-top:8px; background:#1e293b; border:1px solid #334155; border-radius:10px; min-width:200px; box-shadow:0 8px 24px rgba(0,0,0,0.3); z-index:999; overflow:hidden;">
           <div style="padding:12px 16px; border-bottom:1px solid #334155; font-size:13px; color:#94a3b8;" id="userMenuEmail">intellipantrynotify@gmail.com</div>
+          <button onclick="window.router.navigate('settings')" style="width:100%; padding:10px 16px; background:none; border:none; color:#f8fafc; font-size:13px; font-weight:600; text-align:left; cursor:pointer; font-family:inherit; border-bottom:1px solid #334155; display:flex; align-items:center; gap:8px;" onmouseover="this.style.background='#263348'" onmouseout="this.style.background='none'">
+            ⚙️ Settings & Preferences
+          </button>
+          <button onclick="toggleAlertCenter(true)" style="width:100%; padding:10px 16px; background:none; border:none; color:#f8fafc; font-size:13px; font-weight:600; text-align:left; cursor:pointer; font-family:inherit; border-bottom:1px solid #334155; display:flex; align-items:center; gap:8px;" onmouseover="this.style.background='#263348'" onmouseout="this.style.background='none'">
+            🔔 Alert Center
+          </button>
           <button onclick="openDatabaseSettingsModal()" style="width:100%; padding:10px 16px; background:none; border:none; color:#10b981; font-size:13px; font-weight:600; text-align:left; cursor:pointer; font-family:inherit; border-bottom:1px solid #334155; display:flex; align-items:center; gap:8px;" onmouseover="this.style.background='#263348'" onmouseout="this.style.background='none'">
             ⚡ Supabase Database
           </button>
@@ -192,7 +201,7 @@
           Recipes
         </a>
 
-        <a class="nav-link" data-route="insights" onclick="showToast('Insights: Pantry analytics & waste reduction trends')">
+        <a class="nav-link" data-route="insights" onclick="window.router.navigate('insights')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M3 3v18h18"></path>
             <path d="m19 9-5 5-4-4-3 3"></path>
@@ -200,7 +209,7 @@
           Insights
         </a>
 
-        <a class="nav-link" data-route="notifications" onclick="openEmailAlertModal()">
+        <a class="nav-link" data-route="notifications" onclick="toggleAlertCenter(true)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"></path>
             <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"></path>
@@ -208,7 +217,7 @@
           Notifications
         </a>
 
-        <a class="nav-link" data-route="settings" onclick="openEmailAlertModal()">
+        <a class="nav-link" data-route="settings" onclick="window.router.navigate('settings')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path>
             <circle cx="12" cy="12" r="3"></circle>
@@ -238,6 +247,9 @@
 
     <!-- CENTER COLUMN -->
     <main class="center-content">
+
+      <!-- DASHBOARD HOME VIEW WRAPPER -->
+      <div id="dashboardHomeViews">
 
       <!-- Dynamic Welcome Header (Matches Mockup) -->
       <div style="margin-bottom: 20px;">
@@ -458,6 +470,510 @@
         </div>
       </section>
 
+      </div><!-- /#dashboardHomeViews -->
+
+      <!-- ==========================================
+           REAL-TIME INSIGHTS & ANALYTICS DASHBOARD
+           ========================================== -->
+      <section id="insightsSection" style="display:none;" class="insights-container">
+        
+        <!-- Insights Header & Date Filters -->
+        <div class="insights-header-row">
+          <div class="insights-title-wrap">
+            <h2>📊 Real-Time Pantry Insights</h2>
+            <p>Live inventory velocity, expiry risk analytics, and consumption breakdown.</p>
+          </div>
+
+          <div class="insights-filter-group">
+            <button type="button" class="filter-pill" data-timeframe="7d" onclick="setInsightsTimeframe('7d', this)">7 Days</button>
+            <button type="button" class="filter-pill active" data-timeframe="30d" onclick="setInsightsTimeframe('30d', this)">30 Days</button>
+            <button type="button" class="filter-pill" data-timeframe="3m" onclick="setInsightsTimeframe('3m', this)">3 Months</button>
+            <button type="button" class="filter-pill" data-timeframe="1y" onclick="setInsightsTimeframe('1y', this)">1 Year</button>
+          </div>
+        </div>
+
+        <!-- Smart Insights Contextual Banner -->
+        <div class="smart-insights-card" id="smartInsightsBanner">
+          <div class="smart-insights-icon">💡</div>
+          <div class="smart-insights-body">
+            <div class="smart-insights-title">Smart Actionable Insights</div>
+            <ul class="smart-insights-list" id="smartInsightsList">
+              <li>Loading smart recommendations...</li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- Key 6 Metrics Cards Row -->
+        <div class="insights-metrics-grid">
+          <div class="insight-metric-card">
+            <div class="insight-metric-header">
+              <span class="insight-metric-label">Total Products</span>
+              <div class="insight-metric-icon" style="background:#ecfdf5; color:#059669;">📦</div>
+            </div>
+            <div class="insight-metric-value" id="insightTotalProducts">0</div>
+            <span class="insight-metric-sub" style="color:#059669;" id="insightTotalUnits">0 units total</span>
+          </div>
+
+          <div class="insight-metric-card">
+            <div class="insight-metric-header">
+              <span class="insight-metric-label">Low Stock</span>
+              <div class="insight-metric-icon" style="background:#fff1f2; color:#e11d48;">⚠️</div>
+            </div>
+            <div class="insight-metric-value" id="insightLowStock">0</div>
+            <span class="insight-metric-sub" style="color:#e11d48;" id="insightLowStockSub">Needs restock</span>
+          </div>
+
+          <div class="insight-metric-card">
+            <div class="insight-metric-header">
+              <span class="insight-metric-label">Expiring Soon</span>
+              <div class="insight-metric-icon" style="background:#fffbeb; color:#d97706;">⏳</div>
+            </div>
+            <div class="insight-metric-value" id="insightExpiringSoon">0</div>
+            <span class="insight-metric-sub" style="color:#d97706;" id="insightExpiringSoonSub">Action required</span>
+          </div>
+
+          <div class="insight-metric-card">
+            <div class="insight-metric-header">
+              <span class="insight-metric-label">Expired</span>
+              <div class="insight-metric-icon" style="background:#fef2f2; color:#ef4444;">🚨</div>
+            </div>
+            <div class="insight-metric-value" id="insightExpired">0</div>
+            <span class="insight-metric-sub" style="color:#ef4444;" id="insightExpiredSub">Check pantry</span>
+          </div>
+
+          <div class="insight-metric-card">
+            <div class="insight-metric-header">
+              <span class="insight-metric-label">Total Categories</span>
+              <div class="insight-metric-icon" style="background:#f0fdf4; color:#10b981;">📑</div>
+            </div>
+            <div class="insight-metric-value" id="insightTotalCategories">0</div>
+            <span class="insight-metric-sub" style="color:#64748b;">Active categories</span>
+          </div>
+
+          <div class="insight-metric-card">
+            <div class="insight-metric-header">
+              <span class="insight-metric-label">Recently Added</span>
+              <div class="insight-metric-icon" style="background:#eff6ff; color:#2563eb;">✨</div>
+            </div>
+            <div class="insight-metric-value" id="insightRecentlyAdded">0</div>
+            <span class="insight-metric-sub" style="color:#2563eb;">This period</span>
+          </div>
+        </div>
+
+        <!-- Section A: Pantry Overview & Section B: Expiry Analytics (2-Column Grid) -->
+        <div class="insights-grid-2col">
+          <!-- Section A: Pantry Overview -->
+          <div class="insight-section-box">
+            <div class="insight-box-header">
+              <div class="insight-box-title">
+                <span>🧺</span> Section A: Pantry Overview
+              </div>
+              <span class="insight-stat-pill" id="overviewItemCountPill">0 Products</span>
+            </div>
+            <div id="pantryOverviewContent" style="display:flex; flex-direction:column; gap:12px;">
+              <!-- Dynamically populated -->
+            </div>
+          </div>
+
+          <!-- Section B: Expiry Analytics -->
+          <div class="insight-section-box">
+            <div class="insight-box-header">
+              <div class="insight-box-title">
+                <span>⏳</span> Section B: Expiry Analytics
+              </div>
+              <span class="insight-stat-pill" style="background:#fffbeb; color:#b45309;" id="expiryPill">Real-time</span>
+            </div>
+            <div id="expiryAnalyticsContent" style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+              <!-- Dynamically populated: 3 days, 7 days, 30 days, already expired -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Section C: Stock Analytics & Section D: Category Distribution Chart (2-Column Grid) -->
+        <div class="insights-grid-2col">
+          <!-- Section C: Stock Analytics -->
+          <div class="insight-section-box">
+            <div class="insight-box-header">
+              <div class="insight-box-title">
+                <span>📊</span> Section C: Stock Analytics
+              </div>
+              <span class="insight-stat-pill" id="stockAnalyticsPill">Healthy</span>
+            </div>
+            <div id="stockAnalyticsContent" style="display:flex; flex-direction:column; gap:12px;">
+              <!-- Low-stock, out-of-stock, normal-stock breakdown -->
+            </div>
+          </div>
+
+          <!-- Section D: Category Distribution Chart -->
+          <div class="insight-section-box">
+            <div class="insight-box-header">
+              <div class="insight-box-title">
+                <span>🍩</span> Section D: Category Distribution
+              </div>
+              <span class="insight-stat-pill" id="chartCategoriesCount">0 Categories</span>
+            </div>
+            <div class="chart-container-box">
+              <canvas id="categoryDistributionChart"></canvas>
+              <div id="categoryChartEmpty" style="display:none; text-align:center; color:#94a3b8; font-size:13px;">
+                🥣 No products added yet
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section E: Recent Activity Timeline -->
+        <div class="insight-section-box">
+          <div class="insight-box-header">
+            <div class="insight-box-title">
+              <span>🕒</span> Section E: Recent Activity (Real Database Logs)
+            </div>
+            <span class="insight-stat-pill" id="activityCountPill">0 events</span>
+          </div>
+          <div class="activity-timeline" id="recentActivityList">
+            <!-- Dynamically populated with added, updated, quantity changed, removed -->
+          </div>
+        </div>
+
+      </section>
+
+      <!-- ==========================================
+           7-SECTION SETTINGS & PREFERENCES DASHBOARD
+           ========================================== -->
+      <section id="settingsSection" style="display:none;" class="settings-container">
+        
+        <!-- Settings Header & Quick Save Status -->
+        <div class="settings-header-box">
+          <div>
+            <h2 style="font-size:22px; font-weight:800; color:#1e392a; display:flex; align-items:center; gap:8px;">
+              ⚙️ Settings & Pantry Preferences
+            </h2>
+            <p style="font-size:13px; color:#64748b; margin-top:2px;">
+              Manage your account, real-time alerts, warning thresholds, privacy, and appearance.
+            </p>
+          </div>
+          <button type="button" class="btn-forest-submit" onclick="saveAllSettingsForm()" style="width:auto; padding:10px 24px; border-radius:12px; font-size:13px; font-weight:700;">
+            ✓ Save Changes
+          </button>
+        </div>
+
+        <!-- 7 Settings Navigation Tabs -->
+        <div class="settings-nav-tabs">
+          <button type="button" class="settings-tab-btn active" onclick="switchSettingsTab('account', this)">👤 1. Account</button>
+          <button type="button" class="settings-tab-btn" onclick="switchSettingsTab('notifications', this)">🔔 2. Notifications</button>
+          <button type="button" class="settings-tab-btn" onclick="switchSettingsTab('preferences', this)">🥫 3. Pantry</button>
+          <button type="button" class="settings-tab-btn" onclick="switchSettingsTab('security', this)">🔒 4. Security</button>
+          <button type="button" class="settings-tab-btn" onclick="switchSettingsTab('privacy', this)">🛡️ 5. Privacy</button>
+          <button type="button" class="settings-tab-btn" onclick="switchSettingsTab('general', this)">🌐 6. General</button>
+          <button type="button" class="settings-tab-btn" onclick="switchSettingsTab('appearance', this)">🎨 7. Appearance</button>
+        </div>
+
+        <form id="masterSettingsForm" onsubmit="event.preventDefault(); saveAllSettingsForm();">
+          
+          <!-- TAB 1: ACCOUNT -->
+          <div class="settings-card settings-tab-pane active" id="settingsTab_account">
+            <div class="settings-card-header">
+              <h3>👤 Account & Profile Information</h3>
+              <p>Manage your identity, email credentials, and profile name.</p>
+            </div>
+            
+            <div class="space-y-4" style="max-width:540px;">
+              <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">Display Name</label>
+                <input type="text" id="settingsDisplayName" class="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl bg-slate-50 focus:bg-white outline-none" placeholder="e.g. Pantry Chef">
+              </div>
+
+              <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">Email Address</label>
+                <div style="display:flex; gap:10px; align-items:center;">
+                  <input type="email" id="settingsEmailAddress" class="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl bg-slate-100 text-slate-600 outline-none" readonly>
+                  <span id="settingsEmailVerifiedBadge" style="padding:6px 12px; border-radius:10px; font-size:12px; font-weight:700; background:#f0fdf4; color:#166534; border:1px solid #bbf7d0; white-space:nowrap;">
+                    ✓ Verified
+                  </span>
+                </div>
+              </div>
+
+              <div style="padding-top:14px; border-top:1px solid #f1f5f9;">
+                <h4 style="font-size:13.5px; font-weight:700; color:#1e293b; margin-bottom:8px;">Change Password</h4>
+                <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                  <input type="password" id="settingsNewPassword" class="flex-1 px-3.5 py-2 text-sm border border-slate-300 rounded-xl bg-slate-50 focus:bg-white outline-none" placeholder="New Password (min 6 chars)">
+                  <button type="button" onclick="handleSettingsUpdatePassword()" style="background:#1e392a; color:#fff; padding:8px 16px; border-radius:10px; font-size:13px; font-weight:700; border:none; cursor:pointer;">
+                    Update Password
+                  </button>
+                </div>
+              </div>
+
+              <div style="padding-top:14px; border-top:1px solid #f1f5f9;">
+                <h4 style="font-size:13.5px; font-weight:700; color:#e11d48; margin-bottom:4px;">Delete Account</h4>
+                <p style="font-size:12px; color:#64748b; margin-bottom:8px;">Permanently wipe your pantry inventory, activity history, and authentication session.</p>
+                <button type="button" onclick="handleDeleteAccount()" style="background:#fff1f2; color:#e11d48; border:1px solid #fecdd3; padding:8px 16px; border-radius:10px; font-size:12.5px; font-weight:700; cursor:pointer;">
+                  🗑️ Delete My Account
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- TAB 2: NOTIFICATIONS -->
+          <div class="settings-card settings-tab-pane" id="settingsTab_notifications" style="display:none;">
+            <div class="settings-card-header">
+              <h3>🔔 Real-Time Notification Preferences</h3>
+              <p>Configure which automated alerts and emails are dispatched to your inbox.</p>
+            </div>
+
+            <div class="space-y-2">
+              <div class="settings-row">
+                <div class="settings-label-group">
+                  <h4>Expiring Soon Alerts</h4>
+                  <p>Send an alert when items enter their warning expiry window.</p>
+                </div>
+                <label class="switch">
+                  <input type="checkbox" id="pref_alert_expiry" checked>
+                  <span class="slider"></span>
+                </label>
+              </div>
+
+              <div class="settings-row">
+                <div class="settings-label-group">
+                  <h4>Expired Product Alerts</h4>
+                  <p>Notify immediately when an item has passed its safe shelf life.</p>
+                </div>
+                <label class="switch">
+                  <input type="checkbox" id="pref_alert_expired" checked>
+                  <span class="slider"></span>
+                </label>
+              </div>
+
+              <div class="settings-row">
+                <div class="settings-label-group">
+                  <h4>Low Stock Alerts</h4>
+                  <p>Notify when products reach or drop below the restock threshold.</p>
+                </div>
+                <label class="switch">
+                  <input type="checkbox" id="pref_alert_low_stock" checked>
+                  <span class="slider"></span>
+                </label>
+              </div>
+
+              <div class="settings-row">
+                <div class="settings-label-group">
+                  <h4>Security & Login Alerts</h4>
+                  <p>Receive an email notification whenever a new login session is detected.</p>
+                </div>
+                <label class="switch">
+                  <input type="checkbox" id="pref_alert_security" checked>
+                  <span class="slider"></span>
+                </label>
+              </div>
+
+              <div class="settings-row">
+                <div class="settings-label-group">
+                  <h4>Weekly Pantry Summary</h4>
+                  <p>A weekly email summarizing items used, saved food, and upcoming expirations.</p>
+                </div>
+                <label class="switch">
+                  <input type="checkbox" id="pref_alert_weekly_summary">
+                  <span class="slider"></span>
+                </label>
+              </div>
+
+              <div style="padding-top:16px; margin-top:8px;">
+                <button type="button" onclick="triggerTestEmailAlert()" style="background:#f0fdf4; color:#166534; border:1px solid #bbf7d0; padding:10px 18px; border-radius:10px; font-size:13px; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:8px;">
+                  ✉️ Send Test Notification Email
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- TAB 3: PANTRY PREFERENCES -->
+          <div class="settings-card settings-tab-pane" id="settingsTab_preferences" style="display:none;">
+            <div class="settings-card-header">
+              <h3>🥫 Pantry Tracking Preferences</h3>
+              <p>Customize shelf-life thresholds, low stock triggers, and defaults.</p>
+            </div>
+
+            <div class="space-y-4" style="max-width:540px;">
+              <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">Expiry Warning Period</label>
+                <select id="pantryPrefExpiryDays" class="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl bg-slate-50 focus:bg-white outline-none">
+                  <option value="3">3 Days Before Expiry (Urgent)</option>
+                  <option value="7" selected>7 Days Before Expiry (Recommended)</option>
+                  <option value="14">14 Days Before Expiry (Extended)</option>
+                  <option value="30">30 Days Before Expiry (Bulk storage)</option>
+                </select>
+                <small style="color:#94a3b8; font-size:11.5px; display:block; margin-top:3px;">Defines when an item triggers "Expiring Soon" badges and alerts.</small>
+              </div>
+
+              <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">Low-Stock Alert Threshold</label>
+                <input type="number" id="pantryPrefLowStockThreshold" min="1" max="20" value="2" class="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl bg-slate-50 focus:bg-white outline-none">
+                <small style="color:#94a3b8; font-size:11.5px; display:block; margin-top:3px;">Items with this quantity or fewer will be flagged as Low Stock.</small>
+              </div>
+
+              <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">Default Measurement Unit</label>
+                <select id="pantryPrefDefaultUnit" class="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl bg-slate-50 focus:bg-white outline-none">
+                  <option value="pcs" selected>Pieces (pcs)</option>
+                  <option value="kg">Kilograms (kg)</option>
+                  <option value="g">Grams (g)</option>
+                  <option value="liters">Liters (L)</option>
+                  <option value="ml">Milliliters (ml)</option>
+                  <option value="packs">Packs / Cartons</option>
+                </select>
+              </div>
+
+              <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">Default Storage Category</label>
+                <select id="pantryPrefDefaultCategory" class="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl bg-slate-50 focus:bg-white outline-none">
+                  <option value="Pantry" selected>Pantry</option>
+                  <option value="Fruits">Fruits</option>
+                  <option value="Vegetables">Vegetables</option>
+                  <option value="Dairy">Dairy</option>
+                  <option value="Grains">Grains</option>
+                  <option value="Meat">Meat</option>
+                  <option value="Beverages">Beverages</option>
+                  <option value="Frozen">Frozen</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- TAB 4: SECURITY -->
+          <div class="settings-card settings-tab-pane" id="settingsTab_security" style="display:none;">
+            <div class="settings-card-header">
+              <h3>🔒 Security & Active Sessions</h3>
+              <p>Audit login activity and manage authenticated devices.</p>
+            </div>
+
+            <div class="space-y-3" style="max-width:540px;">
+              <div class="settings-row">
+                <div class="settings-label-group">
+                  <h4>Last Active Login</h4>
+                  <p id="securityLastLoginTimestamp">Loading timestamp...</p>
+                </div>
+                <span style="font-size:12px; font-weight:700; color:#10b981; background:#ecfdf5; padding:4px 10px; border-radius:8px;">Active Session</span>
+              </div>
+
+              <div class="settings-row">
+                <div class="settings-label-group">
+                  <h4>PostgreSQL Row Level Security (RLS)</h4>
+                  <p>All database records are mathematically isolated to your Supabase UID.</p>
+                </div>
+                <span style="font-size:12px; font-weight:700; color:#166534; background:#f0fdf4; padding:4px 10px; border-radius:8px; border:1px solid #bbf7d0;">Enforced</span>
+              </div>
+
+              <div style="padding-top:14px;">
+                <button type="button" onclick="handleSignOutOtherSessions()" style="background:#f8fafc; border:1px solid #e2e8f0; color:#1e293b; padding:9px 16px; border-radius:10px; font-size:13px; font-weight:700; cursor:pointer;">
+                  🚪 Sign Out Other Sessions
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- TAB 5: PRIVACY -->
+          <div class="settings-card settings-tab-pane" id="settingsTab_privacy" style="display:none;">
+            <div class="settings-card-header">
+              <h3>🛡️ Privacy & Data Sovereignty</h3>
+              <p>Your data belongs to you. Export or purge at any time.</p>
+            </div>
+
+            <div class="space-y-4" style="max-width:540px;">
+              <div>
+                <h4 style="font-size:13.5px; font-weight:700; color:#1e293b; margin-bottom:4px;">Export My Data</h4>
+                <p style="font-size:12.5px; color:#64748b; margin-bottom:10px;">Download an exact JSON archive of your entire pantry inventory, activity timeline, and configuration.</p>
+                <button type="button" onclick="window.store.exportUserData()" style="background:#1e392a; color:#fff; border:none; padding:10px 20px; border-radius:10px; font-size:13px; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:8px;">
+                  📦 Export My Data (JSON)
+                </button>
+              </div>
+
+              <div style="padding-top:16px; border-top:1px solid #f1f5f9;">
+                <h4 style="font-size:13.5px; font-weight:700; color:#1e293b; margin-bottom:4px;">Privacy Policy & Terms</h4>
+                <p style="font-size:12.5px; color:#64748b; line-height:1.5;">
+                  IntelliPantry never sells or shares your food inventory, receipt scans, or personal metrics with third parties. All database records are strictly protected with Supabase Auth Row Level Security.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <!-- TAB 6: GENERAL -->
+          <div class="settings-card settings-tab-pane" id="settingsTab_general" style="display:none;">
+            <div class="settings-card-header">
+              <h3>🌐 General Localization</h3>
+              <p>Timezone, language, and currency configuration.</p>
+            </div>
+
+            <div class="space-y-4" style="max-width:540px;">
+              <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">Language</label>
+                <select id="generalLanguage" class="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl bg-slate-50 focus:bg-white outline-none">
+                  <option value="English" selected>English</option>
+                  <option value="Hindi">Hindi (हिंदी)</option>
+                  <option value="Spanish">Spanish (Español)</option>
+                </select>
+              </div>
+
+              <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">Time Zone</label>
+                <select id="generalTimezone" class="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl bg-slate-50 focus:bg-white outline-none">
+                  <option value="Asia/Kolkata" selected>Asia/Kolkata (IST • UTC+5:30)</option>
+                  <option value="UTC">UTC (Coordinated Universal Time)</option>
+                  <option value="America/New_York">America/New York (EST/EDT)</option>
+                  <option value="Europe/London">Europe/London (GMT/BST)</option>
+                  <option value="Asia/Dubai">Asia/Dubai (GST • UTC+4)</option>
+                </select>
+              </div>
+
+              <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">Currency Display</label>
+                <select id="generalCurrency" class="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl bg-slate-50 focus:bg-white outline-none">
+                  <option value="INR" selected>Indian Rupee (INR • ₹)</option>
+                  <option value="USD">US Dollar (USD • $)</option>
+                  <option value="EUR">Euro (EUR • €)</option>
+                  <option value="GBP">British Pound (GBP • £)</option>
+                </select>
+              </div>
+
+              <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">Date Format</label>
+                <select id="generalDateFormat" class="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl bg-slate-50 focus:bg-white outline-none">
+                  <option value="DD/MM/YYYY" selected>DD/MM/YYYY (e.g. 22/09/2026)</option>
+                  <option value="MM/DD/YYYY">MM/DD/YYYY (e.g. 09/22/2026)</option>
+                  <option value="YYYY-MM-DD">YYYY-MM-DD (e.g. 2026-09-22)</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- TAB 7: APPEARANCE -->
+          <div class="settings-card settings-tab-pane" id="settingsTab_appearance" style="display:none;">
+            <div class="settings-card-header">
+              <h3>🎨 Appearance & Themes</h3>
+              <p>Select your preferred visual interface mode.</p>
+            </div>
+
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(130px, 1fr)); gap:12px; max-width:540px;">
+              <button type="button" class="theme-choice-btn active" id="themeBtn_light" onclick="selectAppearanceTheme('light', this)" style="padding:16px; border-radius:14px; border:2px solid #10b981; background:#ffffff; text-align:center; cursor:pointer;">
+                <div style="font-size:24px; margin-bottom:6px;">☀️</div>
+                <div style="font-size:13.5px; font-weight:700; color:#1e293b;">Light Mode</div>
+                <div style="font-size:11px; color:#64748b;">Clean default</div>
+              </button>
+
+              <button type="button" class="theme-choice-btn" id="themeBtn_dark" onclick="selectAppearanceTheme('dark', this)" style="padding:16px; border-radius:14px; border:1px solid #cbd5e1; background:#0f172a; text-align:center; cursor:pointer;">
+                <div style="font-size:24px; margin-bottom:6px;">🌙</div>
+                <div style="font-size:13.5px; font-weight:700; color:#f8fafc;">Dark Mode</div>
+                <div style="font-size:11px; color:#94a3b8;">High contrast</div>
+              </button>
+
+              <button type="button" class="theme-choice-btn" id="themeBtn_system" onclick="selectAppearanceTheme('system', this)" style="padding:16px; border-radius:14px; border:1px solid #cbd5e1; background:#f8fafc; text-align:center; cursor:pointer;">
+                <div style="font-size:24px; margin-bottom:6px;">💻</div>
+                <div style="font-size:13.5px; font-weight:700; color:#1e293b;">System Mode</div>
+                <div style="font-size:11px; color:#64748b;">Auto sync</div>
+              </button>
+            </div>
+          </div>
+
+        </form>
+      </section>
+
+
     </main>
 
     <!-- RIGHT WIDGET COLUMN -->
@@ -556,7 +1072,7 @@
           <div class="quick-arrow">➔</div>
         </div>
 
-        <div class="quick-link-card" onclick="openEmailAlertModal()">
+        <div class="quick-link-card" onclick="window.router.navigate('settings')">
           <div class="quick-link-left">
             <div class="quick-link-icon">⚙️</div>
             <div class="quick-link-text">
@@ -610,7 +1126,7 @@
       <span>Scan</span>
     </button>
 
-    <button class="mobile-nav-item" onclick="openEmailAlertModal()">
+    <button class="mobile-nav-item" onclick="toggleAlertCenter(true)">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"></path>
         <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"></path>
@@ -620,6 +1136,43 @@
   </nav>
 
 </div>
+
+<!-- ==========================================
+     REAL-TIME ALERT CENTER SLIDE-OVER DRAWER
+     ========================================== -->
+<div class="alert-drawer-backdrop" id="alertDrawerBackdrop" onclick="toggleAlertCenter(false)"></div>
+<aside class="alert-drawer" id="alertCenterDrawer">
+  <div class="alert-drawer-header">
+    <div style="display:flex; align-items:center; gap:8px;">
+      <span style="font-size:20px;">🔔</span>
+      <div>
+        <h3 style="font-size:16px; font-weight:800; color:#1e392a;">Pantry Alert Center</h3>
+        <p style="font-size:11.5px; color:#64748b;" id="alertDrawerUnreadCount">0 Unread Alerts</p>
+      </div>
+    </div>
+    <div style="display:flex; align-items:center; gap:8px;">
+      <button type="button" onclick="window.store.markAllAlertsRead()" style="background:#f1f5f9; border:none; color:#1e392a; font-size:11.5px; font-weight:700; padding:6px 10px; border-radius:8px; cursor:pointer;">
+        Mark All Read
+      </button>
+      <button type="button" onclick="toggleAlertCenter(false)" style="background:none; border:none; font-size:18px; color:#64748b; cursor:pointer; padding:4px 8px;">
+        ✕
+      </button>
+    </div>
+  </div>
+
+  <div class="alert-drawer-tabs">
+    <button type="button" class="alert-tab-btn active" data-filter="all" onclick="filterAlertDrawer('all', this)">All</button>
+    <button type="button" class="alert-tab-btn" data-filter="unread" onclick="filterAlertDrawer('unread', this)">Unread</button>
+    <button type="button" class="alert-tab-btn" data-filter="expiry" onclick="filterAlertDrawer('expiry', this)">Expiring</button>
+    <button type="button" class="alert-tab-btn" data-filter="low_stock" onclick="filterAlertDrawer('low_stock', this)">Low Stock</button>
+    <button type="button" class="alert-tab-btn" data-filter="security" onclick="filterAlertDrawer('security', this)">Security</button>
+  </div>
+
+  <div class="alert-list" id="alertDrawerList">
+    <!-- Populated dynamically by components.js -->
+  </div>
+</aside>
+
 
 
 <!-- ==========================================
@@ -1716,12 +2269,19 @@ function setActiveMobileNav(btn) {
   }
 }
 
-// Initialize Recipe Kitchen on load
+// Initialize Recipe Kitchen, Theme, and Alert Badge on load
 document.addEventListener('DOMContentLoaded', function() {
   if (window.RecipeEngine) {
     window.RecipeEngine.renderCategoryChips();
     window.RecipeEngine.renderRecipeKitchen();
     window.RecipeEngine.updateExpiringBanner();
+  }
+  if (window.store) {
+    const s = window.store.getFullSettings();
+    if (s && s.general_settings && s.general_settings.theme) {
+      window.store.applyTheme(s.general_settings.theme);
+    }
+    window.store.updateAlertBadge();
   }
 });
 
@@ -1731,6 +2291,9 @@ setTimeout(function() {
     window.RecipeEngine.renderCategoryChips();
     window.RecipeEngine.renderRecipeKitchen();
     window.RecipeEngine.updateExpiringBanner();
+  }
+  if (window.store) {
+    window.store.updateAlertBadge();
   }
 }, 300);
 </script>
