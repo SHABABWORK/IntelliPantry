@@ -28,8 +28,8 @@ console.log('[Build] Generating Vercel production bundle in ./dist and ./public 
   fs.mkdirSync(path.join(distDir, dir), { recursive: true });
 });
 
-// 2. Copy core HTML entry pages
-fs.copyFileSync(path.join(srcDir, 'landing.html'), path.join(distDir, 'index.html'));
+// 2. Copy core HTML entry pages (direct start: pantry dashboard is default)
+fs.copyFileSync(path.join(srcDir, 'dashboard.html'), path.join(distDir, 'index.html'));
 fs.copyFileSync(path.join(srcDir, 'landing.html'), path.join(distDir, 'landing.html'));
 fs.copyFileSync(path.join(srcDir, 'login.html'), path.join(distDir, 'login.html'));
 fs.copyFileSync(path.join(srcDir, 'dashboard.html'), path.join(distDir, 'dashboard.html'));

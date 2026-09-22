@@ -12,17 +12,26 @@
   <!-- Tesseract.js for AI Bill & OCR Receipt Scanning -->
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <script>
-    // Production Session Guard: Redirects unauthenticated visits to login
+    // Direct Access: Zero login required — ensure local pantry profile exists
     (function() {
       try {
-        const token = localStorage.getItem('smartpantry_token');
-        const userRaw = localStorage.getItem('smartpantry_user');
-        if (!token || !userRaw) {
-          const isHtml = window.location.pathname.endsWith('.html');
-          window.location.replace(isHtml ? 'login.html' : 'login');
+        if (!localStorage.getItem('smartpantry_user')) {
+          let guestId = localStorage.getItem('smartpantry_device_id');
+          if (!guestId) {
+            guestId = 'chef_' + Math.random().toString(36).substring(2, 10);
+            localStorage.setItem('smartpantry_device_id', guestId);
+          }
+          localStorage.setItem('smartpantry_user', JSON.stringify({
+            id: guestId,
+            name: 'Pantry Chef',
+            email: 'intellipantrynotify@gmail.com'
+          }));
+        }
+        if (!localStorage.getItem('smartpantry_token')) {
+          localStorage.setItem('smartpantry_token', 'direct_token_' + Date.now());
         }
       } catch(e) {
-        console.warn('Session check:', e);
+        console.warn('Session init:', e);
       }
     })();
   </script>
@@ -84,20 +93,20 @@
       </button>
 
       <div class="user-profile" id="userProfile" onclick="toggleUserMenu()" style="position:relative;cursor:pointer;">
-        <div class="user-avatar" id="userAvatar">S</div>
+        <div class="user-avatar" id="userAvatar">P</div>
         <div class="user-details">
-          <div class="user-name" id="userName">User</div>
+          <div class="user-name" id="userName">Pantry Chef</div>
           <div class="user-role">Home Pantry</div>
         </div>
         <span class="user-chevron">▾</span>
         <!-- User dropdown menu -->
-        <div id="userMenu" style="display:none; position:absolute; top:100%; right:0; margin-top:8px; background:#1e293b; border:1px solid #334155; border-radius:10px; min-width:160px; box-shadow:0 8px 24px rgba(0,0,0,0.3); z-index:999; overflow:hidden;">
-          <div style="padding:12px 16px; border-bottom:1px solid #334155; font-size:13px; color:#94a3b8;" id="userMenuEmail">email</div>
+        <div id="userMenu" style="display:none; position:absolute; top:100%; right:0; margin-top:8px; background:#1e293b; border:1px solid #334155; border-radius:10px; min-width:180px; box-shadow:0 8px 24px rgba(0,0,0,0.3); z-index:999; overflow:hidden;">
+          <div style="padding:12px 16px; border-bottom:1px solid #334155; font-size:13px; color:#94a3b8;" id="userMenuEmail">intellipantrynotify@gmail.com</div>
           <button onclick="openDatabaseSettingsModal()" style="width:100%; padding:10px 16px; background:none; border:none; color:#10b981; font-size:13px; font-weight:600; text-align:left; cursor:pointer; font-family:inherit; border-bottom:1px solid #334155; display:flex; align-items:center; gap:8px;" onmouseover="this.style.background='#263348'" onmouseout="this.style.background='none'">
             ⚡ Supabase Database
           </button>
-          <button onclick="handleLogout()" style="width:100%; padding:12px 16px; background:none; border:none; color:#ef4444; font-size:14px; font-weight:600; text-align:left; cursor:pointer; font-family:inherit;" onmouseover="this.style.background='#263348'" onmouseout="this.style.background='none'">
-            ⎋ Logout
+          <button onclick="handleResetPantry()" style="width:100%; padding:10px 16px; background:none; border:none; color:#94a3b8; font-size:13px; font-weight:500; text-align:left; cursor:pointer; font-family:inherit; display:flex; align-items:center; gap:8px;" onmouseover="this.style.background='#263348'" onmouseout="this.style.background='none'">
+            🗑️ Reset Pantry Items
           </button>
         </div>
       </div>
@@ -1592,19 +1601,19 @@ function toggleUserMenu() {
   if (menu) menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
 }
 
+function handleResetPantry() {
+  if (confirm('Are you sure you want to clear all pantry items?')) {
+    if (window.store) {
+      window.store.clearAll();
+      if (typeof showToast === 'function') {
+        showToast('✓ Pantry items cleared');
+      }
+    }
+  }
+}
+
 function handleLogout() {
-  if (window.supabaseService) {
-    window.supabaseService.signOut().catch(() => {});
-  }
-  localStorage.removeItem('smartpantry_token');
-  localStorage.removeItem('smartpantry_user');
-  if (window.store) {
-    window.store.items = [];
-    window.store.userId = null;
-    window.store.notify();
-  }
-  const isHtml = window.location.pathname.endsWith('.html');
-  window.location.href = isHtml ? 'login.html?logout=1' : 'login?logout=1';
+  handleResetPantry();
 }
 
 // ===== Mobile Drawer & Navigation Helpers =====

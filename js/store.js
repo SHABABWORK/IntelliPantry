@@ -269,10 +269,30 @@ window.UserDB = new UserDatabaseManager();
 
 function getCurrentUserInfo() {
   try {
-    return JSON.parse(localStorage.getItem("smartpantry_user") || "{}");
-  } catch (e) {
-    return {};
+    const raw = localStorage.getItem("smartpantry_user");
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && parsed.id) return parsed;
+    }
+  } catch (e) {}
+
+  let guestId = localStorage.getItem("smartpantry_device_id");
+  if (!guestId) {
+    guestId = "chef_" + Math.random().toString(36).substring(2, 10);
+    localStorage.setItem("smartpantry_device_id", guestId);
   }
+  const defaultUser = {
+    id: guestId,
+    name: "Pantry Chef",
+    email: "intellipantrynotify@gmail.com"
+  };
+  try {
+    localStorage.setItem("smartpantry_user", JSON.stringify(defaultUser));
+    if (!localStorage.getItem("smartpantry_token")) {
+      localStorage.setItem("smartpantry_token", "direct_token_" + Date.now());
+    }
+  } catch (e) {}
+  return defaultUser;
 }
 
 class PantryStore {
@@ -437,6 +457,12 @@ class PantryStore {
     this.items = this.items.filter(item => item.id !== id);
     this.saveItems(this.items);
     return true;
+  }
+
+  clearAll() {
+    this.items = [];
+    localStorage.removeItem(this.storageKey);
+    this.notify();
   }
 
   getItemById(id) {
