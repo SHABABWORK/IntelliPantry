@@ -3,6 +3,7 @@
  */
 
 let currentCategoryFilter = "All";
+let currentStatusFilter = "All";
 let currentSearchQuery = "";
 const CATEGORY_NAMES = ["Fruits", "Vegetables", "Dairy", "Grains", "Meat", "Beverages", "Pantry", "Frozen"];
 
@@ -23,10 +24,26 @@ function updateMetricsDisplay() {
   const expiringEl = document.getElementById("metricExpiringSoon");
   const shoppingEl = document.getElementById("metricShoppingList");
 
+  const freshEl = document.getElementById("metricFreshItems");
+
   if (totalEl) totalEl.textContent = metrics.total;
   if (lowStockEl) lowStockEl.textContent = metrics.lowStock;
   if (expiringEl) expiringEl.textContent = metrics.expiringSoon;
   if (shoppingEl) shoppingEl.textContent = metrics.shoppingListCount;
+  if (freshEl) freshEl.textContent = Math.max(0, metrics.total - metrics.lowStock - metrics.expiringSoon - metrics.expired);
+}
+
+// Status filter pill handling
+function setStatusFilter(status) {
+  currentStatusFilter = status;
+  document.querySelectorAll(".status-filter-btn").forEach(btn => {
+    if (btn.getAttribute("data-status") === status) {
+      btn.classList.add("active");
+    } else {
+      btn.classList.remove("active");
+    }
+  });
+  renderInventoryTable();
 }
 
 // Render Inventory Table based on active filters
@@ -39,10 +56,30 @@ function renderInventoryTable() {
     const itemCat = (item.category || "Pantry").toLowerCase();
     const filterCat = currentCategoryFilter.toLowerCase();
     const matchesCategory = currentCategoryFilter === "All" || itemCat === filterCat;
+
+    const q = currentSearchQuery.toLowerCase();
     const matchesSearch = !currentSearchQuery || 
-      (item.name || "").toLowerCase().includes(currentSearchQuery.toLowerCase()) ||
-      itemCat.includes(currentSearchQuery.toLowerCase());
-    return matchesCategory && matchesSearch;
+      (item.name || "").toLowerCase().includes(q) ||
+      (item.brand || "").toLowerCase().includes(q) ||
+      itemCat.includes(q) ||
+      (item.barcode || "").toLowerCase().includes(q) ||
+      (item.storageLocation || "").toLowerCase().includes(q);
+
+    const computedStatus = window.store.calculateStatus(item.expiryDate, item.quantity, item.minStock);
+    let matchesStatus = true;
+    if (currentStatusFilter !== "All") {
+      if (currentStatusFilter === "Expiring Soon") {
+        matchesStatus = computedStatus === "Expiring Soon";
+      } else if (currentStatusFilter === "Expired") {
+        matchesStatus = computedStatus === "Expired";
+      } else if (currentStatusFilter === "Low Stock") {
+        matchesStatus = computedStatus === "Low Stock" || Number(item.quantity) <= (item.minStock !== undefined ? Number(item.minStock) : 2);
+      } else if (currentStatusFilter === "Fresh" || currentStatusFilter === "In Stock") {
+        matchesStatus = computedStatus === "Fresh" || computedStatus === "In Stock";
+      }
+    }
+
+    return matchesCategory && matchesSearch && matchesStatus;
   });
 
   if (allItems.length === 0) {
@@ -66,8 +103,8 @@ function renderInventoryTable() {
       <tr>
         <td colspan="6" style="text-align:center; padding: 36px 16px; color: #94a3b8;">
           <div style="font-size: 32px; margin-bottom: 8px;">🔍</div>
-          <p style="font-weight: 600; color: #64748b;">No items match your filter</p>
-          <small>Try selecting "All" or clearing your search</small>
+          <p style="font-weight: 600; color: #64748b;">No items match your filter criteria</p>
+          <small>Try selecting "All" or clearing your search query</small>
         </td>
       </tr>
     `;
@@ -75,7 +112,7 @@ function renderInventoryTable() {
   }
 
   tbody.innerHTML = filtered.map(item => {
-    const computedStatus = window.store.calculateStatus(item.expiryDate, item.quantity);
+    const computedStatus = window.store.calculateStatus(item.expiryDate, item.quantity, item.minStock);
     const rel = window.formatRelativeExpiry ? window.formatRelativeExpiry(item.expiryDate) : { text: item.expiryDate || "—", urgent: false, days: null };
 
     let statusClass = "status-fresh";
@@ -87,7 +124,7 @@ function renderInventoryTable() {
     } else if (computedStatus === "Expiring Soon" || (rel.days !== null && rel.days <= 7)) {
       statusClass = "status-expiring";
       statusLabel = "Expiring Soon";
-    } else if (computedStatus === "Low Stock" || Number(item.quantity) <= 1) {
+    } else if (computedStatus === "Low Stock" || Number(item.quantity) <= (item.minStock !== undefined ? Number(item.minStock) : 2)) {
       statusClass = "status-low";
       statusLabel = "Low Stock";
     }
@@ -100,8 +137,12 @@ function renderInventoryTable() {
       <tr data-id="${item.id}">
         <td>
           <div class="item-cell">
-            <div class="item-thumb">${item.emoji || "📦"}</div>
-            <span>${escapeHTML(item.name)}</span>
+            <div class="item-thumb">${item.imageUrl ? `<img src="${escapeHTML(item.imageUrl)}" style="width:100%;height:100%;object-fit:cover;border-radius:10px;" onerror="this.outerHTML='${item.emoji || "📦"}'">` : (item.emoji || "📦")}</div>
+            <div>
+              <span style="font-weight: 700; color: #0f172a;">${escapeHTML(item.name)}</span>
+              ${item.brand ? `<div style="font-size:11px; color:#64748b; font-weight:500;">${escapeHTML(item.brand)}</div>` : ''}
+              ${item.barcode ? `<div style="font-size:10px; color:#94a3b8; font-family:monospace;">${escapeHTML(item.barcode)}</div>` : ''}
+            </div>
           </div>
         </td>
         <td style="color: #64748b;">
@@ -109,8 +150,12 @@ function renderInventoryTable() {
             <img src="assets/categories/${catName.toLowerCase()}.png" alt="" style="width:20px; height:18px; object-fit:contain;" onerror="this.style.display='none'">
             <span>${escapeHTML(catName)}</span>
           </span>
+          ${item.storageLocation ? `<div style="font-size:10.5px; color:#94a3b8; margin-top:2px;">📍 ${escapeHTML(item.storageLocation)}</div>` : ''}
         </td>
-        <td style="font-weight: 600;">${item.quantity} ${escapeHTML(item.unit || "pcs")}</td>
+        <td style="font-weight: 600;">
+          ${item.quantity} ${escapeHTML(item.unit || "pcs")}
+          ${item.minStock !== undefined ? `<div style="font-size:10.5px; color:#94a3b8; font-weight:400;">Min: ${item.minStock}</div>` : ''}
+        </td>
         <td class="${isUrgent ? "expiry-urgent" : ""}">
           <div style="display:flex; flex-direction:column; gap:2px;">
             <span style="font-weight: 600;">${dateFormatted}</span>
@@ -181,6 +226,11 @@ function openAddEditModal(id = null) {
   const qtyInput = document.getElementById("itemQuantityInput");
   const unitInput = document.getElementById("itemUnitInput");
   const expiryInput = document.getElementById("itemExpiryInput");
+  const purchaseInput = document.getElementById("itemPurchaseInput");
+  const brandInput = document.getElementById("itemBrandInput");
+  const barcodeInput = document.getElementById("itemBarcodeInput");
+  const locationInput = document.getElementById("itemLocationInput");
+  const minStockInput = document.getElementById("itemMinStockInput");
 
   if (!modal) return;
 
@@ -192,11 +242,16 @@ function openAddEditModal(id = null) {
     const item = window.store.getItemById(id);
     if (item) {
       if (title) title.textContent = "✏️ Edit Item";
-      if (nameInput) nameInput.value = item.name;
+      if (nameInput) nameInput.value = item.name || "";
       setCategoryValue(item.category || "Fruits");
-      if (qtyInput) qtyInput.value = item.quantity;
+      if (qtyInput) qtyInput.value = item.quantity !== undefined ? item.quantity : 1;
       if (unitInput) unitInput.value = item.unit || "pcs";
       if (expiryInput) expiryInput.value = item.expiryDate || "";
+      if (purchaseInput) purchaseInput.value = item.purchaseDate || "";
+      if (brandInput) brandInput.value = item.brand || "";
+      if (barcodeInput) barcodeInput.value = item.barcode || "";
+      if (locationInput) locationInput.value = item.storageLocation || item.location || "Pantry";
+      if (minStockInput) minStockInput.value = item.minStock !== undefined ? item.minStock : 2;
     }
   } else {
     if (title) title.textContent = "＋ Add Item to Pantry";
@@ -205,6 +260,11 @@ function openAddEditModal(id = null) {
     if (qtyInput) qtyInput.value = "1";
     if (unitInput) unitInput.value = "pcs";
     if (expiryInput) expiryInput.value = "";
+    if (purchaseInput) purchaseInput.value = window.getTodayISO ? window.getTodayISO() : new Date().toISOString().split("T")[0];
+    if (brandInput) brandInput.value = "";
+    if (barcodeInput) barcodeInput.value = "";
+    if (locationInput) locationInput.value = "Pantry";
+    if (minStockInput) minStockInput.value = "2";
   }
 
   setTimeout(() => {
@@ -230,12 +290,22 @@ async function saveItemForm(e) {
   const qtyInput = document.getElementById("itemQuantityInput");
   const unitInput = document.getElementById("itemUnitInput");
   const expiryInput = document.getElementById("itemExpiryInput");
+  const purchaseInput = document.getElementById("itemPurchaseInput");
+  const brandInput = document.getElementById("itemBrandInput");
+  const barcodeInput = document.getElementById("itemBarcodeInput");
+  const locationInput = document.getElementById("itemLocationInput");
+  const minStockInput = document.getElementById("itemMinStockInput");
 
   const name = nameInput ? nameInput.value.trim() : "";
   const category = catInput ? catInput.value : "Fruits";
   const quantity = qtyInput ? (parseFloat(qtyInput.value) || 1) : 1;
   const unit = unitInput ? unitInput.value : "pcs";
   const expiryDate = expiryInput ? expiryInput.value : "";
+  const purchaseDate = purchaseInput ? purchaseInput.value : "";
+  const brand = brandInput ? brandInput.value.trim() : "";
+  const barcode = barcodeInput ? barcodeInput.value.trim() : "";
+  const storageLocation = locationInput ? locationInput.value : "Pantry";
+  const minStock = minStockInput ? (parseFloat(minStockInput.value) || 2) : 2;
 
   if (!name) {
     showToast("Please enter an item name.");
@@ -249,7 +319,12 @@ async function saveItemForm(e) {
       category,
       quantity,
       unit,
-      expiryDate
+      expiryDate,
+      purchaseDate,
+      brand,
+      barcode,
+      storageLocation,
+      minStock
     });
     showToast(`Updated "${name}"`);
   } else {
@@ -258,7 +333,12 @@ async function saveItemForm(e) {
       category,
       quantity,
       unit,
-      expiryDate
+      expiryDate,
+      purchaseDate,
+      brand,
+      barcode,
+      storageLocation,
+      minStock
     });
     showToast(`Added "${name}" to pantry!`);
   }

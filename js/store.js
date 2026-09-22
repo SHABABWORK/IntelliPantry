@@ -580,9 +580,10 @@ class PantryStore {
     const oldQty = current ? Number(current.quantity) : 1;
     const newQty = updates.quantity !== undefined ? Number(updates.quantity) : oldQty;
 
-    if (updates.expiryDate !== undefined || updates.quantity !== undefined) {
+    if (updates.expiryDate !== undefined || updates.quantity !== undefined || updates.minStock !== undefined) {
       const exp = updates.expiryDate !== undefined ? updates.expiryDate : (current ? current.expiryDate : "");
-      updates.status = this.calculateStatus(exp, newQty);
+      const stk = updates.minStock !== undefined ? updates.minStock : (current && current.minStock !== undefined ? current.minStock : 2);
+      updates.status = this.calculateStatus(exp, newQty, stk);
     }
 
     if (this.userId && window.supabaseService && window.supabaseService.isReady()) {
@@ -1131,15 +1132,22 @@ class PantryStore {
     return CATEGORY_EMOJIS[category] || "📦";
   }
 
-  calculateStatus(expiryDate, quantity) {
-    if (Number(quantity) <= 0) return "Low Stock";
-    if (!expiryDate) return "Fresh";
+  calculateStatus(expiryDate, quantity, minStock = 2) {
+    const qty = Number(quantity);
+    const threshold = minStock !== undefined && minStock !== null && !isNaN(Number(minStock)) ? Number(minStock) : 2;
+
+    if (!expiryDate) {
+      return qty <= threshold ? "Low Stock" : "Fresh";
+    }
 
     const diffDays = getDaysDifference(expiryDate);
-    if (diffDays === null) return "Fresh";
+    if (diffDays === null) {
+      return qty <= threshold ? "Low Stock" : "Fresh";
+    }
 
     if (diffDays < 0) return "Expired";
     if (diffDays <= 7) return "Expiring Soon";
+    if (qty <= threshold) return "Low Stock";
     return "Fresh";
   }
 
@@ -1151,8 +1159,9 @@ class PantryStore {
     let expired = 0;
 
     items.forEach(i => {
-      const s = this.calculateStatus(i.expiryDate, i.quantity);
-      if (s === "Low Stock" || Number(i.quantity) <= 1) lowStock++;
+      const threshold = i.minStock !== undefined && i.minStock !== null && !isNaN(Number(i.minStock)) ? Number(i.minStock) : 2;
+      const s = this.calculateStatus(i.expiryDate, i.quantity, threshold);
+      if (s === "Low Stock" || Number(i.quantity) <= threshold) lowStock++;
       if (s === "Expiring Soon") expiringSoon++;
       if (s === "Expired") expired++;
     });

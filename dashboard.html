@@ -259,21 +259,21 @@
       <div class="metrics-row">
         
         <!-- Total Items -->
-        <div class="metric-box">
+        <div class="metric-box" onclick="setCategoryFilter('All'); setStatusFilter('All'); document.getElementById('inventorySection')?.scrollIntoView({behavior:'smooth'});" style="cursor:pointer;" title="Click to view all items">
           <div class="metric-icon-wrap metric-icon-green">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
               <path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"></path>
             </svg>
           </div>
           <div class="metric-data">
-            <h3 id="metricTotalItems">24</h3>
+            <h3 id="metricTotalItems">0</h3>
             <div class="metric-label">Total Items</div>
-            <div class="metric-sub sub-green">+ 2 this week</div>
+            <div class="metric-sub sub-green">All active inventory</div>
           </div>
         </div>
 
         <!-- Expiring Soon -->
-        <div class="metric-box">
+        <div class="metric-box" onclick="setStatusFilter('Expiring Soon'); document.getElementById('inventorySection')?.scrollIntoView({behavior:'smooth'});" style="cursor:pointer;" title="Click to filter expiring soon items">
           <div class="metric-icon-wrap metric-icon-amber">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
               <circle cx="12" cy="12" r="10"></circle>
@@ -281,14 +281,14 @@
             </svg>
           </div>
           <div class="metric-data">
-            <h3 id="metricExpiringSoon">5</h3>
+            <h3 id="metricExpiringSoon">0</h3>
             <div class="metric-label">Expiring Soon</div>
             <div class="metric-sub sub-amber">Within 7 days</div>
           </div>
         </div>
 
         <!-- Low Stock -->
-        <div class="metric-box">
+        <div class="metric-box" onclick="setStatusFilter('Low Stock'); document.getElementById('inventorySection')?.scrollIntoView({behavior:'smooth'});" style="cursor:pointer;" title="Click to filter low stock items">
           <div class="metric-icon-wrap metric-icon-rose">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
               <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"></path>
@@ -297,14 +297,14 @@
             </svg>
           </div>
           <div class="metric-data">
-            <h3 id="metricLowStock">3</h3>
+            <h3 id="metricLowStock">0</h3>
             <div class="metric-label">Low Stock</div>
             <div class="metric-sub sub-rose">Needs restock</div>
           </div>
         </div>
 
         <!-- Fresh Items -->
-        <div class="metric-box">
+        <div class="metric-box" onclick="setStatusFilter('Fresh'); document.getElementById('inventorySection')?.scrollIntoView({behavior:'smooth'});" style="cursor:pointer;" title="Click to filter fresh items">
           <div class="metric-icon-wrap metric-icon-green">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
               <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"></path>
@@ -312,7 +312,7 @@
             </svg>
           </div>
           <div class="metric-data">
-            <h3 id="metricFreshItems">12</h3>
+            <h3 id="metricFreshItems">0</h3>
             <div class="metric-label">Fresh Items</div>
             <div class="metric-sub sub-green">Optimal shelf life</div>
           </div>
@@ -376,12 +376,12 @@
       <section class="inventory-section" id="inventorySection">
         <div class="inventory-header">
           <h2 class="inventory-title">Your Inventory</h2>
-          <a class="view-all-link" onclick="setCategoryFilter('All')">View All ➔</a>
+          <a class="view-all-link" onclick="setCategoryFilter('All'); setStatusFilter('All');">View All ➔</a>
         </div>
 
         <!-- Category Filter Chips -->
         <div class="category-chips">
-          <button class="chip-btn active" data-category="All" onclick="setCategoryFilter('All')">All</button>
+          <button class="chip-btn active" data-category="All" onclick="setCategoryFilter('All')">All Categories</button>
           <button class="chip-btn" data-category="Fruits" onclick="setCategoryFilter('Fruits')">Fruits</button>
           <button class="chip-btn" data-category="Vegetables" onclick="setCategoryFilter('Vegetables')">Vegetables</button>
           <button class="chip-btn" data-category="Dairy" onclick="setCategoryFilter('Dairy')">Dairy</button>
@@ -390,6 +390,16 @@
           <button class="chip-btn" data-category="Beverages" onclick="setCategoryFilter('Beverages')">Beverages</button>
           <button class="chip-btn" data-category="Pantry" onclick="setCategoryFilter('Pantry')">Pantry</button>
           <button class="chip-btn" data-category="Frozen" onclick="setCategoryFilter('Frozen')">Frozen</button>
+        </div>
+
+        <!-- Status Filter Pills -->
+        <div class="status-filter-row" style="display:flex; align-items:center; gap:8px; margin-top:10px; margin-bottom:14px; flex-wrap:wrap;">
+          <span style="font-size:12px; font-weight:700; color:#64748b; margin-right:4px;">Status:</span>
+          <button type="button" class="status-filter-btn active" data-status="All" onclick="setStatusFilter('All')">All Statuses</button>
+          <button type="button" class="status-filter-btn" data-status="Fresh" onclick="setStatusFilter('Fresh')">🟢 In Stock / Fresh</button>
+          <button type="button" class="status-filter-btn" data-status="Expiring Soon" onclick="setStatusFilter('Expiring Soon')">🟡 Expiring Soon</button>
+          <button type="button" class="status-filter-btn" data-status="Low Stock" onclick="setStatusFilter('Low Stock')">🟠 Low Stock</button>
+          <button type="button" class="status-filter-btn" data-status="Expired" onclick="setStatusFilter('Expired')">🔴 Expired</button>
         </div>
 
         <!-- Table -->
