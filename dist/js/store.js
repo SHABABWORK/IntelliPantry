@@ -275,24 +275,7 @@ function getCurrentUserInfo() {
       if (parsed && parsed.id) return parsed;
     }
   } catch (e) {}
-
-  let guestId = localStorage.getItem("smartpantry_device_id");
-  if (!guestId) {
-    guestId = "chef_" + Math.random().toString(36).substring(2, 10);
-    localStorage.setItem("smartpantry_device_id", guestId);
-  }
-  const defaultUser = {
-    id: guestId,
-    name: "Pantry Chef",
-    email: "intellipantrynotify@gmail.com"
-  };
-  try {
-    localStorage.setItem("smartpantry_user", JSON.stringify(defaultUser));
-    if (!localStorage.getItem("smartpantry_token")) {
-      localStorage.setItem("smartpantry_token", "direct_token_" + Date.now());
-    }
-  } catch (e) {}
-  return defaultUser;
+  return null;
 }
 
 class PantryStore {
@@ -308,43 +291,50 @@ class PantryStore {
 
   get storageKey() {
     const user = getCurrentUserInfo();
-    const uid = user.id || (user.email ? user.email.toLowerCase().replace(/[^a-z0-9]/g, '_') : 'default');
+    const uid = user ? (user.id || (user.email ? user.email.toLowerCase().replace(/[^a-z0-9]/g, '_') : 'guest')) : 'guest';
     return `smartpantry_user_pantry_${uid}`;
   }
 
   get settingsKey() {
     const user = getCurrentUserInfo();
-    const uid = user.id || (user.email ? user.email.toLowerCase().replace(/[^a-z0-9]/g, '_') : 'default');
+    const uid = user ? (user.id || (user.email ? user.email.toLowerCase().replace(/[^a-z0-9]/g, '_') : 'guest')) : 'guest';
     return `smart_pantry_settings_${uid}`;
   }
 
   get fullSettingsKey() {
     const user = getCurrentUserInfo();
-    const uid = user.id || (user.email ? user.email.toLowerCase().replace(/[^a-z0-9]/g, '_') : 'default');
+    const uid = user ? (user.id || (user.email ? user.email.toLowerCase().replace(/[^a-z0-9]/g, '_') : 'guest')) : 'guest';
     return `smart_pantry_full_settings_${uid}`;
   }
 
   get activityKey() {
     const user = getCurrentUserInfo();
-    const uid = user.id || (user.email ? user.email.toLowerCase().replace(/[^a-z0-9]/g, '_') : 'default');
+    const uid = user ? (user.id || (user.email ? user.email.toLowerCase().replace(/[^a-z0-9]/g, '_') : 'guest')) : 'guest';
     return `smart_pantry_activity_${uid}`;
   }
 
   get alertsKey() {
     const user = getCurrentUserInfo();
-    const uid = user.id || (user.email ? user.email.toLowerCase().replace(/[^a-z0-9]/g, '_') : 'default');
+    const uid = user ? (user.id || (user.email ? user.email.toLowerCase().replace(/[^a-z0-9]/g, '_') : 'guest')) : 'guest';
     return `smart_pantry_live_alerts_${uid}`;
   }
 
   get alertHistoryKey() {
     const user = getCurrentUserInfo();
-    const uid = user.id || (user.email ? user.email.toLowerCase().replace(/[^a-z0-9]/g, '_') : 'default');
+    const uid = user ? (user.id || (user.email ? user.email.toLowerCase().replace(/[^a-z0-9]/g, '_') : 'guest')) : 'guest';
     return `smart_pantry_alerts_${uid}`;
   }
 
   init() {
     const user = getCurrentUserInfo();
-    this.userId = user.id || null;
+    this.userId = user ? (user.id || null) : null;
+
+    if (!this.userId) {
+      this.items = [];
+      this.activity = [];
+      this.alerts = [];
+      return;
+    }
 
     // 1. Initial synchronous cache loads (isolated per user)
     if (this.userId && window.supabaseService) {
@@ -435,7 +425,7 @@ class PantryStore {
     const setKey = this.settingsKey;
     if (!localStorage.getItem(setKey)) {
       localStorage.setItem(setKey, JSON.stringify({
-        email: user.email || "intellipantrynotify@gmail.com",
+        email: user ? (user.email || "intellipantrynotify@gmail.com") : "intellipantrynotify@gmail.com",
         alertOnStockOut: true,
         alertOnExpiry: true
       }));
@@ -541,14 +531,18 @@ class PantryStore {
 
     const newItem = {
       name: item.name,
+      brand: item.brand || "",
+      imageUrl: item.imageUrl || item.image || "",
+      minStock: item.minStock !== undefined ? Number(item.minStock) : 2,
       category: item.category || "Pantry",
       quantity: Number(item.quantity) || 1,
       unit: item.unit || "pcs",
       expiryDate: item.expiryDate || "",
-      purchaseDate: item.purchaseDate || getTodayISO(),
+      purchaseDate: item.purchaseDate || (window.getTodayISO ? window.getTodayISO() : new Date().toISOString().split('T')[0]),
       barcode: item.barcode || "",
       price: Number(item.price) || 0,
-      location: item.location || "Pantry",
+      location: item.location || item.storageLocation || "Pantry",
+      storageLocation: item.location || item.storageLocation || "Pantry",
       status: computedStatus,
       emoji: resolvedEmoji
     };
@@ -586,9 +580,10 @@ class PantryStore {
     const oldQty = current ? Number(current.quantity) : 1;
     const newQty = updates.quantity !== undefined ? Number(updates.quantity) : oldQty;
 
-    if (updates.expiryDate !== undefined || updates.quantity !== undefined) {
+    if (updates.expiryDate !== undefined || updates.quantity !== undefined || updates.minStock !== undefined) {
       const exp = updates.expiryDate !== undefined ? updates.expiryDate : (current ? current.expiryDate : "");
-      updates.status = this.calculateStatus(exp, newQty);
+      const stk = updates.minStock !== undefined ? updates.minStock : (current && current.minStock !== undefined ? current.minStock : 2);
+      updates.status = this.calculateStatus(exp, newQty, stk);
     }
 
     if (this.userId && window.supabaseService && window.supabaseService.isReady()) {
@@ -1137,15 +1132,22 @@ class PantryStore {
     return CATEGORY_EMOJIS[category] || "📦";
   }
 
-  calculateStatus(expiryDate, quantity) {
-    if (Number(quantity) <= 0) return "Low Stock";
-    if (!expiryDate) return "Fresh";
+  calculateStatus(expiryDate, quantity, minStock = 2) {
+    const qty = Number(quantity);
+    const threshold = minStock !== undefined && minStock !== null && !isNaN(Number(minStock)) ? Number(minStock) : 2;
+
+    if (!expiryDate) {
+      return qty <= threshold ? "Low Stock" : "Fresh";
+    }
 
     const diffDays = getDaysDifference(expiryDate);
-    if (diffDays === null) return "Fresh";
+    if (diffDays === null) {
+      return qty <= threshold ? "Low Stock" : "Fresh";
+    }
 
     if (diffDays < 0) return "Expired";
     if (diffDays <= 7) return "Expiring Soon";
+    if (qty <= threshold) return "Low Stock";
     return "Fresh";
   }
 
@@ -1157,8 +1159,9 @@ class PantryStore {
     let expired = 0;
 
     items.forEach(i => {
-      const s = this.calculateStatus(i.expiryDate, i.quantity);
-      if (s === "Low Stock" || Number(i.quantity) <= 1) lowStock++;
+      const threshold = i.minStock !== undefined && i.minStock !== null && !isNaN(Number(i.minStock)) ? Number(i.minStock) : 2;
+      const s = this.calculateStatus(i.expiryDate, i.quantity, threshold);
+      if (s === "Low Stock" || Number(i.quantity) <= threshold) lowStock++;
       if (s === "Expiring Soon") expiringSoon++;
       if (s === "Expired") expired++;
     });

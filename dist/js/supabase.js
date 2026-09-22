@@ -251,6 +251,9 @@
       const dbRecord = {
         user_id: userId,
         name: productData.name,
+        brand: productData.brand || null,
+        image_url: productData.imageUrl || productData.image || null,
+        min_stock: productData.minStock !== undefined ? Number(productData.minStock) : 2,
         category: productData.category || 'Pantry',
         quantity: Number(productData.quantity) || 1,
         unit: productData.unit || 'pcs',
@@ -284,10 +287,14 @@
         updated_at: new Date().toISOString()
       };
       if (updates.name !== undefined) dbPayload.name = updates.name;
+      if (updates.brand !== undefined) dbPayload.brand = updates.brand;
+      if (updates.imageUrl !== undefined || updates.image !== undefined) dbPayload.image_url = updates.imageUrl || updates.image;
+      if (updates.minStock !== undefined) dbPayload.min_stock = Number(updates.minStock);
       if (updates.category !== undefined) dbPayload.category = updates.category;
       if (updates.quantity !== undefined) dbPayload.quantity = Number(updates.quantity);
       if (updates.unit !== undefined) dbPayload.unit = updates.unit;
       if (updates.expiryDate !== undefined) dbPayload.expiry_date = updates.expiryDate || null;
+      if (updates.purchaseDate !== undefined) dbPayload.purchase_date = updates.purchaseDate || null;
       if (updates.barcode !== undefined) dbPayload.barcode = updates.barcode;
       if (updates.price !== undefined) dbPayload.price = Number(updates.price);
       if (updates.location !== undefined) {
@@ -647,6 +654,9 @@
       return {
         id: row.id,
         name: row.name,
+        brand: row.brand || '',
+        imageUrl: row.image_url || '',
+        minStock: row.min_stock !== undefined && row.min_stock !== null ? Number(row.min_stock) : 2,
         category: row.category || 'Pantry',
         quantity: Number(row.quantity) || 1,
         unit: row.unit || 'pcs',

@@ -15,8 +15,19 @@
   <script src="js/supabase.js"></script>
   
   <script>
-    // Direct access: No login required — redirect directly to pantry dashboard
-    window.location.replace('dashboard.html');
+    // If user already has an active authenticated session, redirect to dashboard
+    document.addEventListener("DOMContentLoaded", async function() {
+      try {
+        const rawUser = localStorage.getItem('smartpantry_user');
+        const token = localStorage.getItem('smartpantry_token');
+        if (rawUser && token && !token.startsWith('direct_token_')) {
+          // If valid user token exists, redirect to dashboard
+          window.location.replace('dashboard.html');
+        }
+      } catch (e) {
+        console.warn("Session check:", e);
+      }
+    });
   </script>
   
   <style>
