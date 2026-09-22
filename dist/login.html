@@ -15,13 +15,8 @@
   <script src="js/supabase.js"></script>
   
   <script>
-    (function() {
-      const params = new URLSearchParams(window.location.search);
-      if (params.get('logout') === '1') {
-        localStorage.removeItem('smartpantry_token');
-        localStorage.removeItem('smartpantry_user');
-      }
-    })();
+    // Direct access: No login required — redirect directly to pantry dashboard
+    window.location.replace('dashboard.html');
   </script>
   
   <style>

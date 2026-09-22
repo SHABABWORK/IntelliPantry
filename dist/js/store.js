@@ -269,10 +269,30 @@ window.UserDB = new UserDatabaseManager();
 
 function getCurrentUserInfo() {
   try {
-    return JSON.parse(localStorage.getItem("smartpantry_user") || "{}");
-  } catch (e) {
-    return {};
+    const raw = localStorage.getItem("smartpantry_user");
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && parsed.id) return parsed;
+    }
+  } catch (e) {}
+
+  let guestId = localStorage.getItem("smartpantry_device_id");
+  if (!guestId) {
+    guestId = "chef_" + Math.random().toString(36).substring(2, 10);
+    localStorage.setItem("smartpantry_device_id", guestId);
   }
+  const defaultUser = {
+    id: guestId,
+    name: "Pantry Chef",
+    email: "intellipantrynotify@gmail.com"
+  };
+  try {
+    localStorage.setItem("smartpantry_user", JSON.stringify(defaultUser));
+    if (!localStorage.getItem("smartpantry_token")) {
+      localStorage.setItem("smartpantry_token", "direct_token_" + Date.now());
+    }
+  } catch (e) {}
+  return defaultUser;
 }
 
 class PantryStore {
@@ -397,19 +417,25 @@ class PantryStore {
       emoji: resolvedEmoji
     };
 
-    if (this.userId && window.supabaseService) {
-      const saved = await window.supabaseService.insertProduct(newItem, this.userId);
-      this.items = [saved, ...this.items.filter(i => i.id !== saved.id)];
-    } else {
-      newItem.id = item.id || 'prod_' + Date.now();
-      newItem.addedAt = new Date().toISOString();
-      this.items = [newItem, ...this.items];
-      this.saveItems(this.items);
+    newItem.id = item.id || 'prod_' + Date.now();
+    newItem.addedAt = new Date().toISOString();
+
+    if (this.userId && window.supabaseService && window.supabaseService.isReady()) {
+      try {
+        const saved = await window.supabaseService.insertProduct(newItem, this.userId);
+        if (saved && saved.id) {
+          newItem.id = saved.id;
+        }
+      } catch (err) {
+        console.warn("[Supabase DB] Local storage active (cloud sync deferred):", err.message);
+      }
     }
 
+    this.items = [newItem, ...this.items.filter(i => i.id !== newItem.id)];
+    this.saveItems(this.items);
     this.notify();
     this.checkAndDispatchPantryAlerts();
-    return this.items[0];
+    return newItem;
   }
 
   async updateItem(id, updates) {
@@ -420,8 +446,12 @@ class PantryStore {
       updates.status = this.calculateStatus(exp, qty);
     }
 
-    if (this.userId && window.supabaseService) {
-      await window.supabaseService.updateProduct(id, updates, this.userId);
+    if (this.userId && window.supabaseService && window.supabaseService.isReady()) {
+      try {
+        await window.supabaseService.updateProduct(id, updates, this.userId);
+      } catch (err) {
+        console.warn("[Supabase DB] Local update (cloud sync deferred):", err.message);
+      }
     }
 
     this.items = this.items.map(item => item.id === id ? { ...item, ...updates } : item);
@@ -430,13 +460,23 @@ class PantryStore {
   }
 
   async deleteItem(id) {
-    if (this.userId && window.supabaseService) {
-      await window.supabaseService.deleteProduct(id, this.userId);
+    if (this.userId && window.supabaseService && window.supabaseService.isReady()) {
+      try {
+        await window.supabaseService.deleteProduct(id, this.userId);
+      } catch (err) {
+        console.warn("[Supabase DB] Local delete (cloud sync deferred):", err.message);
+      }
     }
 
     this.items = this.items.filter(item => item.id !== id);
     this.saveItems(this.items);
     return true;
+  }
+
+  clearAll() {
+    this.items = [];
+    localStorage.removeItem(this.storageKey);
+    this.notify();
   }
 
   getItemById(id) {

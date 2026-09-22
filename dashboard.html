@@ -860,51 +860,57 @@
 <!-- ==========================================
      EMAIL ALERTS MODAL
      ========================================== -->
-<div class="modal-overlay" id="emailAlertModal" onclick="if(event.target === this) closeEmailAlertModal()">
-  <div class="modal-dialog">
-    <div class="flex items-center justify-between mb-4">
-      <h3 class="text-lg font-bold text-slate-900">✉️ Email & Notification Alerts</h3>
-      <button class="action-dots-btn" onclick="closeEmailAlertModal()">✕</button>
+<div class="modal-backdrop" id="emailAlertModal">
+  <div class="modal-card" style="max-width:480px;">
+    <div class="modal-header">
+      <div style="display:flex; align-items:center; gap:10px;">
+        <div style="font-size:24px;">✉️</div>
+        <div>
+          <h3>Email & Notification Alerts</h3>
+          <p>Automated alerts for low stock and expiring items</p>
+        </div>
+      </div>
+      <button class="modal-close-btn" onclick="closeEmailAlertModal()">✕</button>
     </div>
 
-    <p class="text-xs text-slate-500 mb-4">
-      Receive automated alerts whenever items are running low or nearing expiry.
+    <p style="font-size:13px; color:#64748b; margin-bottom:16px;">
+      Powered by Resend. Automated delivery to your notification inbox.
     </p>
 
-    <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-3">
-      <div>
-        <label class="block text-xs font-bold text-slate-700 mb-1">Notification Email</label>
+    <div style="background:#f8fafc; padding:16px; border-radius:14px; border:1px solid #e2e8f0; margin-bottom:16px;">
+      <div style="margin-bottom:12px;">
+        <label style="display:block; font-size:12px; font-weight:700; color:#334155; margin-bottom:6px;">Notification Email</label>
         <input 
           type="email" 
           id="alertEmailInput" 
-          class="w-full px-3 py-2 text-sm border border-slate-300 rounded-xl bg-white outline-none" 
+          style="width:100%; padding:10px 14px; font-size:14px; border:1px solid #cbd5e1; border-radius:10px; background:#ffffff; outline:none; box-sizing:border-box;"
           placeholder="intellipantrynotify@gmail.com"
         >
       </div>
 
-      <div class="flex items-center justify-between pt-2 border-t border-slate-200">
+      <div style="display:flex; align-items:center; justify-content:space-between; padding-top:10px; border-top:1px solid #e2e8f0;">
         <div>
-          <p class="text-xs font-bold text-slate-800">Alert on Stock Out</p>
-          <p class="text-[11px] text-slate-500">Notify when quantity reaches low threshold</p>
+          <p style="font-size:13px; font-weight:700; color:#1e293b; margin:0;">Alert on Stock Out</p>
+          <p style="font-size:11px; color:#64748b; margin:2px 0 0;">Notify when quantity reaches 0 or low threshold</p>
         </div>
-        <input type="checkbox" id="alertOnStockOutCheckbox" class="w-4 h-4 accent-emerald-600">
+        <input type="checkbox" id="alertOnStockOutCheckbox" style="width:18px; height:18px; cursor:pointer;" checked>
       </div>
 
-      <div class="flex items-center justify-between pt-2 border-t border-slate-200">
+      <div style="display:flex; align-items:center; justify-content:space-between; padding-top:10px; border-top:1px solid #e2e8f0; margin-top:8px;">
         <div>
-          <p class="text-xs font-bold text-slate-800">Alert on Expiry</p>
-          <p class="text-[11px] text-slate-500">Notify when items expire within 7 days</p>
+          <p style="font-size:13px; font-weight:700; color:#1e293b; margin:0;">Alert on Expiry</p>
+          <p style="font-size:11px; color:#64748b; margin:2px 0 0;">Notify when items expire within 7 days</p>
         </div>
-        <input type="checkbox" id="alertOnExpiryCheckbox" class="w-4 h-4 accent-emerald-600">
+        <input type="checkbox" id="alertOnExpiryCheckbox" style="width:18px; height:18px; cursor:pointer;" checked>
       </div>
     </div>
 
-    <div class="grid grid-cols-2 gap-2 mt-4">
-      <button onclick="saveEmailAlertSettings()" class="py-2.5 rounded-xl bg-slate-900 text-white font-semibold text-xs hover:bg-slate-800">
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+      <button type="button" onclick="saveEmailAlertSettings()" class="modal-save-btn" style="background:#0f172a; text-align:center;">
         Save Preferences
       </button>
-      <button onclick="triggerTestEmailAlert()" class="py-2.5 rounded-xl bg-emerald-600 text-white font-semibold text-xs hover:bg-emerald-700">
-        Send Test Email
+      <button type="button" onclick="triggerTestEmailAlert()" class="modal-save-btn" style="background:#10b981; text-align:center;">
+        ⚡ Send Test Email
       </button>
     </div>
   </div>
@@ -1534,6 +1540,74 @@ function handleSaveDatabaseSettings(e) {
   }
   showToast('✓ Supabase Database settings saved!');
   closeDatabaseSettingsModal();
+}
+
+// ===== Email Alerts Modal Handlers =====
+function openEmailAlertModal() {
+  const modal = document.getElementById('emailAlertModal');
+  if (!modal) return;
+  const settings = window.store ? window.store.getSettings() : {};
+  const emailInput = document.getElementById('alertEmailInput');
+  const stockOutCb = document.getElementById('alertOnStockOutCheckbox');
+  const expiryCb = document.getElementById('alertOnExpiryCheckbox');
+
+  if (emailInput) emailInput.value = settings.email || 'intellipantrynotify@gmail.com';
+  if (stockOutCb) stockOutCb.checked = settings.alertOnStockOut !== false;
+  if (expiryCb) expiryCb.checked = settings.alertOnExpiry !== false;
+
+  modal.classList.add('active');
+}
+
+function closeEmailAlertModal() {
+  const modal = document.getElementById('emailAlertModal');
+  if (modal) modal.classList.remove('active');
+}
+
+function saveEmailAlertSettings() {
+  const emailInput = document.getElementById('alertEmailInput');
+  const stockOutCb = document.getElementById('alertOnStockOutCheckbox');
+  const expiryCb = document.getElementById('alertOnExpiryCheckbox');
+
+  const email = (emailInput && emailInput.value.trim()) || 'intellipantrynotify@gmail.com';
+  const alertOnStockOut = stockOutCb ? stockOutCb.checked : true;
+  const alertOnExpiry = expiryCb ? expiryCb.checked : true;
+
+  if (window.store) {
+    window.store.saveSettings({ email, alertOnStockOut, alertOnExpiry });
+  }
+  showToast('✓ Alert preferences saved for ' + email);
+  closeEmailAlertModal();
+}
+
+async function triggerTestEmailAlert() {
+  const emailInput = document.getElementById('alertEmailInput');
+  const email = (emailInput && emailInput.value.trim()) || 'intellipantrynotify@gmail.com';
+
+  showToast('Sending test alert via Resend...');
+
+  try {
+    const res = await fetch('/api/send-login-notification', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: email,
+        name: 'Pantry Chef',
+        browser: navigator.userAgent.includes('Chrome') ? 'Google Chrome' : 'Web Browser',
+        device: navigator.userAgent.includes('Mobile') ? 'Mobile Device' : 'Desktop Computer'
+      })
+    });
+    const data = await res.json();
+    if (data.status === 'pending_config') {
+      showToast('⚠️ Alert triggered! Add RESEND_API_KEY in Vercel to deliver live to inbox.');
+    } else if (data.success) {
+      showToast('✓ Real email dispatched via Resend to ' + email + '!');
+    } else {
+      showToast('⚠️ Server: ' + (data.details || data.error || 'Check Resend key'));
+    }
+  } catch (err) {
+    console.error('Email test error:', err);
+    showToast('⚠️ Could not connect to email server: ' + err.message);
+  }
 }
 
 // Helper: Extract clean display name from any email / gmail
