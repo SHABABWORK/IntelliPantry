@@ -1309,65 +1309,116 @@
 
 
 <!-- ==========================================
-     AI BILL & RECEIPT OCR CAMERA SCANNER
+     AI BILL & RECEIPT OCR CAMERA SCANNER (MINIMALIST)
      ========================================== -->
 <div id="billScannerModal" class="camera-modal">
-  <div class="camera-header">
-    <div class="camera-title">🧾 AI Bill & Barcode Scanner</div>
-    <button class="camera-close" onclick="closeBillScannerModal()">✕</button>
-  </div>
-
-  <div class="camera-body">
-    <video id="cameraVideo" autoplay playsinline muted></video>
-    <canvas id="cameraCanvas"></canvas>
-
-    <div class="scan-overlay">
-      <div class="scan-box">
-        <div class="corner tl"></div>
-        <div class="corner tr"></div>
-        <div class="corner bl"></div>
-        <div class="corner br"></div>
-        <div class="scan-line"></div>
+  <div class="scanner-mini-card">
+    <!-- Minimalist Top Header -->
+    <div class="scanner-mini-header">
+      <div class="scanner-mini-title">
+        <span class="scanner-live-dot"></span>
+        <span class="scanner-title-text">AI Scanner</span>
       </div>
-      <div class="camera-hint">
-        Position receipt or barcode inside the frame
-      </div>
-    </div>
 
-    <!-- Permission Screen -->
-    <div id="permissionScreen" class="permission-screen">
-      <div class="permission-card">
-        <div style="font-size:48px; margin-bottom:12px;">📷</div>
-        <h3 style="font-size:18px; font-weight:800; margin-bottom:8px;">Camera Permission Needed</h3>
-        <p style="font-size:13px; color:#cbd5e1; line-height:1.5; margin-bottom:16px;">
-          Allow camera access so Smart Pantry can scan your grocery receipt or product barcode.
-        </p>
-        <button class="camera-btn capture-btn w-full" onclick="requestCameraPermission()">
-          Allow Camera
+      <!-- Segmented Mode Switcher (Receipt / Barcode) -->
+      <div class="scanner-segmented-tabs">
+        <button type="button" class="scanner-tab active" id="modePillReceipt" onclick="setScannerMode('receipt')">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+          <span>Receipt</span>
+        </button>
+        <button type="button" class="scanner-tab" id="modePillBarcode" onclick="setScannerMode('barcode')">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5v14M8 5v14M12 5v14M17 5v14M21 5v14"></path></svg>
+          <span>Barcode</span>
         </button>
       </div>
+
+      <button class="scanner-mini-close" onclick="closeBillScannerModal()" aria-label="Close Scanner">✕</button>
     </div>
 
-    <!-- Processing OCR Screen -->
-    <div id="processingScreen" class="processing-screen">
-      <div>
-        <div class="spinner"></div>
-        <h3 style="font-size:18px; font-weight:800;">AI is reading receipt...</h3>
-        <p id="processingText" style="font-size:13px; color:#94a3b8; margin-top:6px;">Preparing AI OCR engine...</p>
+    <!-- Camera Viewport Area -->
+    <div class="scanner-viewport-wrap">
+      <video id="cameraVideo" autoplay playsinline muted></video>
+      <canvas id="cameraCanvas"></canvas>
+
+      <!-- Viewfinder Overlay & Reticles -->
+      <div class="scan-overlay">
+        <!-- In-Camera Flashlight Toggle -->
+        <button id="scannerFlashBtn" class="scanner-hud-flash" onclick="toggleFlash()" type="button" title="Toggle Flash">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+          <span class="flash-text">Flash</span>
+        </button>
+
+        <!-- Scanning Frame -->
+        <div id="scanBox" class="scan-box">
+          <div class="corner tl"></div>
+          <div class="corner tr"></div>
+          <div class="corner bl"></div>
+          <div class="corner br"></div>
+          <div class="scan-line"></div>
+        </div>
+
+        <!-- Floating HUD Bottom: Status & Hint -->
+        <div class="scanner-hud-bottom">
+          <div id="cameraStatus" class="scanner-mini-status">
+            <span class="status-indicator-dot"></span>
+            <span id="cameraStatusText">Camera ready</span>
+          </div>
+          <div id="cameraHintText" class="scanner-mini-hint">Position receipt inside the frame</div>
+        </div>
+      </div>
+
+      <!-- Permission Screen -->
+      <div id="permissionScreen" class="permission-screen">
+        <div class="permission-card">
+          <div style="font-size:38px; margin-bottom:8px;">📷</div>
+          <h3 style="font-size:16px; font-weight:700; margin-bottom:6px; color:#fff;">Camera Access Needed</h3>
+          <p style="font-size:12.5px; color:#cbd5e1; line-height:1.4; margin-bottom:14px; max-width:280px; margin-left:auto; margin-right:auto;">
+            Allow camera access to quickly scan receipts or barcodes.
+          </p>
+          <button class="camera-btn capture-btn" style="padding:10px 20px; border-radius:12px; font-weight:700;" onclick="requestCameraPermission()">
+            Allow Camera
+          </button>
+        </div>
+      </div>
+
+      <!-- Processing OCR Screen -->
+      <div id="processingScreen" class="processing-screen">
+        <div>
+          <div class="spinner"></div>
+          <h3 style="font-size:16px; font-weight:700; color:#fff;">AI is reading receipt...</h3>
+          <p id="processingText" style="font-size:12px; color:#94a3b8; margin-top:4px;">Preparing AI OCR engine...</p>
+        </div>
       </div>
     </div>
-  </div>
 
-  <div id="cameraStatus" class="camera-status">Initializing scanner...</div>
+    <!-- Minimalist Shutter & Action Dock (Single Row) -->
+    <div class="scanner-dock-bar">
+      <!-- Upload Button -->
+      <button type="button" class="dock-action-btn" onclick="document.getElementById('billImageInput').click()" title="Upload Receipt Image">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+        <span>Upload</span>
+      </button>
 
-  <div class="camera-controls">
-    <button id="captureBillButton" class="camera-btn capture-btn" onclick="captureBill()">📸 Capture Receipt</button>
-    <button class="camera-btn upload-btn" onclick="document.getElementById('billImageInput').click()">🖼️ Upload Receipt</button>
-    <button id="retryCameraButton" class="camera-btn retry-btn" onclick="requestCameraPermission()">🔄 Restart Camera</button>
-    <button class="camera-btn stop-btn" onclick="stopCamera()">⏹ Stop Camera</button>
-    <button class="camera-btn full-btn" onclick="closeBillScannerModal()">Close Scanner</button>
+      <!-- Primary Shutter Button -->
+      <button type="button" id="captureBillButton" class="dock-shutter-btn" onclick="captureBill()" aria-label="Capture">
+        <div class="shutter-inner">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19 4h-3.2L14.2 2H9.8L8.2 4H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2z"></path></svg>
+        </div>
+      </button>
 
-    <input id="billImageInput" type="file" accept="image/*" capture="environment" style="display:none;" onchange="handleBillImage(event)">
+      <!-- Restart Camera Button -->
+      <button type="button" id="retryCameraButton" class="dock-action-btn" onclick="requestCameraPermission()" title="Restart Camera">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+        <span>Restart</span>
+      </button>
+
+      <input id="billImageInput" type="file" accept="image/*" capture="environment" style="display:none;" onchange="handleBillImage(event)">
+    </div>
+
+    <!-- Minimalist Subtle Micro-Tip -->
+    <div class="scanner-mini-footer-tip">
+      <span>💡 Keep flat with good lighting for highest AI accuracy</span>
+    </div>
   </div>
 </div>
 
@@ -1481,6 +1532,49 @@ let capturedBillImage = null;
 let detectedOCRText = "";
 let detectedGroceryItems = [];
 let scannedPurchaseDate = "";
+let scannerMode = "receipt";
+let flashEnabled = false;
+
+function setScannerMode(mode) {
+  scannerMode = mode;
+  const receiptTab = document.getElementById("modePillReceipt");
+  const barcodeTab = document.getElementById("modePillBarcode");
+  const scanBox = document.getElementById("scanBox");
+  const hintText = document.getElementById("cameraHintText");
+
+  if (mode === "barcode") {
+    receiptTab?.classList.remove("active");
+    barcodeTab?.classList.add("active");
+    scanBox?.classList.add("barcode-mode");
+    if (hintText) hintText.textContent = "Align barcode within the target frame";
+  } else {
+    barcodeTab?.classList.remove("active");
+    receiptTab?.classList.add("active");
+    scanBox?.classList.remove("barcode-mode");
+    if (hintText) hintText.textContent = "Position receipt inside the frame";
+  }
+}
+
+async function toggleFlash() {
+  if (!cameraStream) return;
+  const track = cameraStream.getVideoTracks()[0];
+  if (!track) return;
+  const capabilities = track.getCapabilities ? track.getCapabilities() : {};
+  if (capabilities.torch) {
+    try {
+      flashEnabled = !flashEnabled;
+      await track.applyConstraints({
+        advanced: [{ torch: flashEnabled }]
+      });
+      const flashBtn = document.getElementById("scannerFlashBtn");
+      if (flashBtn) flashBtn.classList.toggle("active", flashEnabled);
+    } catch (e) {
+      console.warn("Torch failed:", e);
+    }
+  } else {
+    showToast("Flashlight not supported on this camera/device.");
+  }
+}
 
 async function openBillScannerModal() {
   const modal = document.getElementById("billScannerModal");
@@ -1488,19 +1582,23 @@ async function openBillScannerModal() {
   document.getElementById("processingScreen").classList.remove("active");
   document.getElementById("permissionScreen").classList.remove("active");
   document.getElementById("ocrResultModal").classList.remove("active");
+  setScannerMode("receipt");
   await requestCameraPermission();
 }
 
 async function requestCameraPermission() {
-  const status = document.getElementById("cameraStatus");
+  const statusEl = document.getElementById("cameraStatus");
+  const statusText = document.getElementById("cameraStatusText");
   const permission = document.getElementById("permissionScreen");
   const video = document.getElementById("cameraVideo");
 
-  status.textContent = "Requesting camera permission...";
+  if (statusText) statusText.textContent = "Requesting permission...";
+  else if (statusEl) statusEl.textContent = "Requesting permission...";
   permission.classList.remove("active");
 
   if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-    status.textContent = "Camera API unavailable on this environment. Use Upload option.";
+    if (statusText) statusText.textContent = "Camera API unavailable";
+    else if (statusEl) statusEl.textContent = "Camera API unavailable. Use upload.";
     permission.classList.add("active");
     return;
   }
@@ -1513,11 +1611,13 @@ async function requestCameraPermission() {
     });
     video.srcObject = cameraStream;
     await video.play();
-    status.textContent = "Camera ready — position bill inside the box.";
+    if (statusText) statusText.textContent = "Camera ready";
+    else if (statusEl) statusEl.textContent = "Camera ready";
     permission.classList.remove("active");
   } catch (error) {
     console.error("Camera error:", error);
-    status.textContent = "Camera permission not granted. Use Upload Receipt button.";
+    if (statusText) statusText.textContent = "Permission required";
+    else if (statusEl) statusEl.textContent = "Camera permission not granted.";
     permission.classList.add("active");
   }
 }
@@ -1539,6 +1639,28 @@ async function captureBill() {
   const ctx = canvas.getContext("2d");
   ctx.drawImage(video, 0, 0, width, height);
   capturedBillImage = canvas.toDataURL("image/jpeg", 0.95);
+
+  // Fast Barcode Detection Support
+  if (scannerMode === "barcode" && "BarcodeDetector" in window) {
+    try {
+      const detector = new BarcodeDetector({ formats: ["ean_13", "ean_8", "upc_a", "upc_e", "code_128", "qr_code"] });
+      const codes = await detector.detect(canvas);
+      if (codes && codes.length > 0) {
+        const detectedCode = codes[0].rawValue;
+        stopCamera();
+        closeBillScannerModal();
+        showToast(`✓ Scanned Barcode: ${detectedCode}`);
+        const searchInput = document.getElementById("searchPantryInput");
+        if (searchInput) {
+          searchInput.value = detectedCode;
+          searchInput.dispatchEvent(new Event("input"));
+        }
+        return;
+      }
+    } catch (err) {
+      console.log("Barcode detection fallback:", err);
+    }
+  }
 
   stopCamera();
   await runOCR(capturedBillImage);
@@ -1825,11 +1947,25 @@ function stopCamera() {
 }
 
 function closeBillScannerModal() {
+  if (flashEnabled) {
+    flashEnabled = false;
+    const flashBtn = document.getElementById("scannerFlashBtn");
+    if (flashBtn) flashBtn.classList.remove("active");
+  }
   stopCamera();
   document.getElementById("billScannerModal").classList.remove("active");
   document.getElementById("processingScreen").classList.remove("active");
   document.getElementById("permissionScreen").classList.remove("active");
 }
+
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") {
+    const modal = document.getElementById("billScannerModal");
+    if (modal && modal.classList.contains("active")) {
+      closeBillScannerModal();
+    }
+  }
+});
 
 window.addEventListener("beforeunload", () => stopCamera());
 </script>
