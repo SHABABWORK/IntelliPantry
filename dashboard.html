@@ -2269,12 +2269,19 @@ function setActiveMobileNav(btn) {
   }
 }
 
-// Initialize Recipe Kitchen on load
+// Initialize Recipe Kitchen, Theme, and Alert Badge on load
 document.addEventListener('DOMContentLoaded', function() {
   if (window.RecipeEngine) {
     window.RecipeEngine.renderCategoryChips();
     window.RecipeEngine.renderRecipeKitchen();
     window.RecipeEngine.updateExpiringBanner();
+  }
+  if (window.store) {
+    const s = window.store.getFullSettings();
+    if (s && s.general_settings && s.general_settings.theme) {
+      window.store.applyTheme(s.general_settings.theme);
+    }
+    window.store.updateAlertBadge();
   }
 });
 
@@ -2284,6 +2291,9 @@ setTimeout(function() {
     window.RecipeEngine.renderCategoryChips();
     window.RecipeEngine.renderRecipeKitchen();
     window.RecipeEngine.updateExpiringBanner();
+  }
+  if (window.store) {
+    window.store.updateAlertBadge();
   }
 }, 300);
 </script>
