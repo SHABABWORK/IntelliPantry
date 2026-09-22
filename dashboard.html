@@ -1738,6 +1738,10 @@ let detectedGroceryItems = [];
 let scannedPurchaseDate = "";
 let scannerMode = "receipt";
 let flashEnabled = false;
+let barcodeScanLoopId = null;
+let isProcessingBarcode = false;
+let existingBarcodeItem = null;
+let zxingReader = null;
 
 function setScannerMode(mode) {
   scannerMode = mode;
@@ -1751,7 +1755,9 @@ function setScannerMode(mode) {
     barcodeTab?.classList.add("active");
     scanBox?.classList.add("barcode-mode");
     if (hintText) hintText.textContent = "Align barcode within the target frame";
+    startBarcodeScannerLoop();
   } else {
+    stopBarcodeScannerLoop();
     barcodeTab?.classList.remove("active");
     receiptTab?.classList.add("active");
     scanBox?.classList.remove("barcode-mode");
@@ -1818,12 +1824,106 @@ async function requestCameraPermission() {
     if (statusText) statusText.textContent = "Camera ready";
     else if (statusEl) statusEl.textContent = "Camera ready";
     permission.classList.remove("active");
+
+    if (scannerMode === "barcode") {
+      startBarcodeScannerLoop();
+    }
   } catch (error) {
     console.error("Camera error:", error);
     if (statusText) statusText.textContent = "Permission required";
     else if (statusEl) statusEl.textContent = "Camera permission not granted.";
     permission.classList.add("active");
   }
+}
+
+// Continuous Barcode Scanning Loop while in Barcode Mode
+function startBarcodeScannerLoop() {
+  if (barcodeScanLoopId) return;
+
+  const video = document.getElementById("cameraVideo");
+  const canvas = document.getElementById("cameraCanvas");
+  if (!video || !canvas) return;
+
+  let detector = null;
+  if ("BarcodeDetector" in window) {
+    try {
+      detector = new BarcodeDetector({ formats: ["ean_13", "ean_8", "upc_a", "upc_e", "code_128", "code_39", "qr_code"] });
+    } catch (e) {
+      detector = null;
+    }
+  }
+
+  barcodeScanLoopId = setInterval(async () => {
+    if (scannerMode !== "barcode" || isProcessingBarcode || !cameraStream || video.readyState < 2) {
+      return;
+    }
+
+    try {
+      if (detector) {
+        const codes = await detector.detect(video);
+        if (codes && codes.length > 0 && codes[0].rawValue) {
+          handleBarcodeDetected(codes[0].rawValue);
+          return;
+        }
+      }
+
+      // Fallback: ZXing detection from canvas snapshot
+      if (typeof ZXing !== "undefined" && ZXing.BrowserMultiFormatReader) {
+        if (!zxingReader) zxingReader = new ZXing.BrowserMultiFormatReader();
+        const ctx = canvas.getContext("2d");
+        canvas.width = video.videoWidth || 640;
+        canvas.height = video.videoHeight || 480;
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        
+        try {
+          const result = await zxingReader.decodeFromCanvas(canvas);
+          if (result && result.getText()) {
+            handleBarcodeDetected(result.getText());
+            return;
+          }
+        } catch (zErr) {
+          // Normal: frame does not contain a decoded barcode
+        }
+      }
+    } catch (err) {
+      // Loop interval error - keep monitoring
+    }
+  }, 300);
+}
+
+function stopBarcodeScannerLoop() {
+  if (barcodeScanLoopId) {
+    clearInterval(barcodeScanLoopId);
+    barcodeScanLoopId = null;
+  }
+}
+
+// Preprocess canvas image to optimize OCR recognition rate
+function preprocessReceiptImage(sourceCanvas) {
+  const canvas = document.createElement("canvas");
+  canvas.width = sourceCanvas.width;
+  canvas.height = sourceCanvas.height;
+  const ctx = canvas.getContext("2d");
+  ctx.drawImage(sourceCanvas, 0, 0);
+
+  try {
+    const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const d = imgData.data;
+    // Grayscale + high contrast stretch for sharper text edge detection
+    const contrast = 1.35;
+    const factor = (259 * (contrast * 255 + 255)) / (255 * (259 - contrast * 255));
+    for (let i = 0; i < d.length; i += 4) {
+      const gray = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+      const newVal = Math.min(255, Math.max(0, factor * (gray - 128) + 128));
+      d[i] = newVal;
+      d[i + 1] = newVal;
+      d[i + 2] = newVal;
+    }
+    ctx.putImageData(imgData, 0, 0);
+  } catch (e) {
+    console.warn("Preprocessing fallback:", e);
+  }
+  return canvas.toDataURL("image/png");
 }
 
 async function captureBill() {
@@ -1842,30 +1942,42 @@ async function captureBill() {
 
   const ctx = canvas.getContext("2d");
   ctx.drawImage(video, 0, 0, width, height);
-  capturedBillImage = canvas.toDataURL("image/jpeg", 0.95);
 
-  // Fast Barcode Detection Support
-  if (scannerMode === "barcode" && "BarcodeDetector" in window) {
-    try {
-      const detector = new BarcodeDetector({ formats: ["ean_13", "ean_8", "upc_a", "upc_e", "code_128", "qr_code"] });
-      const codes = await detector.detect(canvas);
-      if (codes && codes.length > 0) {
-        const detectedCode = codes[0].rawValue;
-        stopCamera();
-        closeBillScannerModal();
-        showToast(`✓ Scanned Barcode: ${detectedCode}`);
-        const searchInput = document.getElementById("searchPantryInput");
-        if (searchInput) {
-          searchInput.value = detectedCode;
-          searchInput.dispatchEvent(new Event("input"));
+  // Manual Shutter in Barcode Mode: force immediate decode
+  if (scannerMode === "barcode") {
+    if ("BarcodeDetector" in window) {
+      try {
+        const detector = new BarcodeDetector({ formats: ["ean_13", "ean_8", "upc_a", "upc_e", "code_128", "code_39", "qr_code"] });
+        const codes = await detector.detect(canvas);
+        if (codes && codes.length > 0 && codes[0].rawValue) {
+          handleBarcodeDetected(codes[0].rawValue);
+          return;
         }
-        return;
+      } catch (err) {
+        console.warn("Native detector failed on capture:", err);
       }
-    } catch (err) {
-      console.log("Barcode detection fallback:", err);
     }
+
+    if (typeof ZXing !== "undefined" && ZXing.BrowserMultiFormatReader) {
+      try {
+        if (!zxingReader) zxingReader = new ZXing.BrowserMultiFormatReader();
+        const result = await zxingReader.decodeFromCanvas(canvas);
+        if (result && result.getText()) {
+          handleBarcodeDetected(result.getText());
+          return;
+        }
+      } catch (zErr) {
+        console.warn("ZXing capture decode:", zErr);
+      }
+    }
+
+    showToast("⚠️ No barcode detected in frame. Hold closer or ensure good lighting.");
+    return;
   }
 
+  // Receipt Mode: Preprocess frame and run OCR
+  const preprocessedData = preprocessReceiptImage(canvas);
+  capturedBillImage = preprocessedData;
   stopCamera();
   await runOCR(capturedBillImage);
 }
@@ -1876,30 +1988,267 @@ async function handleBillImage(event) {
 
   const reader = new FileReader();
   reader.onload = async function(e) {
-    capturedBillImage = e.target.result;
+    const rawImage = e.target.result;
     stopCamera();
-    await runOCR(capturedBillImage);
+
+    // In Barcode mode, try decoding uploaded barcode image first
+    if (scannerMode === "barcode") {
+      const img = new Image();
+      img.onload = async function() {
+        const canvas = document.getElementById("cameraCanvas");
+        canvas.width = img.naturalWidth || 640;
+        canvas.height = img.naturalHeight || 480;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0);
+
+        if ("BarcodeDetector" in window) {
+          try {
+            const detector = new BarcodeDetector({ formats: ["ean_13", "ean_8", "upc_a", "upc_e", "code_128", "code_39", "qr_code"] });
+            const codes = await detector.detect(canvas);
+            if (codes && codes.length > 0 && codes[0].rawValue) {
+              handleBarcodeDetected(codes[0].rawValue);
+              return;
+            }
+          } catch (err) {}
+        }
+
+        if (typeof ZXing !== "undefined" && ZXing.BrowserMultiFormatReader) {
+          try {
+            if (!zxingReader) zxingReader = new ZXing.BrowserMultiFormatReader();
+            const result = await zxingReader.decodeFromCanvas(canvas);
+            if (result && result.getText()) {
+              handleBarcodeDetected(result.getText());
+              return;
+            }
+          } catch (err) {}
+        }
+
+        showToast("⚠️ Could not detect a barcode in the uploaded image.");
+      };
+      img.src = rawImage;
+      return;
+    }
+
+    // Receipt Mode
+    const img = new Image();
+    img.onload = async function() {
+      const canvas = document.createElement("canvas");
+      canvas.width = img.naturalWidth || 800;
+      canvas.height = img.naturalHeight || 1000;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(img, 0, 0);
+      const preprocessed = preprocessReceiptImage(canvas);
+      capturedBillImage = preprocessed;
+      await runOCR(capturedBillImage);
+    };
+    img.src = rawImage;
   };
   reader.readAsDataURL(file);
   event.target.value = "";
 }
 
+// OpenFoodFacts Product Lookup & Barcode Confirmation Modal Handler
+async function handleBarcodeDetected(barcode) {
+  if (isProcessingBarcode) return;
+  isProcessingBarcode = true;
+  stopBarcodeScannerLoop();
+  stopCamera();
+  closeBillScannerModal();
+
+  showToast(`🔍 Searching product for barcode: ${barcode}...`);
+
+  // Check if item already exists in pantry
+  const pantryItems = window.store ? window.store.getItems() : [];
+  existingBarcodeItem = pantryItems.find(i => i.barcode && String(i.barcode).trim() === String(barcode).trim());
+
+  let product = null;
+  try {
+    const res = await fetch(`https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(barcode)}.json`);
+    if (res.ok) {
+      const json = await res.json();
+      if (json && json.status === 1 && json.product) {
+        product = json.product;
+      }
+    }
+  } catch (err) {
+    console.warn("OpenFoodFacts lookup failed:", err);
+  }
+
+  // Derive fields
+  const productName = product?.product_name || product?.product_name_en || product?.generic_name || (existingBarcodeItem ? existingBarcodeItem.name : "Packaged Food Item");
+  const brand = product?.brands || product?.brand_owner || (existingBarcodeItem ? existingBarcodeItem.brand : "");
+  const imageUrl = product?.image_front_url || product?.image_url || (existingBarcodeItem ? existingBarcodeItem.imageUrl : "");
+
+  // Infer category from OpenFoodFacts tags
+  let category = existingBarcodeItem ? existingBarcodeItem.category : "Pantry";
+  if (product) {
+    const tags = ((product.categories_tags || []).join(" ") + " " + (product.categories || "") + " " + productName).toLowerCase();
+    if (tags.includes("dairy") || tags.includes("milk") || tags.includes("yogurt") || tags.includes("cheese") || tags.includes("butter")) category = "Dairy";
+    else if (tags.includes("beverage") || tags.includes("drink") || tags.includes("juice") || tags.includes("soda") || tags.includes("water") || tags.includes("tea") || tags.includes("coffee")) category = "Beverages";
+    else if (tags.includes("fruit")) category = "Fruits";
+    else if (tags.includes("vegetable")) category = "Vegetables";
+    else if (tags.includes("meat") || tags.includes("chicken") || tags.includes("beef") || tags.includes("fish") || tags.includes("poultry")) category = "Meat";
+    else if (tags.includes("frozen")) category = "Frozen";
+    else if (tags.includes("snack") || tags.includes("biscuit") || tags.includes("cookie") || tags.includes("chip") || tags.includes("chocolate")) category = "Snacks";
+    else if (tags.includes("cereal") || tags.includes("grain") || tags.includes("rice") || tags.includes("pasta") || tags.includes("flour")) category = "Grains";
+  }
+
+  // Infer unit and quantity from product package string
+  let quantity = 1;
+  let unit = "pcs";
+  if (product?.quantity) {
+    const qtyMatch = product.quantity.match(/(\d+(?:\.\d+)?)\s*(kg|g|l|ml|pcs|pack|box|can|bottle)/i);
+    if (qtyMatch) {
+      quantity = parseFloat(qtyMatch[1]) || 1;
+      unit = qtyMatch[2].toLowerCase();
+    }
+  }
+
+  // Storage Location
+  let location = "Pantry";
+  if (category === "Dairy" || category === "Meat") location = "Fridge";
+  else if (category === "Frozen") location = "Freezer";
+
+  // Expiry date calculation
+  const todayISO = window.getTodayISO ? window.getTodayISO() : new Date().toISOString().split("T")[0];
+  const suggestedExpiry = calculateShelfLifeDate(todayISO, category);
+
+  // Populate Barcode Modal
+  document.getElementById("barcodeModalNumber").textContent = barcode;
+  document.getElementById("barcodeProductNameDisplay").textContent = productName;
+  document.getElementById("barcodeProductBrandDisplay").textContent = brand ? `Brand: ${brand}` : "Brand not specified";
+  
+  const statusBadge = document.getElementById("barcodeApiStatusBadge");
+  if (statusBadge) {
+    if (product) {
+      statusBadge.textContent = "✓ Verified in Global Food Database";
+      statusBadge.style.background = "#dcfce7";
+      statusBadge.style.color = "#15803d";
+    } else {
+      statusBadge.textContent = "ℹ️ Barcode scanned - Confirm product details";
+      statusBadge.style.background = "#fef3c7";
+      statusBadge.style.color = "#92400e";
+    }
+  }
+
+  const imgEl = document.getElementById("barcodeProductImg");
+  const emojiEl = document.getElementById("barcodeProductEmoji");
+  if (imageUrl) {
+    imgEl.src = imageUrl;
+    imgEl.style.display = "block";
+    emojiEl.style.display = "none";
+  } else {
+    imgEl.style.display = "none";
+    emojiEl.style.display = "block";
+    emojiEl.textContent = window.store ? window.store.detectEmoji(productName, category) : "📦";
+  }
+
+  // Form Inputs
+  document.getElementById("barcodeFormBarcode").value = barcode;
+  document.getElementById("barcodeFormImageUrl").value = imageUrl || "";
+  document.getElementById("barcodeFormBrand").value = brand || "";
+  document.getElementById("barcodeFormName").value = productName;
+  document.getElementById("barcodeFormCategory").value = category;
+  document.getElementById("barcodeFormQuantity").value = quantity;
+  document.getElementById("barcodeFormUnit").value = unit;
+  document.getElementById("barcodeFormLocation").value = location;
+  document.getElementById("barcodeFormExpiry").value = suggestedExpiry;
+
+  // Duplicate Warning
+  const dupBanner = document.getElementById("barcodeDuplicateBanner");
+  const dupText = document.getElementById("barcodeDuplicateText");
+  if (existingBarcodeItem) {
+    dupBanner.style.display = "block";
+    dupText.innerHTML = `You already have <strong>${existingBarcodeItem.quantity} ${existingBarcodeItem.unit || 'pcs'}</strong> of "${escapeHTML(existingBarcodeItem.name)}" in stock.`;
+  } else {
+    dupBanner.style.display = "none";
+  }
+
+  // Open Barcode Modal
+  document.getElementById("barcodeProductModal").classList.add("active");
+  isProcessingBarcode = false;
+}
+
+function closeBarcodeProductModal() {
+  document.getElementById("barcodeProductModal").classList.remove("active");
+  existingBarcodeItem = null;
+  isProcessingBarcode = false;
+}
+
+function dismissBarcodeDuplicateWarning() {
+  const dupBanner = document.getElementById("barcodeDuplicateBanner");
+  if (dupBanner) dupBanner.style.display = "none";
+}
+
+async function handleBarcodeQuickUpdate() {
+  if (!existingBarcodeItem) return;
+  const newQty = (parseFloat(existingBarcodeItem.quantity) || 0) + 1;
+  await window.store.updateItem(existingBarcodeItem.id, { quantity: newQty });
+  showToast(`✓ Incremented "${existingBarcodeItem.name}" to ${newQty} ${existingBarcodeItem.unit || 'pcs'}!`);
+  closeBarcodeProductModal();
+  renderInventoryTable();
+  updateMetricsDisplay();
+}
+
+async function handleSaveBarcodeProduct(e) {
+  if (e) {
+    e.preventDefault();
+    e.stopPropagation();
+  }
+
+  const name = document.getElementById("barcodeFormName").value.trim();
+  const category = document.getElementById("barcodeFormCategory").value;
+  const quantity = parseFloat(document.getElementById("barcodeFormQuantity").value) || 1;
+  const unit = document.getElementById("barcodeFormUnit").value || "pcs";
+  const expiryDate = document.getElementById("barcodeFormExpiry").value || "";
+  const storageLocation = document.getElementById("barcodeFormLocation").value || "Pantry";
+  const barcode = document.getElementById("barcodeFormBarcode").value.trim();
+  const brand = document.getElementById("barcodeFormBrand").value.trim();
+  const imageUrl = document.getElementById("barcodeFormImageUrl").value.trim();
+  const purchaseDate = window.getTodayISO ? window.getTodayISO() : new Date().toISOString().split("T")[0];
+
+  if (!name) {
+    showToast("Please enter a product name.");
+    return;
+  }
+
+  await window.store.addItem({
+    name,
+    category,
+    quantity,
+    unit,
+    expiryDate,
+    purchaseDate,
+    storageLocation,
+    barcode,
+    brand,
+    imageUrl,
+    minStock: 2
+  });
+
+  showToast(`✓ Added "${name}" to your pantry!`);
+  closeBarcodeProductModal();
+  renderInventoryTable();
+  updateMetricsDisplay();
+}
+
+// Receipt OCR Execution
 async function runOCR(imageData) {
   const processing = document.getElementById("processingScreen");
   const processingText = document.getElementById("processingText");
   processing.classList.add("active");
 
   try {
-    processingText.textContent = "Loading AI OCR engine...";
+    processingText.textContent = "Loading AI OCR neural engine...";
     const worker = await Tesseract.createWorker("eng", 1, {
       logger: m => {
         if (m.status === "recognizing text") {
-          processingText.textContent = `Reading bill... ${Math.round(m.progress * 100)}%`;
+          processingText.textContent = `Analyzing receipt... ${Math.round(m.progress * 100)}%`;
         }
       }
     });
 
-    processingText.textContent = "Analyzing grocery receipt & dates...";
+    processingText.textContent = "Extracting grocery line items & dates...";
     const result = await worker.recognize(imageData);
     await worker.terminate();
 
@@ -1913,7 +2262,7 @@ async function runOCR(imageData) {
   }
 }
 
-// Extract receipt date or default to current device date
+// Extract receipt purchase date or default to today
 function extractReceiptDate(text) {
   if (!text) return null;
 
@@ -1938,7 +2287,7 @@ function extractReceiptDate(text) {
   return null;
 }
 
-// Calculate suggested expiry date based on product category shelf life from purchase date
+// Calculate shelf life date based on food category
 function calculateShelfLifeDate(purchaseDateStr, category) {
   const base = window.parseLocalDate(purchaseDateStr) || new Date();
   const daysMap = {
@@ -1971,7 +2320,6 @@ function showOCRResult(text) {
 
   textBox.textContent = text.trim() || "No readable text detected.";
 
-  // Detect purchase date or use device today
   const detectedDate = extractReceiptDate(text);
   if (detectedDate) {
     scannedPurchaseDate = detectedDate;
@@ -1987,6 +2335,7 @@ function showOCRResult(text) {
 
   detectedGroceryItems = parseGroceryItems(text, scannedPurchaseDate);
   renderDetectedItems();
+  updateOCRSelectionCount();
   modal.classList.add("active");
 }
 
@@ -1996,7 +2345,6 @@ function handlePurchaseDateChange(newDate) {
   const sourceLabel = document.getElementById("ocrDateSourceLabel");
   if (sourceLabel) sourceLabel.textContent = "Manually adjusted";
 
-  // Re-calculate suggested expiry dates for items
   detectedGroceryItems.forEach(item => {
     item.expiryDate = calculateShelfLifeDate(newDate, item.category);
   });
@@ -2008,6 +2356,7 @@ function parseGroceryItems(text, purchaseDate) {
   const groceryDictionary = [
     { name: "Milk", category: "Dairy", emoji: "🥛" },
     { name: "Greek Yogurt", category: "Dairy", emoji: "🥛" },
+    { name: "Yogurt", category: "Dairy", emoji: "🥛" },
     { name: "Curd", category: "Dairy", emoji: "🥛" },
     { name: "Cheese", category: "Dairy", emoji: "🧀" },
     { name: "Butter", category: "Dairy", emoji: "🧈" },
@@ -2016,6 +2365,7 @@ function parseGroceryItems(text, purchaseDate) {
     { name: "Rice", category: "Grains", emoji: "🌾" },
     { name: "Wheat Flour", category: "Grains", emoji: "🌾" },
     { name: "Olive Oil", category: "Pantry", emoji: "🫒" },
+    { name: "Cooking Oil", category: "Pantry", emoji: "🫒" },
     { name: "Sunflower Oil", category: "Pantry", emoji: "🫒" },
     { name: "Chicken", category: "Meat", emoji: "🍗" },
     { name: "Meat", category: "Meat", emoji: "🥩" },
@@ -2024,26 +2374,36 @@ function parseGroceryItems(text, purchaseDate) {
     { name: "Potatoes", category: "Vegetables", emoji: "🥔" },
     { name: "Onions", category: "Vegetables", emoji: "🧅" },
     { name: "Carrots", category: "Vegetables", emoji: "🥕" },
+    { name: "Spinach", category: "Vegetables", emoji: "🥬" },
     { name: "Strawberries", category: "Fruits", emoji: "🍓" },
     { name: "Apples", category: "Fruits", emoji: "🍎" },
     { name: "Bananas", category: "Fruits", emoji: "🍌" },
     { name: "Oranges", category: "Fruits", emoji: "🍊" },
     { name: "Fruit Juice", category: "Beverages", emoji: "🧃" },
+    { name: "Orange Juice", category: "Beverages", emoji: "🧃" },
     { name: "Coffee", category: "Beverages", emoji: "☕" },
     { name: "Tea", category: "Beverages", emoji: "🫖" },
     { name: "Pasta", category: "Pantry", emoji: "🍝" },
     { name: "Cookies", category: "Snacks", emoji: "🍪" },
-    { name: "Chips", category: "Snacks", emoji: "🍟" }
+    { name: "Chips", category: "Snacks", emoji: "🍟" },
+    { name: "Oats", category: "Grains", emoji: "🥣" }
   ];
 
   const items = [];
   const foundNames = new Set();
+  const ignorePatterns = /\b(total|subtotal|tax|cash|change|card|visa|mastercard|balance|receipt|thank|welcome|store|tel|phone|hst|gst|vat)\b/i;
 
   lines.forEach(line => {
+    if (ignorePatterns.test(line)) return;
+
     const lower = line.toLowerCase();
+    let matched = false;
+
     for (const entry of groceryDictionary) {
       if (lower.includes(entry.name.toLowerCase()) && !foundNames.has(entry.name)) {
         foundNames.add(entry.name);
+        matched = true;
+
         const quantityMatch = line.match(/(?:x|qty|quantity)?\s*(\d+(?:\.\d+)?)\s*(kg|g|l|ml|pcs|pc|pack|packs|box|boxes)?/i);
         let quantity = 1;
         let unit = "pcs";
@@ -2060,79 +2420,212 @@ function parseGroceryItems(text, purchaseDate) {
           unit,
           emoji: entry.emoji,
           expiryDate,
-          addedAt: purchaseDate
+          purchaseDate,
+          selected: true
         });
         break;
+      }
+    }
+
+    // Generic receipt item fallback for lines having a price and clear text
+    if (!matched) {
+      const priceMatch = line.match(/\$?\s*(\d+\.\d{2})\b/);
+      if (priceMatch) {
+        const cleanName = line.replace(/\$?\s*\d+\.\d{2}/g, "").replace(/[^a-zA-Z0-9\s]/g, "").trim();
+        if (cleanName.length >= 3 && !foundNames.has(cleanName)) {
+          foundNames.add(cleanName);
+          items.push({
+            name: cleanName,
+            category: "Pantry",
+            quantity: 1,
+            unit: "pcs",
+            emoji: "📦",
+            expiryDate: calculateShelfLifeDate(purchaseDate, "Pantry"),
+            purchaseDate,
+            selected: true
+          });
+        }
       }
     }
   });
 
   if (items.length === 0 && text.length > 5) {
     items.push({
-      name: "Fresh Grocery Pack",
+      name: "Grocery Item",
       category: "Pantry",
       quantity: 1,
       unit: "pcs",
       emoji: "📦",
       expiryDate: calculateShelfLifeDate(purchaseDate, "Pantry"),
-      addedAt: purchaseDate
+      purchaseDate,
+      selected: true
     });
   }
 
   return items;
 }
 
+function updateOCRSelectionCount() {
+  const selectedCount = detectedGroceryItems.filter(i => i.selected).length;
+  const totalCount = detectedGroceryItems.length;
+
+  const selEl = document.getElementById("ocrSelectedCount");
+  const totEl = document.getElementById("ocrTotalCount");
+  const btnCount = document.getElementById("ocrBtnSelectedCount");
+
+  if (selEl) selEl.textContent = selectedCount;
+  if (totEl) totEl.textContent = totalCount;
+  if (btnCount) btnCount.textContent = selectedCount;
+}
+
+function selectAllOCRItems(select) {
+  detectedGroceryItems.forEach(item => {
+    item.selected = select;
+  });
+  renderDetectedItems();
+  updateOCRSelectionCount();
+}
+
+function toggleOCRItem(idx, checked) {
+  if (detectedGroceryItems[idx]) {
+    detectedGroceryItems[idx].selected = checked;
+  }
+  updateOCRSelectionCount();
+}
+
+function removeOCRItem(idx) {
+  detectedGroceryItems.splice(idx, 1);
+  renderDetectedItems();
+  updateOCRSelectionCount();
+}
+
 function renderDetectedItems() {
   const container = document.getElementById("detectedItems");
   if (!detectedGroceryItems.length) {
     container.innerHTML = `
-      <div class="ai-item" style="padding:14px; background:#fef2f2; border:1px solid #fecaca; border-radius:12px; color:#991b1b;">
-        <strong>⚠️ No recognized grocery items</strong>
-        <span style="font-size:11px;">Check the receipt text above or type manually</span>
+      <div style="padding:16px; background:#fef2f2; border:1px solid #fecaca; border-radius:12px; color:#991b1b; text-align:center;">
+        <strong>⚠️ No recognized items</strong>
+        <p style="font-size:12px; margin:4px 0 0; color:#b91c1c;">No grocery products could be detected from this receipt. Try taking another picture with better lighting.</p>
       </div>
     `;
+    updateOCRSelectionCount();
     return;
   }
 
   container.innerHTML = detectedGroceryItems.map((item, idx) => {
     const rel = window.formatRelativeExpiry(item.expiryDate);
     return `
-      <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:12px; padding:10px 12px; display:flex; align-items:center; justify-content:space-between; gap:10px; font-size:12.5px;">
-        <div style="display:flex; align-items:center; gap:8px;">
-          <span style="font-size:18px;">${item.emoji || "📦"}</span>
-          <div>
-            <strong style="color:#0f172a;">${escapeHTML(item.name)}</strong>
-            <div style="font-size:11px; color:#64748b;">${item.quantity} ${escapeHTML(item.unit)} • ${escapeHTML(item.category)}</div>
+      <div style="background:#ffffff; border:1.5px solid ${item.selected ? '#bbf7d0' : '#e2e8f0'}; border-radius:12px; padding:10px 12px; display:flex; align-items:center; justify-content:space-between; gap:10px; font-size:12.5px; transition:border 0.2s;">
+        <div style="display:flex; align-items:center; gap:10px; flex:1; min-width:0;">
+          <input 
+            type="checkbox" 
+            ${item.selected ? "checked" : ""} 
+            onchange="toggleOCRItem(${idx}, this.checked)"
+            style="width:17px; height:17px; accent-color:#10b981; cursor:pointer;"
+          >
+          <span style="font-size:20px;">${item.emoji || "📦"}</span>
+          <div style="flex:1; min-width:0;">
+            <input 
+              type="text" 
+              value="${escapeHTML(item.name)}" 
+              oninput="detectedGroceryItems[${idx}].name = this.value"
+              style="width:90%; padding:2px 6px; font-size:13px; font-weight:700; border:1px solid transparent; border-radius:6px; color:#0f172a; outline:none; background:transparent;"
+              onfocus="this.style.background='#f8fafc'; this.style.borderColor='#cbd5e1';"
+              onblur="this.style.background='transparent'; this.style.borderColor='transparent';"
+            >
+            <div style="display:flex; align-items:center; gap:6px; margin-top:2px;">
+              <input 
+                type="number" 
+                value="${item.quantity}" 
+                min="0.1" 
+                step="any"
+                onchange="detectedGroceryItems[${idx}].quantity = parseFloat(this.value) || 1"
+                style="width:48px; padding:2px 4px; font-size:11px; font-weight:600; border:1px solid #cbd5e1; border-radius:4px; outline:none;"
+              >
+              <select 
+                onchange="detectedGroceryItems[${idx}].unit = this.value"
+                style="padding:2px 4px; font-size:11px; border:1px solid #cbd5e1; border-radius:4px; outline:none;"
+              >
+                <option value="pcs" ${item.unit === "pcs" ? "selected" : ""}>pcs</option>
+                <option value="kg" ${item.unit === "kg" ? "selected" : ""}>kg</option>
+                <option value="g" ${item.unit === "g" ? "selected" : ""}>g</option>
+                <option value="L" ${item.unit === "L" ? "selected" : ""}>L</option>
+                <option value="ml" ${item.unit === "ml" ? "selected" : ""}>ml</option>
+                <option value="pack" ${item.unit === "pack" ? "selected" : ""}>pack</option>
+                <option value="box" ${item.unit === "box" ? "selected" : ""}>box</option>
+              </select>
+              <select 
+                onchange="detectedGroceryItems[${idx}].category = this.value; detectedGroceryItems[${idx}].expiryDate = calculateShelfLifeDate(scannedPurchaseDate, this.value); renderDetectedItems();"
+                style="padding:2px 4px; font-size:11px; border:1px solid #cbd5e1; border-radius:4px; outline:none;"
+              >
+                <option value="Pantry" ${item.category === "Pantry" ? "selected" : ""}>Pantry</option>
+                <option value="Dairy" ${item.category === "Dairy" ? "selected" : ""}>Dairy</option>
+                <option value="Fruits" ${item.category === "Fruits" ? "selected" : ""}>Fruits</option>
+                <option value="Vegetables" ${item.category === "Vegetables" ? "selected" : ""}>Vegetables</option>
+                <option value="Grains" ${item.category === "Grains" ? "selected" : ""}>Grains</option>
+                <option value="Meat" ${item.category === "Meat" ? "selected" : ""}>Meat</option>
+                <option value="Beverages" ${item.category === "Beverages" ? "selected" : ""}>Beverages</option>
+                <option value="Frozen" ${item.category === "Frozen" ? "selected" : ""}>Frozen</option>
+                <option value="Snacks" ${item.category === "Snacks" ? "selected" : ""}>Snacks</option>
+              </select>
+            </div>
           </div>
         </div>
-        <div style="display:flex; flex-direction:column; align-items:flex-end; gap:2px;">
-          <label style="font-size:10px; font-weight:700; color:#64748b;">Expiry Date:</label>
-          <input 
-            type="date" 
-            value="${item.expiryDate}" 
-            onchange="detectedGroceryItems[${idx}].expiryDate = this.value; renderDetectedItems();"
-            style="padding:3px 6px; font-size:11.5px; font-weight:600; border:1px solid #cbd5e1; border-radius:6px; outline:none; background:#f8fafc;"
+
+        <div style="display:flex; align-items:center; gap:8px;">
+          <div style="display:flex; flex-direction:column; align-items:flex-end; gap:2px;">
+            <label style="font-size:10px; font-weight:700; color:#64748b;">Expiry Date:</label>
+            <input 
+              type="date" 
+              value="${item.expiryDate}" 
+              onchange="detectedGroceryItems[${idx}].expiryDate = this.value; renderDetectedItems();"
+              style="padding:2px 6px; font-size:11px; font-weight:600; border:1px solid #cbd5e1; border-radius:6px; outline:none; background:#f8fafc;"
+            >
+            <span style="font-size:10px; font-weight:700; color:${rel.days < 0 ? '#ef4444' : (rel.days <= 7 ? '#d97706' : '#10b981')};">
+              ${rel.text}
+            </span>
+          </div>
+          <button 
+            type="button" 
+            onclick="removeOCRItem(${idx})" 
+            title="Remove item"
+            style="background:none; border:none; color:#94a3b8; font-size:14px; cursor:pointer; padding:4px;"
+            onmouseover="this.style.color='#ef4444'" 
+            onmouseout="this.style.color='#94a3b8'"
           >
-          <span style="font-size:10px; font-weight:700; color:${rel.days < 0 ? '#ef4444' : (rel.days <= 7 ? '#d97706' : '#10b981')};">
-            ${rel.text}
-          </span>
+            ✕
+          </button>
         </div>
       </div>
     `;
   }).join("");
+
+  updateOCRSelectionCount();
 }
 
-function addDetectedItemsToPantry() {
-  if (!detectedGroceryItems.length) {
-    showToast("No grocery items to add.");
+async function addSelectedDetectedItemsToPantry() {
+  const selected = detectedGroceryItems.filter(i => i.selected);
+  if (!selected.length) {
+    showToast("⚠️ No items selected. Please select at least one item.");
     return;
   }
-  detectedGroceryItems.forEach(item => {
-    window.store.addItem(item);
-  });
+
+  for (const item of selected) {
+    await window.store.addItem({
+      name: item.name,
+      category: item.category,
+      quantity: item.quantity,
+      unit: item.unit,
+      expiryDate: item.expiryDate,
+      purchaseDate: item.purchaseDate || scannedPurchaseDate,
+      storageLocation: item.category === "Dairy" || item.category === "Meat" ? "Fridge" : (item.category === "Frozen" ? "Freezer" : "Pantry"),
+      minStock: 2
+    });
+  }
+
   closeOCRResult();
   closeBillScannerModal();
-  showToast(`✓ Added ${detectedGroceryItems.length} item(s) to pantry!`);
+  showToast(`✓ Added ${selected.length} item(s) to your pantry!`);
   renderInventoryTable();
   updateMetricsDisplay();
 }
@@ -2142,6 +2635,7 @@ function closeOCRResult() {
 }
 
 function stopCamera() {
+  stopBarcodeScannerLoop();
   if (cameraStream) {
     cameraStream.getTracks().forEach(track => track.stop());
     cameraStream = null;
