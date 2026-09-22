@@ -25,6 +25,9 @@ CREATE TABLE IF NOT EXISTS public.products (
   purchase_date DATE,
   expiry_date DATE,
   barcode TEXT,
+  brand TEXT,
+  image_url TEXT,
+  min_stock NUMERIC DEFAULT 2,
   price NUMERIC DEFAULT 0,
   storage_location TEXT DEFAULT 'Pantry',
   location TEXT DEFAULT 'Pantry',
@@ -34,9 +37,30 @@ CREATE TABLE IF NOT EXISTS public.products (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
 );
 
--- Ensure storage_location column exists if table was previously created
+-- Ensure brand, image_url, min_stock, and storage_location columns exist if table was previously created
 DO $$
 BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_schema = 'public' AND table_name = 'products' AND column_name = 'brand'
+  ) THEN
+    ALTER TABLE public.products ADD COLUMN brand TEXT;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_schema = 'public' AND table_name = 'products' AND column_name = 'image_url'
+  ) THEN
+    ALTER TABLE public.products ADD COLUMN image_url TEXT;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_schema = 'public' AND table_name = 'products' AND column_name = 'min_stock'
+  ) THEN
+    ALTER TABLE public.products ADD COLUMN min_stock NUMERIC DEFAULT 2;
+  END IF;
+
   IF NOT EXISTS (
     SELECT 1 FROM information_schema.columns 
     WHERE table_schema = 'public' AND table_name = 'products' AND column_name = 'storage_location'
