@@ -12,6 +12,9 @@
   <!-- Tesseract.js for AI Bill & OCR Receipt Scanning -->
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 
+  <!-- ZXing Multi-Format Barcode Scanning Library -->
+  <script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js"></script>
+
   <!-- Chart.js for Real-Time Pantry Analytics & Category Distribution -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
   <script>
@@ -1275,14 +1278,68 @@
           </div>
         </div>
 
-        <!-- Expiry Date -->
-        <div>
-          <label class="block text-xs font-bold text-slate-700 mb-1">Expiry Date</label>
-          <input 
-            type="date" 
-            id="itemExpiryInput" 
-            class="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl bg-white outline-none"
-          >
+        <!-- Expiry Date & Purchase Date -->
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Expiry Date</label>
+            <input 
+              type="date" 
+              id="itemExpiryInput" 
+              class="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl bg-white outline-none"
+            >
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Purchase Date</label>
+            <input 
+              type="date" 
+              id="itemPurchaseInput" 
+              class="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl bg-white outline-none"
+            >
+          </div>
+        </div>
+
+        <!-- Brand & Barcode -->
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Brand</label>
+            <input 
+              type="text" 
+              id="itemBrandInput" 
+              class="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl bg-white outline-none" 
+              placeholder="e.g. Amul, Organic Valley"
+            >
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Barcode (Optional)</label>
+            <input 
+              type="text" 
+              id="itemBarcodeInput" 
+              class="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl bg-white outline-none font-mono" 
+              placeholder="e.g. 890123456789"
+            >
+          </div>
+        </div>
+
+        <!-- Storage Location & Minimum Stock -->
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Storage Location</label>
+            <select id="itemLocationInput" class="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl bg-white outline-none">
+              <option value="Pantry">Pantry Shelf</option>
+              <option value="Fridge">Refrigerator</option>
+              <option value="Freezer">Freezer</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Min Stock Threshold</label>
+            <input 
+              type="number" 
+              id="itemMinStockInput" 
+              class="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl bg-white outline-none" 
+              min="0" 
+              value="2"
+            >
+          </div>
         </div>
       </div>
 
@@ -1415,22 +1472,145 @@
 
 
 <!-- ==========================================
-     OCR DETECTION RESULT MODAL
+     BARCODE PRODUCT CONFIRMATION MODAL
+     ========================================== -->
+<div id="barcodeProductModal" class="modal-backdrop">
+  <div class="modal-card" style="max-width:540px;">
+    <div class="modal-header">
+      <div style="display:flex; align-items:center; gap:10px;">
+        <div style="font-size:24px;">🏷️</div>
+        <div>
+          <h3 id="barcodeModalTitle">Product Detected</h3>
+          <p id="barcodeModalSubtitle">Scanned Barcode: <span id="barcodeModalNumber" style="font-family:monospace; font-weight:700;"></span></p>
+        </div>
+      </div>
+      <button class="modal-close-btn" onclick="closeBarcodeProductModal()">✕</button>
+    </div>
+
+    <!-- Duplicate Warning Banner -->
+    <div id="barcodeDuplicateBanner" style="display:none; background:#fffbeb; border:1px solid #fde68a; border-radius:12px; padding:12px 14px; margin-bottom:14px;">
+      <div style="display:flex; align-items:flex-start; gap:10px;">
+        <span style="font-size:18px;">⚠️</span>
+        <div style="font-size:12.5px; color:#92400e;">
+          <strong>Already in your pantry!</strong>
+          <p id="barcodeDuplicateText" style="margin:2px 0 6px;">You currently have this item in stock.</p>
+          <div style="display:flex; gap:8px;">
+            <button type="button" onclick="handleBarcodeQuickUpdate()" style="background:#d97706; color:#fff; border:none; padding:5px 12px; border-radius:6px; font-size:11.5px; font-weight:700; cursor:pointer;">
+              ＋ Update Quantity (+1)
+            </button>
+            <button type="button" onclick="dismissBarcodeDuplicateWarning()" style="background:none; border:1px solid #d97706; color:#92400e; padding:5px 12px; border-radius:6px; font-size:11.5px; font-weight:600; cursor:pointer;">
+              Add as New Entry
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Product Details Card -->
+    <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:14px; padding:14px; margin-bottom:14px; display:flex; gap:14px; align-items:center;">
+      <div id="barcodeProductImgWrap" style="width:72px; height:72px; border-radius:12px; background:#ffffff; border:1px solid #cbd5e1; display:flex; align-items:center; justify-content:center; overflow:hidden; flex-shrink:0;">
+        <img id="barcodeProductImg" src="" alt="Product" style="width:100%; height:100%; object-fit:contain; display:none;">
+        <span id="barcodeProductEmoji" style="font-size:32px;">📦</span>
+      </div>
+      <div style="flex:1; min-width:0;">
+        <div id="barcodeApiStatusBadge" style="display:inline-block; font-size:10.5px; font-weight:700; padding:2px 8px; border-radius:999px; background:#dcfce7; color:#15803d; margin-bottom:4px;">
+          ✓ Found in Global Food Database
+        </div>
+        <h4 id="barcodeProductNameDisplay" style="font-size:15px; font-weight:800; color:#0f172a; margin:0; line-height:1.3; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Product Name</h4>
+        <p id="barcodeProductBrandDisplay" style="font-size:12px; color:#64748b; margin:2px 0 0;">Brand Name</p>
+      </div>
+    </div>
+
+    <!-- Pantry Specific Form Fields -->
+    <form id="barcodeProductForm" onsubmit="handleSaveBarcodeProduct(event)" class="space-y-3">
+      <input type="hidden" id="barcodeFormBarcode">
+      <input type="hidden" id="barcodeFormImageUrl">
+      <input type="hidden" id="barcodeFormBrand">
+
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">Product Name</label>
+          <input type="text" id="barcodeFormName" class="w-full px-3 py-2 text-sm border border-slate-300 rounded-xl bg-white outline-none" required>
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">Category</label>
+          <select id="barcodeFormCategory" class="w-full px-3 py-2 text-sm border border-slate-300 rounded-xl bg-white outline-none">
+            <option value="Pantry">Pantry</option>
+            <option value="Dairy">Dairy</option>
+            <option value="Fruits">Fruits</option>
+            <option value="Vegetables">Vegetables</option>
+            <option value="Grains">Grains</option>
+            <option value="Meat">Meat</option>
+            <option value="Beverages">Beverages</option>
+            <option value="Frozen">Frozen</option>
+            <option value="Snacks">Snacks</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">Quantity</label>
+          <input type="number" id="barcodeFormQuantity" class="w-full px-3 py-2 text-sm border border-slate-300 rounded-xl bg-white outline-none" min="0.1" step="any" value="1" required>
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">Unit</label>
+          <select id="barcodeFormUnit" class="w-full px-3 py-2 text-sm border border-slate-300 rounded-xl bg-white outline-none">
+            <option value="pcs">Pieces (pcs)</option>
+            <option value="kg">Kilograms (kg)</option>
+            <option value="g">Grams (g)</option>
+            <option value="L">Liters (L)</option>
+            <option value="ml">Milliliters (ml)</option>
+            <option value="pack">Pack</option>
+            <option value="box">Box</option>
+            <option value="bottle">Bottle</option>
+            <option value="can">Can</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">Expiry Date</label>
+          <input type="date" id="barcodeFormExpiry" class="w-full px-3 py-2 text-sm border border-slate-300 rounded-xl bg-white outline-none">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">Storage Location</label>
+          <select id="barcodeFormLocation" class="w-full px-3 py-2 text-sm border border-slate-300 rounded-xl bg-white outline-none">
+            <option value="Pantry">Pantry Shelf</option>
+            <option value="Fridge">Refrigerator</option>
+            <option value="Freezer">Freezer</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="flex justify-end gap-2 pt-3">
+        <button type="button" class="modal-cancel-btn" onclick="closeBarcodeProductModal()">Cancel</button>
+        <button type="submit" id="barcodeSaveBtn" class="modal-save-btn" style="background:#10b981; color:#fff; border:none; padding:10px 22px; border-radius:10px; font-weight:700; cursor:pointer;">
+          ✓ Confirm & Add to Pantry
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ==========================================
+     OCR DETECTION RESULT MODAL (MULTI-ITEM REVIEW)
      ========================================== -->
 <div id="ocrResultModal" class="ocr-result-modal">
-  <div class="ocr-card">
+  <div class="ocr-card" style="max-width: 640px; width: 94%;">
     <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px;">
       <div>
-        <h3 style="font-size:19px; font-weight:800; color:#0f172a; margin:0 0 4px;">🤖 AI Bill Scanner Result</h3>
-        <p style="font-size:12px; color:#64748b; margin:0;">Extracted items with real-time purchase &amp; expiry dates:</p>
+        <h3 style="font-size:18px; font-weight:800; color:#0f172a; margin:0 0 4px;">🧾 AI Receipt Scanner Result</h3>
+        <p style="font-size:12px; color:#64748b; margin:0;">Review, edit, and select items detected from your receipt:</p>
       </div>
       <button class="action-dots-btn" onclick="closeOCRResult()">✕</button>
     </div>
 
     <!-- Purchase Date Row -->
-    <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:14px; padding:12px 14px; margin-bottom:14px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;">
+    <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:14px; padding:10px 14px; margin-bottom:12px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;">
       <div>
-        <span style="font-size:12px; font-weight:700; color:#1e293b;">📅 Purchase Date</span>
+        <span style="font-size:12px; font-weight:700; color:#1e293b;">📅 Receipt Purchase Date</span>
         <div style="font-size:11px; color:#64748b;" id="ocrDateSourceLabel">Detected from receipt</div>
       </div>
       <input 
@@ -1441,12 +1621,35 @@
       >
     </div>
 
-    <div id="ocrText" style="max-height:80px; overflow-y:auto; font-size:11.5px; background:#f1f5f9; padding:8px 12px; border-radius:10px; color:#475569; font-family:monospace; margin-bottom:12px; white-space:pre-wrap;">Reading receipt...</div>
-    <div id="detectedItems" style="max-height:260px; overflow-y:auto; margin-bottom:14px; display:flex; flex-direction:column; gap:8px;"></div>
+    <!-- Selection Controls Bar -->
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; padding:6px 2px;">
+      <div style="display:flex; align-items:center; gap:8px;">
+        <button type="button" onclick="selectAllOCRItems(true)" style="background:#f1f5f9; border:1px solid #cbd5e1; border-radius:6px; padding:4px 10px; font-size:11.5px; font-weight:700; color:#1e293b; cursor:pointer;">
+          ✓ Select All
+        </button>
+        <button type="button" onclick="selectAllOCRItems(false)" style="background:#f1f5f9; border:1px solid #cbd5e1; border-radius:6px; padding:4px 10px; font-size:11.5px; font-weight:600; color:#64748b; cursor:pointer;">
+          Clear All
+        </button>
+      </div>
+      <span style="font-size:12px; color:#64748b; font-weight:600;">
+        Selected: <strong id="ocrSelectedCount" style="color:#10b981;">0</strong> / <span id="ocrTotalCount">0</span> items
+      </span>
+    </div>
 
-    <div class="ocr-actions">
+    <!-- Collapsible Raw OCR text view -->
+    <details style="margin-bottom:12px; font-size:11.5px; color:#64748b;">
+      <summary style="cursor:pointer; font-weight:600; margin-bottom:4px;">View Raw Scanned Text</summary>
+      <div id="ocrText" style="max-height:70px; overflow-y:auto; font-size:11px; background:#f1f5f9; padding:8px 12px; border-radius:8px; color:#475569; font-family:monospace; white-space:pre-wrap;">Reading receipt...</div>
+    </details>
+
+    <!-- Detected Items List -->
+    <div id="detectedItems" style="max-height:300px; overflow-y:auto; margin-bottom:14px; display:flex; flex-direction:column; gap:8px;"></div>
+
+    <div class="ocr-actions" style="display:flex; justify-content:space-between; gap:10px;">
       <button class="ocr-action secondary" onclick="closeOCRResult()">Cancel</button>
-      <button class="ocr-action primary" onclick="addDetectedItemsToPantry()">✓ Add All to Inventory</button>
+      <button class="ocr-action primary" id="btnAddSelectedOCR" onclick="addSelectedDetectedItemsToPantry()" style="background:#10b981; font-weight:700;">
+        ✓ Add Selected to Pantry (<span id="ocrBtnSelectedCount">0</span>)
+      </button>
     </div>
   </div>
 </div>

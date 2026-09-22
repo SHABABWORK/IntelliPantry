@@ -531,14 +531,18 @@ class PantryStore {
 
     const newItem = {
       name: item.name,
+      brand: item.brand || "",
+      imageUrl: item.imageUrl || item.image || "",
+      minStock: item.minStock !== undefined ? Number(item.minStock) : 2,
       category: item.category || "Pantry",
       quantity: Number(item.quantity) || 1,
       unit: item.unit || "pcs",
       expiryDate: item.expiryDate || "",
-      purchaseDate: item.purchaseDate || getTodayISO(),
+      purchaseDate: item.purchaseDate || (window.getTodayISO ? window.getTodayISO() : new Date().toISOString().split('T')[0]),
       barcode: item.barcode || "",
       price: Number(item.price) || 0,
-      location: item.location || "Pantry",
+      location: item.location || item.storageLocation || "Pantry",
+      storageLocation: item.location || item.storageLocation || "Pantry",
       status: computedStatus,
       emoji: resolvedEmoji
     };
