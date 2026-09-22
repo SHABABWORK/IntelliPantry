@@ -238,6 +238,27 @@
       }
     }
 
+    onAuthStateChange(callback) {
+      if (!this.isReady()) return null;
+      try {
+        return this.client.auth.onAuthStateChange(callback);
+      } catch (e) {
+        console.warn("[Supabase Auth] onAuthStateChange error:", e);
+        return null;
+      }
+    }
+
+    async updatePassword(newPassword) {
+      if (!this.isReady()) return { success: false, error: "Supabase connection required." };
+      try {
+        const { data, error } = await this.client.auth.updateUser({ password: newPassword });
+        if (error) return { success: false, error: error.message };
+        return { success: true, data };
+      } catch (err) {
+        return { success: false, error: err.message || "Failed to update password." };
+      }
+    }
+
     // ==========================================
     // 2. PROFILES TABLE MANAGEMENT
     // ==========================================
