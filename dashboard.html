@@ -2625,6 +2625,11 @@ async function addSelectedDetectedItemsToPantry() {
 
   closeOCRResult();
   closeBillScannerModal();
+
+  if (window.store && typeof window.store.logActivity === 'function') {
+    await window.store.logActivity('added', null, 'Receipt Scan', `Scanned receipt: Added ${selected.length} items`);
+  }
+
   showToast(`✓ Added ${selected.length} item(s) to your pantry!`);
   renderInventoryTable();
   updateMetricsDisplay();
