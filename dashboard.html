@@ -1072,7 +1072,7 @@
           <div class="quick-arrow">➔</div>
         </div>
 
-        <div class="quick-link-card" onclick="openEmailAlertModal()">
+        <div class="quick-link-card" onclick="window.router.navigate('settings')">
           <div class="quick-link-left">
             <div class="quick-link-icon">⚙️</div>
             <div class="quick-link-text">
@@ -1126,7 +1126,7 @@
       <span>Scan</span>
     </button>
 
-    <button class="mobile-nav-item" onclick="openEmailAlertModal()">
+    <button class="mobile-nav-item" onclick="toggleAlertCenter(true)">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"></path>
         <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"></path>
@@ -1136,6 +1136,43 @@
   </nav>
 
 </div>
+
+<!-- ==========================================
+     REAL-TIME ALERT CENTER SLIDE-OVER DRAWER
+     ========================================== -->
+<div class="alert-drawer-backdrop" id="alertDrawerBackdrop" onclick="toggleAlertCenter(false)"></div>
+<aside class="alert-drawer" id="alertCenterDrawer">
+  <div class="alert-drawer-header">
+    <div style="display:flex; align-items:center; gap:8px;">
+      <span style="font-size:20px;">🔔</span>
+      <div>
+        <h3 style="font-size:16px; font-weight:800; color:#1e392a;">Pantry Alert Center</h3>
+        <p style="font-size:11.5px; color:#64748b;" id="alertDrawerUnreadCount">0 Unread Alerts</p>
+      </div>
+    </div>
+    <div style="display:flex; align-items:center; gap:8px;">
+      <button type="button" onclick="window.store.markAllAlertsRead()" style="background:#f1f5f9; border:none; color:#1e392a; font-size:11.5px; font-weight:700; padding:6px 10px; border-radius:8px; cursor:pointer;">
+        Mark All Read
+      </button>
+      <button type="button" onclick="toggleAlertCenter(false)" style="background:none; border:none; font-size:18px; color:#64748b; cursor:pointer; padding:4px 8px;">
+        ✕
+      </button>
+    </div>
+  </div>
+
+  <div class="alert-drawer-tabs">
+    <button type="button" class="alert-tab-btn active" data-filter="all" onclick="filterAlertDrawer('all', this)">All</button>
+    <button type="button" class="alert-tab-btn" data-filter="unread" onclick="filterAlertDrawer('unread', this)">Unread</button>
+    <button type="button" class="alert-tab-btn" data-filter="expiry" onclick="filterAlertDrawer('expiry', this)">Expiring</button>
+    <button type="button" class="alert-tab-btn" data-filter="low_stock" onclick="filterAlertDrawer('low_stock', this)">Low Stock</button>
+    <button type="button" class="alert-tab-btn" data-filter="security" onclick="filterAlertDrawer('security', this)">Security</button>
+  </div>
+
+  <div class="alert-list" id="alertDrawerList">
+    <!-- Populated dynamically by components.js -->
+  </div>
+</aside>
+
 
 
 <!-- ==========================================

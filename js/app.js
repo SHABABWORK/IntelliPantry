@@ -13,7 +13,9 @@ class AppRouter {
       expiry: () => this.showExpiry(),
       "shopping-list": () => this.showShoppingList(),
       recipes: () => this.showRecipes(),
-      settings: () => openEmailAlertModal()
+      insights: () => this.showInsights(),
+      notifications: () => { if (typeof toggleAlertCenter === 'function') toggleAlertCenter(true); },
+      settings: () => this.showSettings()
     };
   }
 
@@ -43,18 +45,57 @@ class AppRouter {
   }
 
   showDashboard() {
+    const home = document.getElementById("dashboardHomeViews");
+    const insights = document.getElementById("insightsSection");
+    const settings = document.getElementById("settingsSection");
+    if (home) home.style.display = "block";
+    if (insights) insights.style.display = "none";
+    if (settings) settings.style.display = "none";
     setCategoryFilter("All");
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   showInventory() {
+    const home = document.getElementById("dashboardHomeViews");
+    const insights = document.getElementById("insightsSection");
+    const settings = document.getElementById("settingsSection");
+    if (home) home.style.display = "block";
+    if (insights) insights.style.display = "none";
+    if (settings) settings.style.display = "none";
     const tableSection = document.getElementById("inventorySection");
     if (tableSection) {
       tableSection.scrollIntoView({ behavior: "smooth" });
     }
   }
 
+  showInsights() {
+    const home = document.getElementById("dashboardHomeViews");
+    const insights = document.getElementById("insightsSection");
+    const settings = document.getElementById("settingsSection");
+    if (home) home.style.display = "none";
+    if (insights) insights.style.display = "flex";
+    if (settings) settings.style.display = "none";
+    if (typeof window.renderInsightsView === "function") {
+      window.renderInsightsView();
+    }
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  showSettings() {
+    const home = document.getElementById("dashboardHomeViews");
+    const insights = document.getElementById("insightsSection");
+    const settings = document.getElementById("settingsSection");
+    if (home) home.style.display = "none";
+    if (insights) insights.style.display = "none";
+    if (settings) settings.style.display = "flex";
+    if (typeof window.renderSettingsView === "function") {
+      window.renderSettingsView();
+    }
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
   showExpiry() {
+    this.showDashboard();
     setCategoryFilter("All");
     const expiringItems = window.store.getItems().filter(i => {
       const status = window.store.calculateStatus(i.expiryDate, i.quantity);
@@ -75,6 +116,12 @@ class AppRouter {
   }
 
   showRecipes() {
+    const home = document.getElementById("dashboardHomeViews");
+    const insights = document.getElementById("insightsSection");
+    const settings = document.getElementById("settingsSection");
+    if (home) home.style.display = "block";
+    if (insights) insights.style.display = "none";
+    if (settings) settings.style.display = "none";
     if (window.RecipeEngine && typeof window.RecipeEngine.scrollToRecipeKitchen === "function") {
       window.RecipeEngine.scrollToRecipeKitchen();
     }
