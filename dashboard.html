@@ -15,26 +15,17 @@
   <!-- Chart.js for Real-Time Pantry Analytics & Category Distribution -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
   <script>
-    // Direct Access: Zero login required — ensure local pantry profile exists
+    // Strict Authentication Guard: Protect dashboard routes
     (function() {
       try {
-        if (!localStorage.getItem('smartpantry_user')) {
-          let guestId = localStorage.getItem('smartpantry_device_id');
-          if (!guestId) {
-            guestId = 'chef_' + Math.random().toString(36).substring(2, 10);
-            localStorage.setItem('smartpantry_device_id', guestId);
-          }
-          localStorage.setItem('smartpantry_user', JSON.stringify({
-            id: guestId,
-            name: 'Pantry Chef',
-            email: 'intellipantrynotify@gmail.com'
-          }));
+        const rawUser = localStorage.getItem('smartpantry_user');
+        const token = localStorage.getItem('smartpantry_token');
+        if (!rawUser || !token || token.startsWith('direct_token_')) {
+          localStorage.removeItem('smartpantry_token');
+          window.location.replace('login.html');
         }
-        if (!localStorage.getItem('smartpantry_token')) {
-          localStorage.setItem('smartpantry_token', 'direct_token_' + Date.now());
-        }
-      } catch(e) {
-        console.warn('Session init:', e);
+      } catch (e) {
+        window.location.replace('login.html');
       }
     })();
   </script>
@@ -2375,8 +2366,18 @@ function handleResetPantry() {
   }
 }
 
-function handleLogout() {
-  handleResetPantry();
+async function handleLogout() {
+  try {
+    if (window.supabaseService) {
+      await window.supabaseService.signOut();
+    }
+  } catch (err) {
+    console.warn("Sign out error:", err);
+  } finally {
+    localStorage.removeItem('smartpantry_user');
+    localStorage.removeItem('smartpantry_token');
+    window.location.replace('login.html');
+  }
 }
 
 // ===== Mobile Drawer & Navigation Helpers =====
