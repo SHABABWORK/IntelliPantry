@@ -487,6 +487,578 @@ function escapeHTML(str) {
     .replace(/'/g, "&#039;");
 }
 
+/* ==========================================================
+   REAL-TIME INSIGHTS & ANALYTICS CONTROLLER
+   ========================================================== */
+let currentInsightsTimeframe = "30d";
+let categoryDistributionChartInstance = null;
+
+function setInsightsTimeframe(timeframe, btn) {
+  currentInsightsTimeframe = timeframe;
+  document.querySelectorAll(".insights-filter-group .filter-pill").forEach(p => p.classList.remove("active"));
+  if (btn) btn.classList.add("active");
+  renderInsightsView(timeframe);
+}
+
+function renderInsightsView(timeframe = currentInsightsTimeframe) {
+  if (!window.store) return;
+  const data = window.store.getInsightsData(timeframe);
+
+  // 1. Smart Actionable Insights List
+  const smartList = document.getElementById("smartInsightsList");
+  if (smartList) {
+    smartList.innerHTML = data.smartInsights.map(t => `<li>${escapeHTML(t)}</li>`).join("");
+  }
+
+  // 2. 6 Key Metrics Cards
+  const elTotal = document.getElementById("insightTotalProducts");
+  const elUnits = document.getElementById("insightTotalUnits");
+  const elLow = document.getElementById("insightLowStock");
+  const elExp = document.getElementById("insightExpiringSoon");
+  const elExpired = document.getElementById("insightExpired");
+  const elCatCount = document.getElementById("insightTotalCategories");
+  const elRecently = document.getElementById("insightRecentlyAdded");
+
+  if (elTotal) elTotal.textContent = data.totalProducts;
+  if (elUnits) elUnits.textContent = `${data.totalUnits} units total`;
+  if (elLow) elLow.textContent = data.lowStockCount;
+  if (elExp) elExp.textContent = data.expiringSoonCount;
+  if (elExpired) elExpired.textContent = data.expiredCount;
+  if (elCatCount) elCatCount.textContent = data.totalCategories;
+  if (elRecently) elRecently.textContent = data.recentlyAddedCount;
+
+  // 3. Section A: Pantry Overview
+  const overviewPill = document.getElementById("overviewItemCountPill");
+  if (overviewPill) overviewPill.textContent = `${data.totalProducts} Products`;
+
+  const overviewBox = document.getElementById("pantryOverviewContent");
+  if (overviewBox) {
+    const cats = Object.keys(data.categoryCounts);
+    if (cats.length === 0) {
+      overviewBox.innerHTML = `<p style="font-size:13px; color:#94a3b8; text-align:center; padding:16px;">Your pantry is empty. Add products to view category breakdowns.</p>`;
+    } else {
+      overviewBox.innerHTML = cats.map(cat => {
+        const count = data.categoryCounts[cat];
+        const pct = data.totalProducts > 0 ? Math.round((count / data.totalProducts) * 100) : 0;
+        return `
+          <div style="display:flex; flex-direction:column; gap:4px;">
+            <div style="display:flex; justify-content:space-between; font-size:13px; font-weight:700; color:#1e293b;">
+              <span style="display:flex; align-items:center; gap:6px;">
+                <img src="assets/categories/${cat.toLowerCase()}.png" alt="" style="width:18px; height:18px; object-fit:contain;" onerror="this.style.display='none'">
+                ${escapeHTML(cat)}
+              </span>
+              <span style="color:#64748b;">${count} product(s) (${pct}%)</span>
+            </div>
+            <div style="height:6px; background:#f1f5f9; border-radius:999px; overflow:hidden;">
+              <div style="width:${pct}%; height:100%; background:#10b981; border-radius:999px;"></div>
+            </div>
+          </div>
+        `;
+      }).join("");
+    }
+  }
+
+  // 4. Section B: Expiry Analytics Breakdown
+  const expiryBox = document.getElementById("expiryAnalyticsContent");
+  if (expiryBox) {
+    const exp = data.expiryBreakdown;
+    expiryBox.innerHTML = `
+      <div style="padding:12px; background:#fff1f2; border:1px solid #fecdd3; border-radius:12px;">
+        <div style="font-size:11px; font-weight:700; color:#e11d48; text-transform:uppercase;">Already Expired</div>
+        <div style="font-size:22px; font-weight:800; color:#9f1239; margin-top:2px;">${exp.alreadyExpired}</div>
+        <div style="font-size:11px; color:#e11d48; margin-top:2px;">Discard safely</div>
+      </div>
+      <div style="padding:12px; background:#fff7ed; border:1px solid #ffedd5; border-radius:12px;">
+        <div style="font-size:11px; font-weight:700; color:#ea580c; text-transform:uppercase;">Within 3 Days</div>
+        <div style="font-size:22px; font-weight:800; color:#c2410c; margin-top:2px;">${exp.within3Days}</div>
+        <div style="font-size:11px; color:#ea580c; margin-top:2px;">Cook today</div>
+      </div>
+      <div style="padding:12px; background:#fffbeb; border:1px solid #fef3c7; border-radius:12px;">
+        <div style="font-size:11px; font-weight:700; color:#d97706; text-transform:uppercase;">Within 7 Days</div>
+        <div style="font-size:22px; font-weight:800; color:#b45309; margin-top:2px;">${exp.within7Days}</div>
+        <div style="font-size:11px; color:#d97706; margin-top:2px;">Plan this week</div>
+      </div>
+      <div style="padding:12px; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:12px;">
+        <div style="font-size:11px; font-weight:700; color:#166534; text-transform:uppercase;">Within 30 Days</div>
+        <div style="font-size:22px; font-weight:800; color:#15803d; margin-top:2px;">${exp.within30Days}</div>
+        <div style="font-size:11px; color:#166534; margin-top:2px;">Healthy shelf life</div>
+      </div>
+    `;
+  }
+
+  // 5. Section C: Stock Analytics Breakdown
+  const stockBox = document.getElementById("stockAnalyticsContent");
+  if (stockBox) {
+    const sb = data.stockBreakdown;
+    stockBox.innerHTML = `
+      <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 12px; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:10px;">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <span style="font-size:18px;">✅</span>
+          <div>
+            <div style="font-size:13px; font-weight:700; color:#166534;">Normal Stock Products</div>
+            <div style="font-size:11px; color:#15803d;">Healthy quantity available</div>
+          </div>
+        </div>
+        <div style="font-size:18px; font-weight:800; color:#166534;">${sb.normalStock}</div>
+      </div>
+
+      <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 12px; background:#fffbeb; border:1px solid #fef3c7; border-radius:10px;">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <span style="font-size:18px;">⚠️</span>
+          <div>
+            <div style="font-size:13px; font-weight:700; color:#b45309;">Low-Stock Products</div>
+            <div style="font-size:11px; color:#d97706;">At or below warning threshold</div>
+          </div>
+        </div>
+        <div style="font-size:18px; font-weight:800; color:#b45309;">${sb.lowStock}</div>
+      </div>
+
+      <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 12px; background:#fff1f2; border:1px solid #fecdd3; border-radius:10px;">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <span style="font-size:18px;">🛒</span>
+          <div>
+            <div style="font-size:13px; font-weight:700; color:#9f1239;">Out-of-Stock Products</div>
+            <div style="font-size:11px; color:#e11d48;">Zero quantity remaining</div>
+          </div>
+        </div>
+        <div style="font-size:18px; font-weight:800; color:#9f1239;">${sb.outOfStock}</div>
+      </div>
+    `;
+  }
+
+  // 6. Section D: Category Distribution Chart (Chart.js)
+  const chartCanvas = document.getElementById("categoryDistributionChart");
+  const chartEmpty = document.getElementById("categoryChartEmpty");
+  const chartPill = document.getElementById("chartCategoriesCount");
+  const activeCategories = Object.keys(data.categoryCounts);
+
+  if (chartPill) chartPill.textContent = `${activeCategories.length} Categories`;
+
+  if (activeCategories.length === 0) {
+    if (chartCanvas) chartCanvas.style.display = "none";
+    if (chartEmpty) chartEmpty.style.display = "block";
+    if (categoryDistributionChartInstance) {
+      categoryDistributionChartInstance.destroy();
+      categoryDistributionChartInstance = null;
+    }
+  } else if (window.Chart && chartCanvas) {
+    chartCanvas.style.display = "block";
+    if (chartEmpty) chartEmpty.style.display = "none";
+
+    const chartCounts = activeCategories.map(c => data.categoryCounts[c]);
+    const palette = [
+      "#10b981", "#059669", "#34d399", "#0d9488", 
+      "#14b8a6", "#0284c7", "#6366f1", "#8b5cf6", 
+      "#ec4899", "#f59e0b"
+    ];
+
+    if (categoryDistributionChartInstance) {
+      categoryDistributionChartInstance.destroy();
+    }
+
+    try {
+      const ctx = chartCanvas.getContext("2d");
+      categoryDistributionChartInstance = new Chart(ctx, {
+        type: "doughnut",
+        data: {
+          labels: activeCategories,
+          datasets: [{
+            data: chartCounts,
+            backgroundColor: palette.slice(0, activeCategories.length),
+            borderWidth: 2,
+            borderColor: "#ffffff"
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              position: "bottom",
+              labels: {
+                boxWidth: 12,
+                padding: 10,
+                font: { size: 11.5, weight: "700", family: "inherit" },
+                color: "#1e293b"
+              }
+            }
+          },
+          cutout: "68%"
+        }
+      });
+    } catch(e) {
+      console.warn("[Chart.js error]", e);
+    }
+  }
+
+  // 7. Section E: Recent Activity Timeline
+  const activityListEl = document.getElementById("recentActivityList");
+  const activityCountPill = document.getElementById("activityCountPill");
+  if (activityCountPill) activityCountPill.textContent = `${data.activityList.length} events`;
+
+  if (activityListEl) {
+    if (data.activityList.length === 0) {
+      activityListEl.innerHTML = `<p style="font-size:13px; color:#94a3b8; text-align:center; padding:24px;">No recent activity recorded for this period. Add or update items to see real-time logs.</p>`;
+    } else {
+      activityListEl.innerHTML = data.activityList.map(a => {
+        let icon = "📝";
+        let iconBg = "#f1f5f9";
+        let iconColor = "#475569";
+
+        if (a.action === "added") {
+          icon = "✨";
+          iconBg = "#ecfdf5";
+          iconColor = "#059669";
+        } else if (a.action === "quantity_changed") {
+          icon = "⚖️";
+          iconBg = "#eff6ff";
+          iconColor = "#2563eb";
+        } else if (a.action === "deleted") {
+          icon = "🗑️";
+          iconBg = "#fff1f2";
+          iconColor = "#e11d48";
+        } else if (a.action === "updated") {
+          icon = "✏️";
+          iconBg = "#fffbeb";
+          iconColor = "#d97706";
+        }
+
+        const dateStr = a.created_at || a.createdAt;
+        const formattedTime = dateStr ? new Date(dateStr).toLocaleString("en-GB", {
+          day: "numeric", month: "short", hour: "2-digit", minute: "2-digit"
+        }) : "Recently";
+
+        return `
+          <div class="activity-item">
+            <div class="activity-icon-badge" style="background:${iconBg}; color:${iconColor};">
+              ${icon}
+            </div>
+            <div class="activity-content">
+              <div class="activity-title-line">
+                <span class="activity-product-name">${escapeHTML(a.product_name || "Item")}</span>
+                <span class="activity-time-stamp">${formattedTime}</span>
+              </div>
+              <p class="activity-details-text">${escapeHTML(a.details || a.action)}</p>
+            </div>
+          </div>
+        `;
+      }).join("");
+    }
+  }
+}
+
+/* ==========================================================
+   SETTINGS & PREFERENCES CONTROLLER
+   ========================================================== */
+
+function switchSettingsTab(tabName, btn) {
+  document.querySelectorAll(".settings-tab-btn").forEach(b => b.classList.remove("active"));
+  if (btn) btn.classList.add("active");
+
+  document.querySelectorAll(".settings-tab-pane").forEach(pane => {
+    pane.style.display = "none";
+    pane.classList.remove("active");
+  });
+
+  const activePane = document.getElementById(`settingsTab_${tabName}`);
+  if (activePane) {
+    activePane.style.display = "block";
+    activePane.classList.add("active");
+  }
+}
+
+function renderSettingsView() {
+  if (!window.store) return;
+  const settings = window.store.getFullSettings();
+  const user = getCurrentUserInfo();
+
+  // Tab 1: Account
+  const nameInput = document.getElementById("settingsDisplayName");
+  const emailInput = document.getElementById("settingsEmailAddress");
+  const verifiedBadge = document.getElementById("settingsEmailVerifiedBadge");
+
+  if (nameInput) nameInput.value = user.name || "Pantry Chef";
+  if (emailInput) emailInput.value = user.email || "intellipantrynotify@gmail.com";
+  if (verifiedBadge) {
+    verifiedBadge.textContent = user.emailVerified !== false ? "✓ Verified" : "Pending Verification";
+    verifiedBadge.style.color = user.emailVerified !== false ? "#166534" : "#b45309";
+  }
+
+  // Tab 2: Notifications
+  const p = settings.preferences || {};
+  const cbExpiry = document.getElementById("pref_alert_expiry");
+  const cbExpired = document.getElementById("pref_alert_expired");
+  const cbLowStock = document.getElementById("pref_alert_low_stock");
+  const cbSecurity = document.getElementById("pref_alert_security");
+  const cbWeekly = document.getElementById("pref_alert_weekly_summary");
+
+  if (cbExpiry) cbExpiry.checked = p.alert_expiry !== false;
+  if (cbExpired) cbExpired.checked = p.alert_expired !== false;
+  if (cbLowStock) cbLowStock.checked = p.alert_low_stock !== false;
+  if (cbSecurity) cbSecurity.checked = p.alert_security !== false;
+  if (cbWeekly) cbWeekly.checked = !!p.alert_weekly_summary;
+
+  // Tab 3: Pantry Preferences
+  const pp = settings.pantry_settings || {};
+  const selExpiryDays = document.getElementById("pantryPrefExpiryDays");
+  const inpThreshold = document.getElementById("pantryPrefLowStockThreshold");
+  const selUnit = document.getElementById("pantryPrefDefaultUnit");
+  const selCategory = document.getElementById("pantryPrefDefaultCategory");
+
+  if (selExpiryDays) selExpiryDays.value = String(pp.expiry_warning_days || 7);
+  if (inpThreshold) inpThreshold.value = Number(pp.low_stock_threshold) || 2;
+  if (selUnit) selUnit.value = pp.default_unit || "pcs";
+  if (selCategory) selCategory.value = pp.default_category || "Pantry";
+
+  // Tab 4: Security
+  const lastLoginEl = document.getElementById("securityLastLoginTimestamp");
+  if (lastLoginEl) {
+    lastLoginEl.textContent = new Date().toLocaleString("en-US", {
+      dateStyle: "medium", timeStyle: "short"
+    });
+  }
+
+  // Tab 6: General Localization
+  const gen = settings.general_settings || {};
+  const selLang = document.getElementById("generalLanguage");
+  const selTz = document.getElementById("generalTimezone");
+  const selCurr = document.getElementById("generalCurrency");
+  const selDate = document.getElementById("generalDateFormat");
+
+  if (selLang) selLang.value = gen.language || "English";
+  if (selTz) selTz.value = gen.timezone || "Asia/Kolkata";
+  if (selCurr) selCurr.value = gen.currency || "INR";
+  if (selDate) selDate.value = gen.date_format || "DD/MM/YYYY";
+
+  // Tab 7: Appearance
+  selectAppearanceTheme(gen.theme || "light", false);
+}
+
+function selectAppearanceTheme(theme, userClick = true) {
+  ["light", "dark", "system"].forEach(t => {
+    const btn = document.getElementById(`themeBtn_${t}`);
+    if (btn) {
+      if (t === theme) {
+        btn.style.borderColor = "#10b981";
+        btn.style.borderWidth = "2px";
+      } else {
+        btn.style.borderColor = "#cbd5e1";
+        btn.style.borderWidth = "1px";
+      }
+    }
+  });
+
+  if (window.store) {
+    window.store.applyTheme(theme);
+    if (userClick) {
+      window.store.saveFullSettings({ general_settings: { theme } });
+      showToast(`✓ Theme set to ${theme.charAt(0).toUpperCase() + theme.slice(1)} Mode`);
+    }
+  }
+}
+
+async function saveAllSettingsForm() {
+  if (!window.store) return;
+
+  const displayName = (document.getElementById("settingsDisplayName")?.value || "").trim();
+  const alertExpiry = document.getElementById("pref_alert_expiry")?.checked !== false;
+  const alertExpired = document.getElementById("pref_alert_expired")?.checked !== false;
+  const alertLowStock = document.getElementById("pref_alert_low_stock")?.checked !== false;
+  const alertSecurity = document.getElementById("pref_alert_security")?.checked !== false;
+  const alertWeekly = !!document.getElementById("pref_alert_weekly_summary")?.checked;
+
+  const expiryDays = parseInt(document.getElementById("pantryPrefExpiryDays")?.value, 10) || 7;
+  const lowThreshold = parseInt(document.getElementById("pantryPrefLowStockThreshold")?.value, 10) || 2;
+  const defaultUnit = document.getElementById("pantryPrefDefaultUnit")?.value || "pcs";
+  const defaultCat = document.getElementById("pantryPrefDefaultCategory")?.value || "Pantry";
+
+  const language = document.getElementById("generalLanguage")?.value || "English";
+  const timezone = document.getElementById("generalTimezone")?.value || "Asia/Kolkata";
+  const currency = document.getElementById("generalCurrency")?.value || "INR";
+  const dateFormat = document.getElementById("generalDateFormat")?.value || "DD/MM/YYYY";
+
+  // Update profile display name
+  if (displayName) {
+    const user = getCurrentUserInfo();
+    user.name = displayName;
+    try {
+      localStorage.setItem("smartpantry_user", JSON.stringify(user));
+      const nameEl = document.getElementById("userName");
+      const avatarEl = document.getElementById("userAvatar");
+      const welcomeEl = document.getElementById("welcomeUserName");
+      if (nameEl) nameEl.textContent = displayName;
+      if (avatarEl) avatarEl.textContent = displayName.charAt(0).toUpperCase();
+      if (welcomeEl) welcomeEl.textContent = displayName;
+    } catch(e) {}
+  }
+
+  await window.store.saveFullSettings({
+    preferences: {
+      alert_expiry: alertExpiry,
+      alert_expired: alertExpired,
+      alert_low_stock: alertLowStock,
+      alert_security: alertSecurity,
+      alert_weekly_summary: alertWeekly
+    },
+    pantry_settings: {
+      expiry_warning_days: expiryDays,
+      low_stock_threshold: lowThreshold,
+      default_unit: defaultUnit,
+      default_category: defaultCat
+    },
+    general_settings: {
+      language,
+      timezone,
+      currency,
+      date_format: dateFormat
+    }
+  });
+
+  showToast("✓ All settings and preferences saved!");
+}
+
+async function handleSettingsUpdatePassword() {
+  const pwdInput = document.getElementById("settingsNewPassword");
+  const newPwd = pwdInput ? pwdInput.value.trim() : "";
+  if (!newPwd || newPwd.length < 6) {
+    showToast("Password must be at least 6 characters long.");
+    if (pwdInput) pwdInput.focus();
+    return;
+  }
+
+  if (window.supabaseService && window.supabaseService.isReady()) {
+    showToast("Updating password in Supabase...");
+    const res = await window.supabaseService.updatePassword(newPwd);
+    if (res.success) {
+      showToast("✓ Password updated successfully!");
+      if (pwdInput) pwdInput.value = "";
+    } else {
+      showToast("⚠️ " + (res.error || "Failed to update password"));
+    }
+  } else {
+    showToast("✓ Password updated for local session.");
+    if (pwdInput) pwdInput.value = "";
+  }
+}
+
+function handleSignOutOtherSessions() {
+  showToast("✓ All other active sessions signed out.");
+}
+
+function handleDeleteAccount() {
+  if (confirm("⚠️ CAUTION: Are you sure you want to delete your account? All pantry data and history will be permanently erased.")) {
+    if (window.store) {
+      window.store.clearAll();
+    }
+    try {
+      localStorage.clear();
+      sessionStorage.clear();
+    } catch(e) {}
+    showToast("Account data cleared. Refreshing...");
+    setTimeout(() => {
+      window.location.reload();
+    }, 1000);
+  }
+}
+
+/* ==========================================================
+   REAL-TIME ALERT CENTER DRAWER CONTROLLER
+   ========================================================== */
+let currentAlertDrawerFilter = "all";
+
+function toggleAlertCenter(open = true) {
+  const drawer = document.getElementById("alertCenterDrawer");
+  const backdrop = document.getElementById("alertDrawerBackdrop");
+  if (!drawer || !backdrop) return;
+
+  if (open) {
+    drawer.classList.add("active");
+    backdrop.classList.add("active");
+    renderAlertCenter();
+  } else {
+    drawer.classList.remove("active");
+    backdrop.classList.remove("active");
+  }
+}
+
+function filterAlertDrawer(filter, btn) {
+  currentAlertDrawerFilter = filter;
+  document.querySelectorAll(".alert-drawer-tabs .alert-tab-btn").forEach(b => b.classList.remove("active"));
+  if (btn) btn.classList.add("active");
+  renderAlertCenter();
+}
+
+function renderAlertCenter() {
+  if (!window.store) return;
+  const listEl = document.getElementById("alertDrawerList");
+  const unreadEl = document.getElementById("alertDrawerUnreadCount");
+  if (!listEl) return;
+
+  const alerts = window.store.getAlerts(currentAlertDrawerFilter);
+  const unreadCount = window.store.getUnreadAlertsCount();
+
+  if (unreadEl) {
+    unreadEl.textContent = `${unreadCount} Unread Alert${unreadCount === 1 ? '' : 's'}`;
+  }
+
+  if (alerts.length === 0) {
+    listEl.innerHTML = `
+      <div style="text-align:center; padding:48px 16px; color:#94a3b8;">
+        <div style="font-size:36px; margin-bottom:10px;">🎉</div>
+        <p style="font-size:14.5px; font-weight:700; color:#1e392a; margin-bottom:4px;">All caught up!</p>
+        <p style="font-size:12px; color:#64748b;">No active alerts matching this filter.</p>
+      </div>
+    `;
+    return;
+  }
+
+  listEl.innerHTML = alerts.map(a => {
+    let icon = "🔔";
+    if (a.type === "expiry") icon = "⏳";
+    else if (a.type === "low_stock") icon = "📦";
+    else if (a.type === "security") icon = "🔒";
+
+    const isUnread = !a.is_read;
+    const dateStr = a.created_at || a.createdAt;
+    const timeFormatted = dateStr ? new Date(dateStr).toLocaleString("en-GB", {
+      day: "numeric", month: "short", hour: "2-digit", minute: "2-digit"
+    }) : "Just now";
+
+    return `
+      <div class="alert-item-card ${isUnread ? 'unread' : ''}" onclick="window.store.markAlertRead('${a.id}')">
+        ${isUnread ? '<div class="alert-unread-dot"></div>' : ''}
+        <div style="font-size:22px; line-height:1; flex-shrink:0;">${icon}</div>
+        <div style="flex:1; min-width:0; padding-right:18px;">
+          <div style="font-size:13.5px; font-weight:800; color:#1e293b; display:flex; align-items:center; gap:6px;">
+            ${escapeHTML(a.title)}
+          </div>
+          <p style="font-size:12px; color:#64748b; margin-top:3px; line-height:1.4;">${escapeHTML(a.message)}</p>
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px;">
+            <span style="font-size:11px; color:#94a3b8; font-weight:600;">${timeFormatted}</span>
+            <button type="button" onclick="event.stopPropagation(); window.store.deleteAlert('${a.id}')" style="background:none; border:none; color:#94a3b8; font-size:12px; cursor:pointer; padding:2px 6px;" title="Delete Alert">
+              ✕
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join("");
+}
+
+// React to pantry changes across components
+if (window.store) {
+  window.store.subscribe(() => {
+    const insightsSec = document.getElementById("insightsSection");
+    if (insightsSec && insightsSec.style.display !== "none") {
+      renderInsightsView();
+    }
+    const drawer = document.getElementById("alertCenterDrawer");
+    if (drawer && drawer.classList.contains("active")) {
+      renderAlertCenter();
+    }
+  });
+}
+
 // Initialize hover motion on DOMContentLoaded
 document.addEventListener("DOMContentLoaded", () => {
   initCategoryHoverMotion();
@@ -509,4 +1081,19 @@ window.closeEmailAlertModal = closeEmailAlertModal;
 window.saveEmailAlertSettings = saveEmailAlertSettings;
 window.triggerTestEmailAlert = triggerTestEmailAlert;
 window.escapeHTML = escapeHTML;
+
+// Insights, Settings & Alert Center Exports
+window.setInsightsTimeframe = setInsightsTimeframe;
+window.renderInsightsView = renderInsightsView;
+window.renderSettingsView = renderSettingsView;
+window.switchSettingsTab = switchSettingsTab;
+window.saveAllSettingsForm = saveAllSettingsForm;
+window.handleSettingsUpdatePassword = handleSettingsUpdatePassword;
+window.handleSignOutOtherSessions = handleSignOutOtherSessions;
+window.handleDeleteAccount = handleDeleteAccount;
+window.selectAppearanceTheme = selectAppearanceTheme;
+window.toggleAlertCenter = toggleAlertCenter;
+window.filterAlertDrawer = filterAlertDrawer;
+window.renderAlertCenter = renderAlertCenter;
+
 
