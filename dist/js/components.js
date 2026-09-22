@@ -969,7 +969,13 @@ async function saveAllSettingsForm() {
       if (nameEl) nameEl.textContent = displayName;
       if (avatarEl) avatarEl.textContent = displayName.charAt(0).toUpperCase();
       if (welcomeEl) welcomeEl.textContent = displayName;
-    } catch(e) {}
+
+      if (window.supabaseService && window.supabaseService.isReady() && user.id) {
+        await window.supabaseService.updateProfile(user.id, { fullName: displayName });
+      }
+    } catch(e) {
+      console.warn("[Profile Update]", e);
+    }
   }
 
   await window.store.saveFullSettings({

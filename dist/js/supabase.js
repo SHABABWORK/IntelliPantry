@@ -2,19 +2,23 @@
  * IntelliPantry - Master Production Supabase Engine
  * 
  * Features:
- * - Real Supabase Authentication (signInWithPassword, signUp, signOut)
- * - STRICT Production Validation (Rejects invalid password, unregistered email, empty inputs)
- * - ZERO Fake Fallbacks / ZERO Mock Auth Bypass
- * - Real PostgreSQL Row Level Security (RLS) Query Execution
- * - Realtime Postgres Changes Listener
- * - Automated Transactional Login Alert Dispatch via Resend
+ * - Real Supabase Authentication (signInWithPassword, signUp, signOut, getSession, onAuthStateChange)
+ * - Strict User Isolation & Permanent Source of Truth in Supabase
+ * - Auto Profile Association (profiles table)
+ * - Pantry Products CRUD (pantry_products table) with RLS
+ * - Alerts CRUD (alerts table) with RLS
+ * - Notification Preferences (notification_preferences table) with RLS
+ * - Activity Logs (activity_logs table) with RLS
+ * - Supabase Realtime WebSocket Subscriptions for live updates
+ * - Clean unsubscribe on logout/user switch
+ * - Serverless Resend Login Notifications
  */
 
 (function(window) {
   class SupabaseService {
     constructor() {
       this.client = null;
-      this.activeChannel = null;
+      this.activeChannels = {};
       this.init();
     }
 
@@ -34,7 +38,7 @@
               storage: window.localStorage
             }
           });
-          console.log("[Supabase] Connected to production PostgreSQL at:", config.url);
+          console.log("[Supabase] Connected to live PostgreSQL database at:", config.url);
         }
       } catch (err) {
         console.error("[Supabase] Initialization error:", err);
@@ -48,8 +52,19 @@
       return Boolean(this.client);
     }
 
+    // Secure helper: Always extract authenticated user's real Supabase Auth UUID
+    async getAuthenticatedUserId(fallbackId = null) {
+      if (this.isReady()) {
+        try {
+          const { data: { user } } = await this.client.auth.getUser();
+          if (user && user.id) return user.id;
+        } catch (e) {}
+      }
+      return fallbackId || null;
+    }
+
     // ==========================================
-    // STRICT PRODUCTION AUTHENTICATION
+    // 1. REAL SUPABASE AUTHENTICATION
     // ==========================================
 
     async signUp(email, password, fullName) {
@@ -63,18 +78,20 @@
       if (!this.isReady()) {
         return { 
           success: false, 
-          error: "Supabase connection required. Please configure NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in Vercel or via Database Settings." 
+          error: "Supabase connection required. Configure your Supabase project URL and anon key." 
         };
       }
 
       try {
         const cleanEmail = email.trim().toLowerCase();
+        const cleanName = (fullName || cleanEmail.split('@')[0]).trim();
+
         const { data, error } = await this.client.auth.signUp({
           email: cleanEmail,
           password,
           options: {
             data: {
-              full_name: (fullName || cleanEmail.split('@')[0]).trim()
+              full_name: cleanName
             }
           }
         });
@@ -86,7 +103,7 @@
         const user = data.user;
         const session = data.session;
 
-        // If user already exists in Supabase
+        // If user already exists in Supabase GoTrue
         if (user && user.identities && user.identities.length === 0) {
           return { success: false, error: "An account with this email already exists. Please log in." };
         }
@@ -94,9 +111,12 @@
         const userObj = {
           id: user.id,
           email: user.email,
-          name: user.user_metadata?.full_name || fullName || 'Pantry Chef',
+          name: cleanName,
           emailVerified: Boolean(user.email_confirmed_at || user.confirmed_at)
         };
+
+        // Create or update profile in profiles table
+        await this.ensureProfile(userObj);
 
         if (session) {
           localStorage.setItem('smartpantry_token', session.access_token);
@@ -126,7 +146,7 @@
       if (!this.isReady()) {
         return { 
           success: false, 
-          error: "Supabase connection required. Please configure NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in Vercel or via Database Settings." 
+          error: "Supabase connection required. Configure your Supabase project URL and anon key." 
         };
       }
 
@@ -151,10 +171,13 @@
           emailVerified: Boolean(user.email_confirmed_at || user.confirmed_at)
         };
 
+        // Ensure profile row exists in public.profiles
+        await this.ensureProfile(userObj);
+
         localStorage.setItem('smartpantry_token', session.access_token);
         localStorage.setItem('smartpantry_user', JSON.stringify(userObj));
 
-        // Dispatch real-time login email notification via serverless Resend function
+        // Dispatch background login alert
         this.dispatchLoginNotification(userObj);
 
         return {
@@ -170,10 +193,7 @@
 
     async signOut() {
       try {
-        if (this.activeChannel && this.client) {
-          this.client.removeChannel(this.activeChannel);
-          this.activeChannel = null;
-        }
+        this.unsubscribeAll();
         if (this.isReady()) {
           await this.client.auth.signOut();
         }
@@ -193,7 +213,8 @@
             return {
               id: user.id,
               email: user.email,
-              name: user.user_metadata?.full_name || 'Pantry Chef'
+              name: user.user_metadata?.full_name || user.email.split('@')[0] || 'Pantry Chef',
+              emailVerified: Boolean(user.email_confirmed_at || user.confirmed_at)
             };
           }
         } catch (e) {}
@@ -217,352 +238,537 @@
       }
     }
 
+    onAuthStateChange(callback) {
+      if (!this.isReady()) return null;
+      try {
+        return this.client.auth.onAuthStateChange(callback);
+      } catch (e) {
+        console.warn("[Supabase Auth] onAuthStateChange error:", e);
+        return null;
+      }
+    }
+
+    async updatePassword(newPassword) {
+      if (!this.isReady()) return { success: false, error: "Supabase connection required." };
+      try {
+        const { data, error } = await this.client.auth.updateUser({ password: newPassword });
+        if (error) return { success: false, error: error.message };
+        return { success: true, data };
+      } catch (err) {
+        return { success: false, error: err.message || "Failed to update password." };
+      }
+    }
+
     // ==========================================
-    // REAL USER-SPECIFIC PRODUCTS CRUD
+    // 2. PROFILES TABLE MANAGEMENT
+    // ==========================================
+
+    async getProfile(userId) {
+      if (!userId || !this.isReady()) return null;
+      try {
+        const { data, error } = await this.client
+          .from('profiles')
+          .select('*')
+          .eq('id', userId)
+          .maybeSingle();
+
+        if (error) throw error;
+        return data;
+      } catch (err) {
+        console.warn("[Supabase Profile] Query error:", err.message);
+        return null;
+      }
+    }
+
+    async ensureProfile(user) {
+      if (!user || !user.id || !this.isReady()) return;
+      try {
+        await this.client
+          .from('profiles')
+          .upsert({
+            id: user.id,
+            full_name: user.name || user.email.split('@')[0],
+            email: user.email,
+            updated_at: new Date().toISOString()
+          }, { onConflict: 'id' });
+      } catch (err) {
+        // Silently continue if table trigger already handled profile creation
+      }
+    }
+
+    async updateProfile(userId, { fullName, avatarUrl }) {
+      if (!userId || !this.isReady()) return false;
+      try {
+        const updates = { updated_at: new Date().toISOString() };
+        if (fullName !== undefined) updates.full_name = fullName;
+        if (avatarUrl !== undefined) updates.avatar_url = avatarUrl;
+
+        const { data, error } = await this.client
+          .from('profiles')
+          .update(updates)
+          .eq('id', userId)
+          .select();
+
+        if (error) throw error;
+        return data && data[0] ? data[0] : true;
+      } catch (err) {
+        console.warn("[Supabase Profile] Update error:", err.message);
+        return false;
+      }
+    }
+
+    // ==========================================
+    // 3. PANTRY PRODUCTS CRUD (pantry_products)
     // ==========================================
 
     async getProducts(userId) {
       if (!userId) return [];
-
       if (!this.isReady()) {
-        console.warn("[Supabase DB] Supabase not connected. Set credentials in Vercel or Settings.");
+        console.warn("[Supabase DB] Supabase not connected.");
         return [];
       }
 
       try {
+        // Try pantry_products table first
         const { data, error } = await this.client
+          .from('pantry_products')
+          .select('*')
+          .eq('user_id', userId)
+          .order('created_at', { ascending: false });
+
+        if (!error && Array.isArray(data)) {
+          return data.map(this.mapFromDB);
+        }
+
+        // Graceful fallback to products table if pantry_products is not yet created
+        const fallbackRes = await this.client
           .from('products')
           .select('*')
           .eq('user_id', userId)
           .order('created_at', { ascending: false });
 
-        if (error) throw error;
-        return (data || []).map(this.mapFromDB);
+        if (!fallbackRes.error && Array.isArray(fallbackRes.data)) {
+          return fallbackRes.data.map(this.mapFromDB);
+        }
+
+        return [];
       } catch (err) {
-        console.error("[Supabase DB] getProducts query failed:", err.message);
+        console.error("[Supabase DB] getProducts failed:", err.message);
         return [];
       }
     }
 
     async insertProduct(productData, userId) {
-      if (!userId) throw new Error("Authenticated user_id is required");
       if (!this.isReady()) throw new Error("Supabase is not configured");
+      const effectiveUserId = await this.getAuthenticatedUserId(userId);
+      if (!effectiveUserId) throw new Error("Authenticated session is required to save products");
 
       const dbRecord = {
-        user_id: userId,
-        name: productData.name,
+        user_id: effectiveUserId,
+        product_name: productData.name,
         brand: productData.brand || null,
-        image_url: productData.imageUrl || productData.image || null,
-        min_stock: productData.minStock !== undefined ? Number(productData.minStock) : 2,
         category: productData.category || 'Pantry',
+        barcode: productData.barcode || null,
+        product_image: productData.imageUrl || productData.image || null,
+        description: productData.description || null,
+        ingredients: productData.ingredients || null,
+        nutrition: productData.nutrition || null,
         quantity: Number(productData.quantity) || 1,
         unit: productData.unit || 'pcs',
-        expiry_date: productData.expiryDate || null,
         purchase_date: productData.purchaseDate || null,
-        barcode: productData.barcode || null,
-        price: Number(productData.price) || 0,
-        storage_location: productData.location || productData.storageLocation || 'Pantry',
-        location: productData.location || productData.storageLocation || 'Pantry',
-        emoji: productData.emoji || '📦',
-        status: productData.status || 'Fresh'
+        expiry_date: productData.expiryDate || null,
+        minimum_stock: productData.minStock !== undefined ? Number(productData.minStock) : 2,
+        storage_location: productData.storageLocation || productData.location || 'Pantry'
       };
 
-      const { data, error } = await this.client
-        .from('products')
-        .insert([dbRecord])
-        .select();
+      try {
+        // Insert into pantry_products
+        const { data, error } = await this.client
+          .from('pantry_products')
+          .insert([dbRecord])
+          .select();
 
-      if (error) throw error;
-      if (data && data[0]) {
-        return this.mapFromDB(data[0]);
+        if (!error && data && data[0]) {
+          return this.mapFromDB(data[0]);
+        }
+
+        // Fallback to legacy products table if pantry_products doesn't exist
+        const legacyRecord = {
+          user_id: effectiveUserId,
+          name: productData.name,
+          brand: productData.brand || null,
+          image_url: productData.imageUrl || productData.image || null,
+          min_stock: productData.minStock !== undefined ? Number(productData.minStock) : 2,
+          category: productData.category || 'Pantry',
+          quantity: Number(productData.quantity) || 1,
+          unit: productData.unit || 'pcs',
+          expiry_date: productData.expiryDate || null,
+          purchase_date: productData.purchaseDate || null,
+          barcode: productData.barcode || null,
+          storage_location: productData.storageLocation || 'Pantry',
+          location: productData.storageLocation || 'Pantry',
+          status: productData.status || 'Fresh'
+        };
+
+        const legRes = await this.client
+          .from('products')
+          .insert([legacyRecord])
+          .select();
+
+        if (legRes.error) throw legRes.error;
+        if (legRes.data && legRes.data[0]) {
+          return this.mapFromDB(legRes.data[0]);
+        }
+
+        throw new Error("Failed to insert product");
+      } catch (err) {
+        console.error("[Supabase DB] insertProduct error:", err.message);
+        throw err;
       }
-      throw new Error("Failed to insert product record");
     }
 
     async updateProduct(id, updates, userId) {
-      if (!userId || !id) throw new Error("user_id and product id are required");
+      if (!id) throw new Error("Product ID is required");
       if (!this.isReady()) throw new Error("Supabase is not configured");
+      const effectiveUserId = await this.getAuthenticatedUserId(userId);
+      if (!effectiveUserId) throw new Error("Authenticated session is required");
 
       const dbPayload = {
         updated_at: new Date().toISOString()
       };
-      if (updates.name !== undefined) dbPayload.name = updates.name;
+      if (updates.name !== undefined) dbPayload.product_name = updates.name;
       if (updates.brand !== undefined) dbPayload.brand = updates.brand;
-      if (updates.imageUrl !== undefined || updates.image !== undefined) dbPayload.image_url = updates.imageUrl || updates.image;
-      if (updates.minStock !== undefined) dbPayload.min_stock = Number(updates.minStock);
+      if (updates.imageUrl !== undefined || updates.image !== undefined) dbPayload.product_image = updates.imageUrl || updates.image;
+      if (updates.minStock !== undefined) dbPayload.minimum_stock = Number(updates.minStock);
       if (updates.category !== undefined) dbPayload.category = updates.category;
       if (updates.quantity !== undefined) dbPayload.quantity = Number(updates.quantity);
       if (updates.unit !== undefined) dbPayload.unit = updates.unit;
       if (updates.expiryDate !== undefined) dbPayload.expiry_date = updates.expiryDate || null;
       if (updates.purchaseDate !== undefined) dbPayload.purchase_date = updates.purchaseDate || null;
       if (updates.barcode !== undefined) dbPayload.barcode = updates.barcode;
-      if (updates.price !== undefined) dbPayload.price = Number(updates.price);
-      if (updates.location !== undefined) {
-        dbPayload.storage_location = updates.location;
-        dbPayload.location = updates.location;
+      if (updates.storageLocation !== undefined || updates.location !== undefined) {
+        dbPayload.storage_location = updates.storageLocation || updates.location;
       }
-      if (updates.emoji !== undefined) dbPayload.emoji = updates.emoji;
-      if (updates.status !== undefined) dbPayload.status = updates.status;
+      if (updates.description !== undefined) dbPayload.description = updates.description;
+      if (updates.ingredients !== undefined) dbPayload.ingredients = updates.ingredients;
+      if (updates.nutrition !== undefined) dbPayload.nutrition = updates.nutrition;
 
-      const { data, error } = await this.client
-        .from('products')
-        .update(dbPayload)
-        .eq('id', id)
-        .eq('user_id', userId)
-        .select();
+      try {
+        const { data, error } = await this.client
+          .from('pantry_products')
+          .update(dbPayload)
+          .eq('id', id)
+          .eq('user_id', effectiveUserId)
+          .select();
 
-      if (error) throw error;
-      if (data && data[0]) {
-        return this.mapFromDB(data[0]);
+        if (!error && data && data[0]) {
+          return this.mapFromDB(data[0]);
+        }
+
+        // Fallback to legacy products table
+        const legacyPayload = { updated_at: new Date().toISOString() };
+        if (updates.name !== undefined) legacyPayload.name = updates.name;
+        if (updates.brand !== undefined) legacyPayload.brand = updates.brand;
+        if (updates.imageUrl !== undefined || updates.image !== undefined) legacyPayload.image_url = updates.imageUrl || updates.image;
+        if (updates.minStock !== undefined) legacyPayload.min_stock = Number(updates.minStock);
+        if (updates.category !== undefined) legacyPayload.category = updates.category;
+        if (updates.quantity !== undefined) legacyPayload.quantity = Number(updates.quantity);
+        if (updates.unit !== undefined) legacyPayload.unit = updates.unit;
+        if (updates.expiryDate !== undefined) legacyPayload.expiry_date = updates.expiryDate || null;
+        if (updates.purchaseDate !== undefined) legacyPayload.purchase_date = updates.purchaseDate || null;
+        if (updates.barcode !== undefined) legacyPayload.barcode = updates.barcode;
+        if (updates.storageLocation !== undefined || updates.location !== undefined) {
+          legacyPayload.storage_location = updates.storageLocation || updates.location;
+          legacyPayload.location = updates.storageLocation || updates.location;
+        }
+
+        const legRes = await this.client
+          .from('products')
+          .update(legacyPayload)
+          .eq('id', id)
+          .eq('user_id', effectiveUserId)
+          .select();
+
+        if (legRes.data && legRes.data[0]) {
+          return this.mapFromDB(legRes.data[0]);
+        }
+
+        return { id, ...updates };
+      } catch (err) {
+        console.error("[Supabase DB] updateProduct error:", err.message);
+        throw err;
       }
-      return { id, ...updates };
     }
 
     async deleteProduct(id, userId) {
-      if (!userId || !id) return false;
+      if (!id) return false;
       if (!this.isReady()) throw new Error("Supabase is not configured");
+      const effectiveUserId = await this.getAuthenticatedUserId(userId);
+      if (!effectiveUserId) return false;
 
-      const { error } = await this.client
-        .from('products')
-        .delete()
-        .eq('id', id)
-        .eq('user_id', userId);
-
-      if (error) throw error;
-      return true;
-    }
-
-    getLocalUserProducts(userId) {
-      if (!userId) return [];
       try {
-        const raw = localStorage.getItem(`smartpantry_user_pantry_${userId}`);
-        return raw ? JSON.parse(raw) : [];
-      } catch(e) {
-        return [];
+        const { error } = await this.client
+          .from('pantry_products')
+          .delete()
+          .eq('id', id)
+          .eq('user_id', effectiveUserId);
+
+        // Also delete from legacy products table if present
+        await this.client
+          .from('products')
+          .delete()
+          .eq('id', id)
+          .eq('user_id', effectiveUserId);
+
+        return !error;
+      } catch (err) {
+        console.error("[Supabase DB] deleteProduct error:", err.message);
+        return false;
       }
     }
 
     // ==========================================
-    // USER SETTINGS CRUD
+    // 4. NOTIFICATION PREFERENCES
     // ==========================================
 
     async getUserSettings(userId) {
       if (!userId || !this.isReady()) return null;
       try {
         const { data, error } = await this.client
+          .from('notification_preferences')
+          .select('*')
+          .eq('user_id', userId)
+          .maybeSingle();
+
+        if (!error && data) return data;
+
+        // Fallback to user_settings
+        const leg = await this.client
           .from('user_settings')
           .select('*')
           .eq('user_id', userId)
           .maybeSingle();
 
-        if (error) throw error;
-        return data || null;
+        return leg.data || null;
       } catch (err) {
-        console.warn("[Supabase DB] getUserSettings notice:", err.message);
         return null;
       }
     }
 
     async saveUserSettings(userId, settingsData) {
       if (!userId || !this.isReady()) return false;
-      try {
-        const payload = {
-          user_id: userId,
-          preferences: settingsData.preferences || {},
-          pantry_settings: settingsData.pantry_settings || {},
-          general_settings: settingsData.general_settings || {},
-          updated_at: new Date().toISOString()
-        };
+      const effectiveUserId = await this.getAuthenticatedUserId(userId);
+      if (!effectiveUserId) return false;
 
+      const payload = {
+        user_id: effectiveUserId,
+        preferences: settingsData.preferences || {},
+        pantry_settings: settingsData.pantry_settings || {},
+        general_settings: settingsData.general_settings || {},
+        updated_at: new Date().toISOString()
+      };
+
+      try {
         const { data, error } = await this.client
-          .from('user_settings')
+          .from('notification_preferences')
           .upsert(payload, { onConflict: 'user_id' })
           .select();
 
-        if (error) throw error;
-        return data ? data[0] : true;
+        // Also upsert user_settings for compatibility
+        await this.client
+          .from('user_settings')
+          .upsert(payload, { onConflict: 'user_id' });
+
+        return !error;
       } catch (err) {
-        console.warn("[Supabase DB] saveUserSettings notice:", err.message);
+        console.warn("[Supabase Settings] Save error:", err.message);
         return false;
       }
     }
 
     // ==========================================
-    // PANTRY ACTIVITY LOGS
+    // 5. ACTIVITY LOGS
     // ==========================================
 
     async getActivity(userId, limit = 50) {
       if (!userId || !this.isReady()) return [];
       try {
         const { data, error } = await this.client
+          .from('activity_logs')
+          .select('*')
+          .eq('user_id', userId)
+          .order('created_at', { ascending: false })
+          .limit(limit);
+
+        if (!error && Array.isArray(data)) return data;
+
+        // Fallback to pantry_activity
+        const leg = await this.client
           .from('pantry_activity')
           .select('*')
           .eq('user_id', userId)
           .order('created_at', { ascending: false })
           .limit(limit);
 
-        if (error) throw error;
-        return data || [];
+        return leg.data || [];
       } catch (err) {
-        console.warn("[Supabase DB] getActivity notice:", err.message);
         return [];
       }
     }
 
     async logActivity(userId, { action, productId, productName, details }) {
       if (!userId || !this.isReady()) return null;
-      try {
-        const dbRecord = {
-          user_id: userId,
-          action: action || 'updated',
-          product_id: productId ? String(productId) : null,
-          product_name: productName || 'Item',
-          details: details || '',
-          created_at: new Date().toISOString()
-        };
+      const effectiveUserId = await this.getAuthenticatedUserId(userId);
+      if (!effectiveUserId) return null;
 
+      const dbRecord = {
+        user_id: effectiveUserId,
+        action: action || 'updated',
+        product_id: productId ? String(productId) : null,
+        product_name: productName || 'Item',
+        details: details || '',
+        created_at: new Date().toISOString()
+      };
+
+      try {
         const { data, error } = await this.client
-          .from('pantry_activity')
+          .from('activity_logs')
           .insert([dbRecord])
           .select();
 
-        if (error) throw error;
+        // Also insert into pantry_activity for compatibility
+        await this.client
+          .from('pantry_activity')
+          .insert([dbRecord]);
+
         return data ? data[0] : null;
       } catch (err) {
-        console.warn("[Supabase DB] logActivity notice:", err.message);
         return null;
       }
     }
 
     // ==========================================
-    // PANTRY ALERTS CRUD
+    // 6. ALERTS CRUD
     // ==========================================
 
     async getAlerts(userId) {
       if (!userId || !this.isReady()) return [];
       try {
         const { data, error } = await this.client
+          .from('alerts')
+          .select('*')
+          .eq('user_id', userId)
+          .order('created_at', { ascending: false });
+
+        if (!error && Array.isArray(data)) return data;
+
+        // Fallback to pantry_alerts
+        const leg = await this.client
           .from('pantry_alerts')
           .select('*')
           .eq('user_id', userId)
           .order('created_at', { ascending: false });
 
-        if (error) throw error;
-        return data || [];
+        return leg.data || [];
       } catch (err) {
-        console.warn("[Supabase DB] getAlerts notice:", err.message);
         return [];
       }
     }
 
     async createAlert(userId, { title, message, type }) {
       if (!userId || !this.isReady()) return null;
-      try {
-        const dbRecord = {
-          user_id: userId,
-          title: title || 'Pantry Alert',
-          message: message || '',
-          type: type || 'system',
-          is_read: false,
-          created_at: new Date().toISOString()
-        };
+      const effectiveUserId = await this.getAuthenticatedUserId(userId);
+      if (!effectiveUserId) return null;
 
+      const dbRecord = {
+        user_id: effectiveUserId,
+        title: title || 'Pantry Alert',
+        message: message || '',
+        type: type || 'system',
+        is_read: false,
+        created_at: new Date().toISOString()
+      };
+
+      try {
         const { data, error } = await this.client
-          .from('pantry_alerts')
+          .from('alerts')
           .insert([dbRecord])
           .select();
 
-        if (error) throw error;
+        await this.client
+          .from('pantry_alerts')
+          .insert([dbRecord]);
+
         return data ? data[0] : null;
       } catch (err) {
-        console.warn("[Supabase DB] createAlert notice:", err.message);
         return null;
       }
     }
 
     async markAlertAsRead(alertId, userId) {
       if (!userId || !alertId || !this.isReady()) return false;
+      const effectiveUserId = await this.getAuthenticatedUserId(userId);
       try {
-        const { error } = await this.client
-          .from('pantry_alerts')
-          .update({ is_read: true })
-          .eq('id', alertId)
-          .eq('user_id', userId);
-
-        if (error) throw error;
+        await this.client.from('alerts').update({ is_read: true }).eq('id', alertId).eq('user_id', effectiveUserId);
+        await this.client.from('pantry_alerts').update({ is_read: true }).eq('id', alertId).eq('user_id', effectiveUserId);
         return true;
       } catch (err) {
-        console.warn("[Supabase DB] markAlertAsRead notice:", err.message);
         return false;
       }
     }
 
     async markAllAlertsAsRead(userId) {
       if (!userId || !this.isReady()) return false;
+      const effectiveUserId = await this.getAuthenticatedUserId(userId);
       try {
-        const { error } = await this.client
-          .from('pantry_alerts')
-          .update({ is_read: true })
-          .eq('user_id', userId)
-          .eq('is_read', false);
-
-        if (error) throw error;
+        await this.client.from('alerts').update({ is_read: true }).eq('user_id', effectiveUserId).eq('is_read', false);
+        await this.client.from('pantry_alerts').update({ is_read: true }).eq('user_id', effectiveUserId).eq('is_read', false);
         return true;
       } catch (err) {
-        console.warn("[Supabase DB] markAllAlertsAsRead notice:", err.message);
         return false;
       }
     }
 
     async deleteAlert(alertId, userId) {
       if (!userId || !alertId || !this.isReady()) return false;
+      const effectiveUserId = await this.getAuthenticatedUserId(userId);
       try {
-        const { error } = await this.client
-          .from('pantry_alerts')
-          .delete()
-          .eq('id', alertId)
-          .eq('user_id', userId);
-
-        if (error) throw error;
+        await this.client.from('alerts').delete().eq('id', alertId).eq('user_id', effectiveUserId);
+        await this.client.from('pantry_alerts').delete().eq('id', alertId).eq('user_id', effectiveUserId);
         return true;
       } catch (err) {
-        console.warn("[Supabase DB] deleteAlert notice:", err.message);
         return false;
       }
     }
 
     // ==========================================
-    // SECURITY & PASSWORD UPDATE
+    // 7. REALTIME WEBSOCKET SUBSCRIPTIONS
     // ==========================================
 
-    async updatePassword(newPassword) {
-      if (!newPassword || newPassword.length < 6) {
-        return { success: false, error: "Password must be at least 6 characters." };
-      }
-      if (!this.isReady()) {
-        return { success: false, error: "Supabase connection is not active." };
-      }
-
-      try {
-        const { data, error } = await this.client.auth.updateUser({
-          password: newPassword
-        });
-
-        if (error) throw error;
-        return { success: true, user: data.user };
-      } catch (err) {
-        return { success: false, error: err.message };
-      }
-    }
-
-    // Realtime PostgreSQL Channel Subscriptions
     subscribeToUserProducts(userId, onDataChange) {
       if (!this.isReady() || !userId) return null;
 
       try {
-        const channelName = `products-user-${userId}`;
+        const channelName = `pantry-products-${userId}`;
+        if (this.activeChannels[channelName]) {
+          this.client.removeChannel(this.activeChannels[channelName]);
+        }
+
         const channel = this.client
           .channel(channelName)
+          .on(
+            'postgres_changes',
+            {
+              event: '*',
+              schema: 'public',
+              table: 'pantry_products',
+              filter: `user_id=eq.${userId}`
+            },
+            (payload) => {
+              console.log("[Supabase Realtime] pantry_products event:", payload.eventType);
+              if (typeof onDataChange === 'function') onDataChange(payload);
+            }
+          )
           .on(
             'postgres_changes',
             {
@@ -572,48 +778,16 @@
               filter: `user_id=eq.${userId}`
             },
             (payload) => {
-              console.log("[Supabase Realtime] Product change detected:", payload.eventType);
-              if (typeof onDataChange === 'function') {
-                onDataChange(payload);
-              }
+              console.log("[Supabase Realtime] products event:", payload.eventType);
+              if (typeof onDataChange === 'function') onDataChange(payload);
             }
           )
           .subscribe();
 
+        this.activeChannels[channelName] = channel;
         return channel;
       } catch (err) {
-        console.warn("[Supabase Realtime] Product subscription error:", err);
-        return null;
-      }
-    }
-
-    subscribeToUserActivity(userId, onDataChange) {
-      if (!this.isReady() || !userId) return null;
-
-      try {
-        const channelName = `activity-user-${userId}`;
-        const channel = this.client
-          .channel(channelName)
-          .on(
-            'postgres_changes',
-            {
-              event: '*',
-              schema: 'public',
-              table: 'pantry_activity',
-              filter: `user_id=eq.${userId}`
-            },
-            (payload) => {
-              console.log("[Supabase Realtime] Activity event detected:", payload.eventType);
-              if (typeof onDataChange === 'function') {
-                onDataChange(payload);
-              }
-            }
-          )
-          .subscribe();
-
-        return channel;
-      } catch (err) {
-        console.warn("[Supabase Realtime] Activity subscription error:", err);
+        console.warn("[Supabase Realtime] Products subscription error:", err);
         return null;
       }
     }
@@ -622,7 +796,11 @@
       if (!this.isReady() || !userId) return null;
 
       try {
-        const channelName = `alerts-user-${userId}`;
+        const channelName = `alerts-${userId}`;
+        if (this.activeChannels[channelName]) {
+          this.client.removeChannel(this.activeChannels[channelName]);
+        }
+
         const channel = this.client
           .channel(channelName)
           .on(
@@ -630,18 +808,17 @@
             {
               event: '*',
               schema: 'public',
-              table: 'pantry_alerts',
+              table: 'alerts',
               filter: `user_id=eq.${userId}`
             },
             (payload) => {
-              console.log("[Supabase Realtime] Alerts change detected:", payload.eventType);
-              if (typeof onDataChange === 'function') {
-                onDataChange(payload);
-              }
+              console.log("[Supabase Realtime] alerts event:", payload.eventType);
+              if (typeof onDataChange === 'function') onDataChange(payload);
             }
           )
           .subscribe();
 
+        this.activeChannels[channelName] = channel;
         return channel;
       } catch (err) {
         console.warn("[Supabase Realtime] Alerts subscription error:", err);
@@ -649,14 +826,65 @@
       }
     }
 
+    subscribeToUserSettings(userId, onDataChange) {
+      if (!this.isReady() || !userId) return null;
+
+      try {
+        const channelName = `settings-${userId}`;
+        if (this.activeChannels[channelName]) {
+          this.client.removeChannel(this.activeChannels[channelName]);
+        }
+
+        const channel = this.client
+          .channel(channelName)
+          .on(
+            'postgres_changes',
+            {
+              event: '*',
+              schema: 'public',
+              table: 'notification_preferences',
+              filter: `user_id=eq.${userId}`
+            },
+            (payload) => {
+              console.log("[Supabase Realtime] settings event:", payload.eventType);
+              if (typeof onDataChange === 'function') onDataChange(payload);
+            }
+          )
+          .subscribe();
+
+        this.activeChannels[channelName] = channel;
+        return channel;
+      } catch (err) {
+        console.warn("[Supabase Realtime] Settings subscription error:", err);
+        return null;
+      }
+    }
+
+    unsubscribeAll() {
+      if (!this.client) return;
+      Object.keys(this.activeChannels).forEach(key => {
+        try {
+          if (this.activeChannels[key]) {
+            this.client.removeChannel(this.activeChannels[key]);
+          }
+        } catch (e) {}
+      });
+      this.activeChannels = {};
+      console.log("[Supabase Realtime] Cleaned up all private channels.");
+    }
+
+    // ==========================================
+    // 8. HELPER MAPPING & RESEND DISPATCH
+    // ==========================================
+
     mapFromDB(row) {
       if (!row) return null;
       return {
         id: row.id,
-        name: row.name,
+        name: row.product_name || row.name || 'Unnamed Product',
         brand: row.brand || '',
-        imageUrl: row.image_url || '',
-        minStock: row.min_stock !== undefined && row.min_stock !== null ? Number(row.min_stock) : 2,
+        imageUrl: row.product_image || row.image_url || '',
+        minStock: row.minimum_stock !== undefined ? Number(row.minimum_stock) : (row.min_stock !== undefined ? Number(row.min_stock) : 2),
         category: row.category || 'Pantry',
         quantity: Number(row.quantity) || 1,
         unit: row.unit || 'pcs',
@@ -664,16 +892,17 @@
         purchaseDate: row.purchase_date || '',
         barcode: row.barcode || '',
         price: Number(row.price) || 0,
-        location: row.storage_location || row.location || 'Pantry',
         storageLocation: row.storage_location || row.location || 'Pantry',
-        emoji: row.emoji || '📦',
-        status: row.status || 'Fresh',
+        description: row.description || '',
+        ingredients: row.ingredients || '',
+        nutrition: row.nutrition || null,
+        emoji: row.emoji || (window.store ? window.store.detectEmoji(row.product_name || row.name, row.category) : '📦'),
+        status: row.status || (window.store ? window.store.calculateStatus(row.expiry_date, row.quantity, row.minimum_stock || row.min_stock) : 'Fresh'),
         addedAt: row.created_at || new Date().toISOString(),
         updatedAt: row.updated_at || new Date().toISOString()
       };
     }
 
-    // Trigger secure backend login notification via Resend
     dispatchLoginNotification(user) {
       if (!user || !user.email) return;
 
@@ -681,7 +910,7 @@
         loginDate: new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }),
         loginTime: new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", timeZoneName: "short" }),
         browser: navigator.userAgent.includes("Chrome") ? "Chrome" : (navigator.userAgent.includes("Firefox") ? "Firefox" : "Web Browser"),
-        device: window.innerWidth < 768 ? "Mobile Device" : "Desktop PC / Mac"
+        device: window.innerWidth < 768 ? "Mobile Device" : "Desktop Computer"
       };
 
       fetch("/api/send-login-notification", {
@@ -696,7 +925,7 @@
           device: clientInfo.device
         })
       }).catch((e) => {
-        console.warn("[Resend Notification Error]", e);
+        console.warn("[Resend Alert Notice]", e);
       });
     }
   }
