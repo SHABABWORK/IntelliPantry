@@ -336,13 +336,9 @@ class PantryStore {
       return;
     }
 
-    // 1. Initial synchronous cache loads (isolated per user)
-    if (this.userId && window.supabaseService) {
-      this.items = window.supabaseService.getLocalUserProducts(this.userId);
-    } else {
-      const cached = localStorage.getItem(this.storageKey);
-      this.items = cached ? JSON.parse(cached) : [];
-    }
+    // 1. Initial cache loads (isolated per user)
+    const cached = localStorage.getItem(this.storageKey);
+    this.items = cached ? JSON.parse(cached) : [];
 
     try {
       const cachedAct = localStorage.getItem(this.activityKey);
@@ -357,24 +353,14 @@ class PantryStore {
     // 2. Initialize default full settings
     this.loadLocalFullSettings();
 
-    // 3. Fetch from Supabase Cloud Database asynchronously
+    // 3. Fetch from Supabase Cloud Database (Permanent Source of Truth)
     this.fetchFromSupabase();
     this.fetchSettingsFromSupabase();
     this.fetchActivityFromSupabase();
     this.fetchAlertsFromSupabase();
 
-    // 4. Realtime Channels
-    if (this.userId && window.supabaseService) {
-      window.supabaseService.subscribeToUserProducts(this.userId, () => {
-        this.fetchFromSupabase();
-      });
-      window.supabaseService.subscribeToUserActivity(this.userId, () => {
-        this.fetchActivityFromSupabase();
-      });
-      window.supabaseService.subscribeToUserAlerts(this.userId, () => {
-        this.fetchAlertsFromSupabase();
-      });
-    }
+    // 4. Setup Real-Time Subscriptions
+    this.setupRealtimeSubscriptions();
 
     // 5. Compute dynamic pantry alerts on startup
     setTimeout(() => {
@@ -382,6 +368,66 @@ class PantryStore {
       this.checkAndDispatchPantryAlerts();
       this.updateAlertBadge();
     }, 1200);
+  }
+
+  clearUserSession() {
+    this.userId = null;
+    this.items = [];
+    this.activity = [];
+    this.alerts = [];
+    if (window.supabaseService) {
+      window.supabaseService.unsubscribeAll();
+    }
+    this.notify();
+  }
+
+  async initUser(userId) {
+    this.clearUserSession();
+    this.userId = userId;
+    if (!this.userId) return;
+
+    this.loadLocalFullSettings();
+    await this.fetchFromSupabase();
+    await this.fetchSettingsFromSupabase();
+    await this.fetchActivityFromSupabase();
+    await this.fetchAlertsFromSupabase();
+    this.setupRealtimeSubscriptions();
+  }
+
+  setupRealtimeSubscriptions() {
+    if (!this.userId || !window.supabaseService) return;
+
+    window.supabaseService.subscribeToUserProducts(this.userId, (payload) => {
+      if (payload && payload.eventType) {
+        if (payload.eventType === 'INSERT' && payload.new) {
+          const item = window.supabaseService.mapFromDB(payload.new);
+          if (!this.items.some(i => String(i.id) === String(item.id))) {
+            this.items = [item, ...this.items];
+          }
+        } else if (payload.eventType === 'UPDATE' && payload.new) {
+          const item = window.supabaseService.mapFromDB(payload.new);
+          this.items = this.items.map(i => String(i.id) === String(item.id) ? item : i);
+        } else if (payload.eventType === 'DELETE' && payload.old) {
+          this.items = this.items.filter(i => String(i.id) !== String(payload.old.id));
+        } else {
+          this.fetchFromSupabase();
+          return;
+        }
+        this.saveItems(this.items);
+        this.syncAlertsFromPantry();
+        this.notify();
+      } else {
+        this.fetchFromSupabase();
+      }
+    });
+
+    window.supabaseService.subscribeToUserAlerts(this.userId, () => {
+      this.fetchAlertsFromSupabase();
+    });
+
+    window.supabaseService.subscribeToUserSettings(this.userId, () => {
+      this.fetchSettingsFromSupabase();
+    });
   }
 
   loadLocalFullSettings() {
@@ -550,14 +596,17 @@ class PantryStore {
     newItem.id = item.id || 'prod_' + Date.now();
     newItem.addedAt = new Date().toISOString();
 
-    if (this.userId && window.supabaseService && window.supabaseService.isReady()) {
+    const effectiveUserId = window.supabaseService ? await window.supabaseService.getAuthenticatedUserId(this.userId) : this.userId;
+    if (effectiveUserId) this.userId = effectiveUserId;
+
+    if (effectiveUserId && window.supabaseService && window.supabaseService.isReady()) {
       try {
-        const saved = await window.supabaseService.insertProduct(newItem, this.userId);
+        const saved = await window.supabaseService.insertProduct(newItem, effectiveUserId);
         if (saved && saved.id) {
           newItem.id = saved.id;
         }
       } catch (err) {
-        console.warn("[Supabase DB] Local storage active (cloud sync deferred):", err.message);
+        console.warn("[Supabase DB] insertProduct error:", err.message);
       }
     }
 
@@ -586,11 +635,14 @@ class PantryStore {
       updates.status = this.calculateStatus(exp, newQty, stk);
     }
 
-    if (this.userId && window.supabaseService && window.supabaseService.isReady()) {
+    const effectiveUserId = window.supabaseService ? await window.supabaseService.getAuthenticatedUserId(this.userId) : this.userId;
+    if (effectiveUserId) this.userId = effectiveUserId;
+
+    if (effectiveUserId && window.supabaseService && window.supabaseService.isReady()) {
       try {
-        await window.supabaseService.updateProduct(id, updates, this.userId);
+        await window.supabaseService.updateProduct(id, updates, effectiveUserId);
       } catch (err) {
-        console.warn("[Supabase DB] Local update (cloud sync deferred):", err.message);
+        console.warn("[Supabase DB] updateProduct error:", err.message);
       }
     }
 
@@ -618,11 +670,14 @@ class PantryStore {
     const item = this.getItemById(id);
     const itemName = item ? item.name : 'Product';
 
-    if (this.userId && window.supabaseService && window.supabaseService.isReady()) {
+    const effectiveUserId = window.supabaseService ? await window.supabaseService.getAuthenticatedUserId(this.userId) : this.userId;
+    if (effectiveUserId) this.userId = effectiveUserId;
+
+    if (effectiveUserId && window.supabaseService && window.supabaseService.isReady()) {
       try {
-        await window.supabaseService.deleteProduct(id, this.userId);
+        await window.supabaseService.deleteProduct(id, effectiveUserId);
       } catch (err) {
-        console.warn("[Supabase DB] Local delete (cloud sync deferred):", err.message);
+        console.warn("[Supabase DB] deleteProduct error:", err.message);
       }
     }
 
