@@ -16,13 +16,16 @@ New-Item -ItemType Directory -Force -Path (Join-Path $dist "js") | Out-Null
 New-Item -ItemType Directory -Force -Path (Join-Path $dist "assets") | Out-Null
 New-Item -ItemType Directory -Force -Path (Join-Path $dist "api") | Out-Null
 
-Copy-Item (Join-Path $root "landing.html") (Join-Path $dist "index.html") -Force
+Copy-Item (Join-Path $root "dashboard.html") (Join-Path $dist "index.html") -Force
 Copy-Item (Join-Path $root "landing.html") (Join-Path $dist "landing.html") -Force
 Copy-Item (Join-Path $root "login.html") (Join-Path $dist "login.html") -Force
-Copy-Item (Join-Path $root "index.html") (Join-Path $dist "dashboard.html") -Force
+Copy-Item (Join-Path $root "dashboard.html") (Join-Path $dist "dashboard.html") -Force
 
 if (Test-Path (Join-Path $root "vercel.json")) {
     Copy-Item (Join-Path $root "vercel.json") (Join-Path $dist "vercel.json") -Force
+}
+if (Test-Path (Join-Path $root "supabase_schema.sql")) {
+    Copy-Item (Join-Path $root "supabase_schema.sql") (Join-Path $dist "supabase_schema.sql") -Force
 }
 
 $robots = "User-agent: *`nAllow: /`n"
