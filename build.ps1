@@ -27,6 +27,18 @@ if (Test-Path (Join-Path $root "vercel.json")) {
 if (Test-Path (Join-Path $root "supabase_schema.sql")) {
     Copy-Item (Join-Path $root "supabase_schema.sql") (Join-Path $dist "supabase_schema.sql") -Force
 }
+if (Test-Path (Join-Path $root ".env.example")) {
+    Copy-Item (Join-Path $root ".env.example") (Join-Path $dist ".env.example") -Force
+}
+if (Test-Path (Join-Path $root "README.md")) {
+    Copy-Item (Join-Path $root "README.md") (Join-Path $dist "README.md") -Force
+}
+if (Test-Path (Join-Path $root "build.js")) {
+    Copy-Item (Join-Path $root "build.js") (Join-Path $dist "build.js") -Force
+}
+if (Test-Path (Join-Path $root "supabase")) {
+    Copy-Item -Recurse (Join-Path $root "supabase") (Join-Path $dist "supabase") -Force
+}
 
 $robots = "User-agent: *`nAllow: /`n"
 Set-Content -Path (Join-Path $dist "robots.txt") -Value $robots -Encoding UTF8
