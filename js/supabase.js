@@ -372,10 +372,10 @@
     // ==========================================
 
     async getProducts(userId) {
-      if (!userId) return [];
+      if (!userId) return null;
       if (!this.isReady()) {
         console.warn("[Supabase DB] Supabase not connected.");
-        return [];
+        return null;
       }
 
       try {
@@ -386,18 +386,18 @@
           .eq('user_id', userId)
           .order('created_at', { ascending: false });
 
-        if (!itemsRes.error && Array.isArray(itemsRes.data) && itemsRes.data.length > 0) {
+        if (!itemsRes.error && Array.isArray(itemsRes.data)) {
           return itemsRes.data.map(r => this.mapFromDB(r));
         }
 
-        // 2. Graceful fallback to pantry_products if pantry_items is empty/migrating
+        // 2. Graceful fallback to pantry_products if pantry_items errored
         const prodRes = await this.client
           .from('pantry_products')
           .select('*')
           .eq('user_id', userId)
           .order('created_at', { ascending: false });
 
-        if (!prodRes.error && Array.isArray(prodRes.data) && prodRes.data.length > 0) {
+        if (!prodRes.error && Array.isArray(prodRes.data)) {
           return prodRes.data.map(r => this.mapFromDB(r));
         }
 
@@ -408,33 +408,39 @@
           .eq('user_id', userId)
           .order('created_at', { ascending: false });
 
-        if (!fallbackRes.error && Array.isArray(fallbackRes.data) && fallbackRes.data.length > 0) {
+        if (!fallbackRes.error && Array.isArray(fallbackRes.data)) {
           return fallbackRes.data.map(r => this.mapFromDB(r));
         }
 
-        // If pantry_items query succeeded with empty array, return []
-        if (!itemsRes.error && Array.isArray(itemsRes.data)) {
-          return [];
-        }
-
-        return [];
+        // Tables don't exist yet in Supabase: return null so store keeps local items
+        return null;
       } catch (err) {
-        console.error("[Supabase DB] getProducts failed:", err.message);
-        throw err;
+        console.warn("[Supabase DB] getProducts warning:", err.message);
+        return null;
       }
     }
 
     async insertProduct(productData, userId) {
-      if (!this.isReady()) throw new Error("Supabase database is not configured");
+      if (!this.isReady()) return null;
       const effectiveUserId = await this.getAuthenticatedUserId(userId);
-      if (!effectiveUserId) throw new Error("Authenticated session is required to save products. Please log in.");
+      if (!effectiveUserId) {
+        console.warn("[Supabase DB] insertProduct: No authenticated user session found.");
+        return null;
+      }
 
       const qty = Number(productData.quantity) || 1;
       const unitVal = productData.unit || productData.quantity_unit || 'pcs';
       const minStockVal = productData.minStock !== undefined ? Number(productData.minStock) : (productData.lowStockThreshold !== undefined ? Number(productData.lowStockThreshold) : 2);
       const notesVal = productData.notes || productData.description || null;
 
-      // Primary Record: pantry_items
+      let itemId = productData.id;
+      if (!itemId || !itemId.includes('-') || itemId.length < 30) {
+        if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+          itemId = crypto.randomUUID();
+        }
+      }
+
+      // 1. Primary standard payload for pantry_items (only standard columns, NO nonexistent aliases)
       const pantryItemRecord = {
         user_id: effectiveUserId,
         product_name: productData.name,
@@ -444,29 +450,65 @@
         product_image: productData.imageUrl || productData.image || null,
         quantity: qty,
         quantity_unit: unitVal,
-        unit: unitVal,
         purchase_date: productData.purchaseDate || null,
         expiry_date: productData.expiryDate || null,
         low_stock_threshold: minStockVal,
-        minimum_stock: minStockVal,
         notes: notesVal,
-        description: notesVal,
         storage_location: productData.storageLocation || productData.location || 'Pantry'
       };
+      if (itemId) pantryItemRecord.id = itemId;
 
       try {
-        // 1. Try pantry_items table
-        const { data, error } = await this.client
+        // Attempt 1: Standard pantry_items insert
+        let res = await this.client
           .from('pantry_items')
           .insert([pantryItemRecord])
           .select();
 
-        if (!error && data && data[0]) {
-          return this.mapFromDB(data[0]);
+        if (!res.error && res.data && res.data[0]) {
+          return this.mapFromDB(res.data[0]);
         }
 
-        if (error) {
-          console.warn("[Supabase DB] pantry_items insert error, attempting fallback:", error.message);
+        // Attempt 1b: If column mismatch occurred, adapt fields dynamically
+        if (res.error && res.error.message) {
+          const errMsg = (res.error.message || '').toLowerCase();
+          let retryRecord = { ...pantryItemRecord };
+
+          if (errMsg.includes('quantity_unit')) {
+            delete retryRecord.quantity_unit;
+            retryRecord.unit = unitVal;
+          }
+          if (errMsg.includes('low_stock_threshold')) {
+            delete retryRecord.low_stock_threshold;
+            retryRecord.minimum_stock = minStockVal;
+          }
+          if (errMsg.includes('product_name')) {
+            delete retryRecord.product_name;
+            retryRecord.name = productData.name;
+          }
+          if (errMsg.includes('notes')) {
+            delete retryRecord.notes;
+            retryRecord.description = notesVal;
+          }
+          if (errMsg.includes('storage_location')) {
+            delete retryRecord.storage_location;
+            retryRecord.location = productData.storageLocation || 'Pantry';
+          }
+
+          // Strip specific column if mentioned as not existing
+          const colMatch = res.error.message.match(/column "([^"]+)" of relation/);
+          if (colMatch && colMatch[1]) {
+            delete retryRecord[colMatch[1]];
+          }
+
+          const retryRes = await this.client
+            .from('pantry_items')
+            .insert([retryRecord])
+            .select();
+
+          if (!retryRes.error && retryRes.data && retryRes.data[0]) {
+            return this.mapFromDB(retryRes.data[0]);
+          }
         }
 
         // 2. Fallback to pantry_products table
@@ -485,6 +527,7 @@
           minimum_stock: minStockVal,
           storage_location: productData.storageLocation || productData.location || 'Pantry'
         };
+        if (itemId) prodRecord.id = itemId;
 
         const prodRes = await this.client
           .from('pantry_products')
@@ -512,6 +555,7 @@
           location: productData.storageLocation || 'Pantry',
           status: productData.status || 'Fresh'
         };
+        if (itemId) legacyRecord.id = itemId;
 
         const legRes = await this.client
           .from('products')
@@ -522,11 +566,12 @@
           return this.mapFromDB(legRes.data[0]);
         }
 
-        const finalErr = error || prodRes.error || legRes.error;
-        throw new Error(finalErr ? finalErr.message : "Failed to insert product into database");
+        const finalErr = res.error || prodRes.error || legRes.error;
+        console.warn("[Supabase DB] insertProduct note:", finalErr ? finalErr.message : "Database table pending setup");
+        return null;
       } catch (err) {
-        console.error("[Supabase DB] insertProduct error:", err.message);
-        throw err;
+        console.warn("[Supabase DB] insertProduct error:", err.message);
+        return null;
       }
     }
 
