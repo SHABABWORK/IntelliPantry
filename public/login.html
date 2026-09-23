@@ -18,11 +18,17 @@
     // If user already has an active authenticated session, redirect to dashboard
     document.addEventListener("DOMContentLoaded", async function() {
       try {
+        const hash = window.location.hash || '';
+        const search = window.location.search || '';
+        // If returning from email verification or password reset callback, let Supabase SDK process token
+        if (hash.includes('access_token') || hash.includes('refresh_token') || search.includes('code=')) {
+          return;
+        }
         const rawUser = localStorage.getItem('smartpantry_user');
         const token = localStorage.getItem('smartpantry_token');
         if (rawUser && token && !token.startsWith('direct_token_')) {
-          // If valid user token exists, redirect to dashboard
-          window.location.replace('dashboard.html');
+          const target = window.location.pathname.endsWith('.html') ? 'dashboard.html' : 'dashboard';
+          window.location.replace(target);
         }
       } catch (e) {
         console.warn("Session check:", e);
@@ -719,19 +725,29 @@
     let otpCountdownInterval = null;
     let resendCooldown = 0;
 
+    function escapeHTML(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
     // Helper: Show Alert Banner
     function showAlert(elementId, message, type = 'error') {
       const el = document.getElementById(elementId);
       if (!el) return;
-      el.textContent = message;
+      el.innerHTML = message;
       el.className = `alert-banner ${type}`;
+      el.style.display = 'block';
     }
 
     function clearAlert(elementId) {
       const el = document.getElementById(elementId);
       if (!el) return;
       el.style.display = 'none';
-      el.textContent = '';
+      el.innerHTML = '';
     }
 
     // Switch Views (Login, Signup, Verify, Forgot)
@@ -874,6 +890,24 @@
       showAlert('signupAlert', 'In production mode, each user has a private PostgreSQL database. Create your free account below to start your pantry!', 'success');
     }
 
+    async function handleResendConfirmation(email, alertId = 'loginAlert') {
+      if (!email) {
+        showAlert(alertId, 'Please enter an email address.');
+        return;
+      }
+      showAlert(alertId, 'Sending verification email... ✉️', 'success');
+      if (window.supabaseService && window.supabaseService.isReady()) {
+        const res = await window.supabaseService.resendConfirmation(email);
+        if (res.success) {
+          showAlert(alertId, `✓ Verification link sent to <strong>${escapeHTML(email)}</strong>! Please check your inbox or spam folder.`, 'success');
+        } else {
+          showAlert(alertId, res.error || 'Could not send verification email. Please wait a moment and try again.');
+        }
+      } else {
+        showAlert(alertId, 'Authentication service is initializing. Please try again.');
+      }
+    }
+
     // ==========================================
     // REAL SIGNUP HANDLER (Ultra Fast)
     // ==========================================
@@ -918,7 +952,7 @@
 
       // If email confirmation is required by Supabase project settings
       if (authRes.needsEmailConfirmation) {
-        showAlert('signupAlert', `Account created! Please check ${email} to verify your account before logging in.`, 'success');
+        showAlert('signupAlert', `Account created! We've sent a verification link to <strong>${escapeHTML(email)}</strong>.<br>Please check your inbox or spam folder to activate your account.<div style="margin-top:12px;"><button type="button" onclick="handleResendConfirmation('${escapeHTML(email)}', 'signupAlert')" style="background:#1e392a; color:#ffffff; border:none; padding:8px 18px; border-radius:10px; font-weight:700; font-size:12.5px; cursor:pointer;">✉️ Resend Verification Link</button></div>`, 'success');
         return;
       }
 
@@ -931,7 +965,7 @@
           window.store.items = [];
           window.store.userId = authRes.user.id;
         }
-        showAlert('signupAlert', `Welcome, ${authRes.user.name}! Opening your pantry...`, 'success');
+        showAlert('signupAlert', `Welcome, ${escapeHTML(authRes.user.name)}! Opening your pantry...`, 'success');
         setTimeout(() => {
           navigateToDashboard();
         }, 150);
@@ -974,15 +1008,19 @@
       btn.textContent = 'Login';
 
       if (!authRes.success) {
-        // STRICT REJECTION: Invalid password, unregistered email, or unverified email
-        showAlert('loginAlert', authRes.error || 'Invalid email or password. Please verify your credentials.');
+        const errLower = (authRes.error || '').toLowerCase();
+        if (errLower.includes('email not confirmed') || errLower.includes('confirm')) {
+          showAlert('loginAlert', `Your email address is not verified yet.<br>Please check your inbox or spam folder for the confirmation link.<div style="margin-top:12px;"><button type="button" onclick="handleResendConfirmation('${escapeHTML(email)}', 'loginAlert')" style="background:#1e392a; color:#ffffff; border:none; padding:8px 18px; border-radius:10px; font-weight:700; font-size:12.5px; cursor:pointer;">✉️ Resend Verification Link</button></div>`);
+        } else {
+          showAlert('loginAlert', authRes.error || 'Invalid email or password. Please verify your credentials.');
+        }
         return;
       }
 
       if (authRes.user) {
         if (authRes.token) localStorage.setItem('smartpantry_token', authRes.token);
         localStorage.setItem('smartpantry_user', JSON.stringify(authRes.user));
-        showAlert('loginAlert', `Welcome back, ${authRes.user.name}!`, 'success');
+        showAlert('loginAlert', `Welcome back, ${escapeHTML(authRes.user.name)}!`, 'success');
         setTimeout(() => {
           navigateToDashboard();
         }, 100);
@@ -1001,9 +1039,26 @@
       const email = document.getElementById('forgotEmail').value.trim();
       const btn = document.getElementById('btnForgotSubmit');
 
-      btn.disabled = true;
-      btn.textContent = 'Sending Code...';
+      if (!email || !email.includes('@')) {
+        showAlert('forgotAlert', 'Please enter a valid email address.');
+        return;
+      }
 
+      btn.disabled = true;
+      btn.textContent = 'Sending Link...';
+
+      // 1. Try Supabase Auth password reset
+      if (window.supabaseService && window.supabaseService.isReady()) {
+        const resetRes = await window.supabaseService.resetPasswordForEmail(email);
+        if (resetRes.success) {
+          btn.disabled = false;
+          btn.textContent = 'Send Reset Link';
+          showAlert('forgotAlert', `✓ Password reset link sent to <strong>${escapeHTML(email)}</strong>! Please check your inbox.`, 'success');
+          return;
+        }
+      }
+
+      // 2. Fallback to serverless auth route
       try {
         const res = await fetch('/api/auth', {
           method: 'POST',
@@ -1074,11 +1129,33 @@
       }
     }
 
-    // Check URL parameters
-    (function checkParams() {
+    // Check URL parameters & Supabase Confirmation Tokens
+    (async function checkParamsAndTokens() {
+      const hash = window.location.hash || '';
       const params = new URLSearchParams(window.location.search);
+
       if (params.get('signup') === '1') switchView('viewSignup');
       if (params.get('forgot') === '1') switchView('viewForgot');
+
+      // If returning from Supabase confirmation link
+      if (hash.includes('access_token') || hash.includes('refresh_token') || params.get('code')) {
+        showAlert('loginAlert', 'Verifying email confirmation... ✉️', 'success');
+        if (window.supabaseService && window.supabaseService.isReady()) {
+          const session = await window.supabaseService.getSession();
+          if (session && session.user) {
+            const userObj = {
+              id: session.user.id,
+              email: session.user.email,
+              name: session.user.user_metadata?.full_name || session.user.email.split('@')[0] || 'Pantry Chef',
+              emailVerified: true
+            };
+            localStorage.setItem('smartpantry_token', session.access_token);
+            localStorage.setItem('smartpantry_user', JSON.stringify(userObj));
+            showAlert('loginAlert', `✓ Email verified! Welcome, ${escapeHTML(userObj.name)}. Opening your pantry...`, 'success');
+            setTimeout(() => navigateToDashboard(), 900);
+          }
+        }
+      }
     })();
   </script>
 </body>

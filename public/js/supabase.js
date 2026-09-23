@@ -259,6 +259,36 @@
       }
     }
 
+    async resendConfirmation(email) {
+      if (!email || !this.isReady()) return { success: false, error: "Email address required." };
+      try {
+        const { error } = await this.client.auth.resend({
+          type: 'signup',
+          email: email.trim().toLowerCase()
+        });
+        if (error) throw error;
+        return { success: true };
+      } catch (err) {
+        console.warn("[Supabase Auth] resendConfirmation error:", err.message);
+        return { success: false, error: err.message || "Failed to resend confirmation email." };
+      }
+    }
+
+    async resetPasswordForEmail(email) {
+      if (!email || !this.isReady()) return { success: false, error: "Email address required." };
+      try {
+        const redirectUrl = `${window.location.origin}/login?reset=1`;
+        const { error } = await this.client.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
+          redirectTo: redirectUrl
+        });
+        if (error) throw error;
+        return { success: true };
+      } catch (err) {
+        console.warn("[Supabase Auth] resetPassword error:", err.message);
+        return { success: false, error: err.message || "Failed to send reset email." };
+      }
+    }
+
     // ==========================================
     // 2. PROFILES TABLE MANAGEMENT
     // ==========================================

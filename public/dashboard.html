@@ -18,17 +18,25 @@
   <!-- Chart.js for Real-Time Pantry Analytics & Category Distribution -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
   <script>
-    // Strict Authentication Guard: Protect dashboard routes
+    // Authentication Guard: Protect dashboard routes & preserve Supabase confirmation callbacks
     (function() {
       try {
+        const hash = window.location.hash || '';
+        const search = window.location.search || '';
+        // If arriving from Supabase email verification or password reset, allow Supabase SDK to parse token
+        if (hash.includes('access_token') || hash.includes('refresh_token') || search.includes('code=')) {
+          return;
+        }
         const rawUser = localStorage.getItem('smartpantry_user');
         const token = localStorage.getItem('smartpantry_token');
         if (!rawUser || !token || token.startsWith('direct_token_')) {
           localStorage.removeItem('smartpantry_token');
-          window.location.replace('login.html');
+          const target = window.location.pathname.endsWith('.html') ? 'login.html' : 'login';
+          window.location.replace(target);
         }
       } catch (e) {
-        window.location.replace('login.html');
+        const target = window.location.pathname.endsWith('.html') ? 'login.html' : 'login';
+        window.location.replace(target);
       }
     })();
   </script>
@@ -3079,11 +3087,12 @@ async function initDashboardAuthAndUser() {
       }
 
       window.supabaseService.onAuthStateChange(async (event, session) => {
-        if (event === 'SIGNED_OUT' || !session) {
+        if (event === 'SIGNED_OUT') {
           if (window.store) window.store.clearUserSession();
           localStorage.removeItem('smartpantry_user');
           localStorage.removeItem('smartpantry_token');
-          window.location.replace('login.html');
+          const target = window.location.pathname.endsWith('.html') ? 'login.html' : 'login';
+          window.location.replace(target);
         } else if (session && session.user) {
           const userId = session.user.id;
           const profile = await window.supabaseService.getProfile(userId);
@@ -3094,6 +3103,9 @@ async function initDashboardAuthAndUser() {
             avatar_url: (profile && profile.avatar_url) || null
           };
           localStorage.setItem('smartpantry_user', JSON.stringify(activeUser));
+          if (session.access_token) {
+            localStorage.setItem('smartpantry_token', session.access_token);
+          }
           updateDashboardUserUI(activeUser);
           if (window.store && window.store.userId !== userId) {
             await window.store.initUser(userId);
@@ -3138,7 +3150,8 @@ async function handleLogout() {
   } finally {
     localStorage.removeItem('smartpantry_user');
     localStorage.removeItem('smartpantry_token');
-    window.location.replace('login.html');
+    const target = window.location.pathname.endsWith('.html') ? 'login.html' : 'login';
+    window.location.replace(target);
   }
 }
 
