@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+  <meta charset="UTF-8">
+  <title>All Email Services Comprehensive Verification</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="../js/supabase-config.js"></script>
+  <script src="../js/supabase.js"></script>
+  <script src="../js/store.js"></script>
+  <script src="../js/components.js"></script>
+</head>
+<body>
+  <h1>All Email Services Test Suite</h1>
+  <div id="summary"><h2 style="color:#166534">ALL EMAIL TESTS PASSED (10/10)</h2></div>
+  <div id="results"><div style="padding: 8px 12px; margin: 4px 0px; border-radius: 6px; background: rgb(220, 252, 231); color: rgb(22, 101, 52);"><strong>✓ PASS</strong>: Confirm sign up methods exist on supabaseService <pre>{
+  "hasSignUp": true,
+  "hasResend": true,
+  "hasVerifyOtp": true
+}</pre></div><div style="padding: 8px 12px; margin: 4px 0px; border-radius: 6px; background: rgb(220, 252, 231); color: rgb(22, 101, 52);"><strong>✓ PASS</strong>: Magic link or OTP signInWithOtp method exists on supabaseService <pre>{
+  "hasSignInWithOtp": true
+}</pre></div><div style="padding: 8px 12px; margin: 4px 0px; border-radius: 6px; background: rgb(220, 252, 231); color: rgb(22, 101, 52);"><strong>✓ PASS</strong>: Reset password methods exist on supabaseService <pre>{
+  "hasResetPass": true,
+  "hasUpdatePass": true
+}</pre></div><div style="padding: 8px 12px; margin: 4px 0px; border-radius: 6px; background: rgb(220, 252, 231); color: rgb(22, 101, 52);"><strong>✓ PASS</strong>: Change email address updateEmail and prompt methods exist <pre>{
+  "hasUpdateEmail": true,
+  "hasPrompt": true
+}</pre></div><div style="padding: 8px 12px; margin: 4px 0px; border-radius: 6px; background: rgb(220, 252, 231); color: rgb(22, 101, 52);"><strong>✓ PASS</strong>: Reauthentication method exists on supabaseService <pre>{
+  "hasReauth": true
+}</pre></div><div style="padding: 8px 12px; margin: 4px 0px; border-radius: 6px; background: rgb(220, 252, 231); color: rgb(22, 101, 52);"><strong>✓ PASS</strong>: PKCE exchangeCodeForSession method exists on supabaseService <pre>{
+  "hasExchange": true
+}</pre></div><div style="padding: 8px 12px; margin: 4px 0px; border-radius: 6px; background: rgb(220, 252, 231); color: rgb(22, 101, 52);"><strong>✓ PASS</strong>: verifyOtp correctly verifies valid 6-digit code and rejects invalid code <pre>{
+  "otpSuccess": {
+    "success": true,
+    "user": {
+      "id": "test-user-123",
+      "email": "test@example.com",
+      "name": "Test Verified User",
+      "emailVerified": true
+    },
+    "session": {
+      "access_token": "test-token-abc"
+    },
+    "token": "test-token-abc"
+  },
+  "otpFail": {
+    "success": false,
+    "error": "Invalid OTP code"
+  }
+}</pre></div><div style="padding: 8px 12px; margin: 4px 0px; border-radius: 6px; background: rgb(220, 252, 231); color: rgb(22, 101, 52);"><strong>✓ PASS</strong>: exchangeCodeForSession accurately exchanges authorization code for active session <pre>{
+  "user": {
+    "id": "test-user-123",
+    "email": "verified@example.com",
+    "name": "Code Exchanged User",
+    "emailVerified": true
+  },
+  "session": {
+    "access_token": "valid-token"
+  },
+  "token": "valid-token"
+}</pre></div><div style="padding: 8px 12px; margin: 4px 0px; border-radius: 6px; background: rgb(220, 252, 231); color: rgb(22, 101, 52);"><strong>✓ PASS</strong>: signInWithOtp sends magic link / OTP request successfully <pre>{
+  "success": true,
+  "data": {}
+}</pre></div><div style="padding: 8px 12px; margin: 4px 0px; border-radius: 6px; background: rgb(220, 252, 231); color: rgb(22, 101, 52);"><strong>✓ PASS</strong>: updateEmail triggers Change Email Address verification flow <pre>{
+  "success": true,
+  "data": {
+    "user": {
+      "id": "test-user-123"
+    }
+  }
+}</pre></div></div>
+
+  <script>
+    const testResults = [];
+    function record(name, passed, details) {
+      testResults.push({ name, passed, details });
+      const div = document.createElement('div');
+      div.style.padding = '8px 12px';
+      div.style.margin = '4px 0';
+      div.style.borderRadius = '6px';
+      div.style.background = passed ? '#dcfce7' : '#fee2e2';
+      div.style.color = passed ? '#166534' : '#991b1b';
+      div.innerHTML = `<strong>${passed ? '✓ PASS' : '✗ FAIL'}</strong>: ${name} <pre>${JSON.stringify(details, null, 2)}</pre>`;
+      document.getElementById('results').appendChild(div);
+    }
+
+    async function runEmailTestSuite() {
+      // 1. Confirm sign up service
+      try {
+        const hasSignUp = typeof window.supabaseService.signUp === 'function';
+        const hasResend = typeof window.supabaseService.resendConfirmation === 'function';
+        const hasVerifyOtp = typeof window.supabaseService.verifyOtp === 'function';
+        record('Confirm sign up methods exist on supabaseService', hasSignUp && hasResend && hasVerifyOtp, { hasSignUp, hasResend, hasVerifyOtp });
+      } catch (e) {
+        record('Confirm sign up methods exist', false, e.message);
+      }
+
+      // 2. Magic link or OTP service
+      try {
+        const hasSignInWithOtp = typeof window.supabaseService.signInWithOtp === 'function';
+        record('Magic link or OTP signInWithOtp method exists on supabaseService', hasSignInWithOtp, { hasSignInWithOtp });
+      } catch (e) {
+        record('Magic link or OTP method exists', false, e.message);
+      }
+
+      // 3. Reset password service
+      try {
+        const hasResetPass = typeof window.supabaseService.resetPasswordForEmail === 'function';
+        const hasUpdatePass = typeof window.supabaseService.updatePassword === 'function';
+        record('Reset password methods exist on supabaseService', hasResetPass && hasUpdatePass, { hasResetPass, hasUpdatePass });
+      } catch (e) {
+        record('Reset password methods exist', false, e.message);
+      }
+
+      // 4. Change email address service
+      try {
+        const hasUpdateEmail = typeof window.supabaseService.updateEmail === 'function';
+        const hasPrompt = typeof window.handleChangeEmailPrompt === 'function';
+        record('Change email address updateEmail and prompt methods exist', hasUpdateEmail && hasPrompt, { hasUpdateEmail, hasPrompt });
+      } catch (e) {
+        record('Change email address methods exist', false, e.message);
+      }
+
+      // 5. Reauthentication service
+      try {
+        const hasReauth = typeof window.supabaseService.reauthenticate === 'function';
+        record('Reauthentication method exists on supabaseService', hasReauth, { hasReauth });
+      } catch (e) {
+        record('Reauthentication method exists', false, e.message);
+      }
+
+      // 6. PKCE code exchange service
+      try {
+        const hasExchange = typeof window.supabaseService.exchangeCodeForSession === 'function';
+        record('PKCE exchangeCodeForSession method exists on supabaseService', hasExchange, { hasExchange });
+      } catch (e) {
+        record('PKCE exchangeCodeForSession method exists', false, e.message);
+      }
+
+      // 7. Mock verifyOtp execution for signup & magiclink
+      try {
+        const origClient = window.supabaseService.client;
+        window.supabaseService.client = {
+          auth: {
+            verifyOtp: async ({ email, token, type }) => {
+              if (token === '123456') {
+                return {
+                  data: {
+                    user: { id: 'test-user-123', email, user_metadata: { full_name: 'Test Verified User' } },
+                    session: { access_token: 'test-token-abc' }
+                  },
+                  error: null
+                };
+              }
+              return { data: { user: null, session: null }, error: { message: 'Invalid OTP code' } };
+            },
+            signInWithOtp: async ({ email }) => ({ data: {}, error: null }),
+            resetPasswordForEmail: async (email) => ({ data: {}, error: null }),
+            resend: async ({ email, type }) => ({ data: {}, error: null }),
+            updateUser: async ({ email, password }) => ({ data: { user: { id: 'test-user-123' } }, error: null }),
+            exchangeCodeForSession: async (code) => {
+              if (code === 'valid-code') {
+                return {
+                  data: {
+                    user: { id: 'test-user-123', email: 'verified@example.com', user_metadata: { full_name: 'Code Exchanged User' } },
+                    session: { access_token: 'valid-token' }
+                  },
+                  error: null
+                };
+              }
+              return { data: null, error: { message: 'Invalid code' } };
+            }
+          },
+          from: () => ({
+            upsert: async () => ({ error: null })
+          })
+        };
+
+        const otpSuccess = await window.supabaseService.verifyOtp({ email: 'test@example.com', token: '123456', type: 'signup' });
+        const otpFail = await window.supabaseService.verifyOtp({ email: 'test@example.com', token: '999999', type: 'signup' });
+        const pass = otpSuccess.success && otpSuccess.user.email === 'test@example.com' && !otpFail.success;
+        record('verifyOtp correctly verifies valid 6-digit code and rejects invalid code', pass, { otpSuccess, otpFail });
+
+        const exchangeSuccess = await window.supabaseService.exchangeCodeForSession('valid-code');
+        const exchangePass = exchangeSuccess && exchangeSuccess.user.email === 'verified@example.com';
+        record('exchangeCodeForSession accurately exchanges authorization code for active session', exchangePass, exchangeSuccess);
+
+        const magicSuccess = await window.supabaseService.signInWithOtp('magic@example.com');
+        record('signInWithOtp sends magic link / OTP request successfully', magicSuccess.success, magicSuccess);
+
+        const emailChangeSuccess = await window.supabaseService.updateEmail('newemail@example.com');
+        record('updateEmail triggers Change Email Address verification flow', emailChangeSuccess.success, emailChangeSuccess);
+
+        window.supabaseService.client = origClient;
+      } catch (err) {
+        record('Mock execution test', false, err.message);
+      }
+
+      // Summary
+      const total = testResults.length;
+      const passed = testResults.filter(t => t.passed).length;
+      const allPassed = passed === total;
+      const summary = document.getElementById('summary');
+      if (allPassed) {
+        summary.innerHTML = `<h2 style="color:#166534">ALL EMAIL TESTS PASSED (${passed}/${total})</h2>`;
+      } else {
+        summary.innerHTML = `<h2 style="color:#991b1b">SOME EMAIL TESTS FAILED (${passed}/${total})</h2>`;
+      }
+    }
+
+    window.addEventListener('DOMContentLoaded', runEmailTestSuite);
+  </script>
+
+
+</body></html>
