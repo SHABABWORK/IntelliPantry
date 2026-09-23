@@ -38,6 +38,7 @@
               storage: window.localStorage
             }
           });
+          window.supabaseClient = this.client;
           console.log("[Supabase] Connected to live PostgreSQL database at:", config.url);
         }
       } catch (err) {
@@ -119,7 +120,16 @@
         });
 
         if (error) {
-          return { success: false, error: error.message };
+          let friendlyError = error.message;
+          const msg = (error.message || '').toLowerCase();
+          if (msg.includes('user already registered') || msg.includes('already exists')) {
+            friendlyError = "An account with this email already exists. Please log in.";
+          } else if (msg.includes('password') && (msg.includes('short') || msg.includes('least') || msg.includes('weak'))) {
+            friendlyError = "Password must be at least 6 characters long.";
+          } else if (msg.includes('rate limit')) {
+            friendlyError = "Too many requests. Please wait a few moments before trying again.";
+          }
+          return { success: false, error: friendlyError };
         }
 
         const user = data.user;
@@ -140,20 +150,21 @@
         // Create or update profile in profiles table
         await this.ensureProfile(userObj);
 
-        if (session) {
-          localStorage.setItem('smartpantry_token', session.access_token);
-          localStorage.setItem('smartpantry_user', JSON.stringify(userObj));
-        }
-
+        // DO NOT auto-login user upon signup.
+        // User must verify email before logging in, or explicitly log in with password
         return {
           success: true,
           user: userObj,
-          session,
-          token: session ? session.access_token : null,
-          needsEmailConfirmation: !session
+          session: null,
+          token: null,
+          needsEmailConfirmation: true
         };
       } catch (err) {
-        return { success: false, error: err.message || "Signup failed on Supabase server." };
+        let msg = err.message || "Signup failed on Supabase server.";
+        if (msg.toLowerCase().includes('failed to fetch') || msg.toLowerCase().includes('network')) {
+          msg = "Unable to connect to the server. Please check your internet connection.";
+        }
+        return { success: false, error: msg };
       }
     }
 
@@ -180,7 +191,18 @@
         });
 
         if (error) {
-          return { success: false, error: error.message };
+          let friendlyError = error.message;
+          const msg = (error.message || '').toLowerCase();
+          if (msg.includes('invalid login credentials') || msg.includes('invalid credentials')) {
+            friendlyError = "Incorrect email or password. Please try again.";
+          } else if (msg.includes('email not confirmed')) {
+            friendlyError = "Email not confirmed. Please check your inbox or resend the verification email.";
+          } else if (msg.includes('user not found')) {
+            friendlyError = "No account found with this email address. Please sign up.";
+          } else if (msg.includes('rate limit')) {
+            friendlyError = "Too many login attempts. Please wait a few moments before trying again.";
+          }
+          return { success: false, error: friendlyError, rawError: error.message };
         }
 
         const user = data.user;
@@ -209,7 +231,11 @@
           token: session.access_token
         };
       } catch (err) {
-        return { success: false, error: err.message || "Authentication error." };
+        let msg = err.message || "Authentication error.";
+        if (msg.toLowerCase().includes('failed to fetch') || msg.toLowerCase().includes('network')) {
+          msg = "Unable to connect to the server. Please check your internet connection.";
+        }
+        return { success: false, error: msg };
       }
     }
 
@@ -311,8 +337,12 @@
         if (error) throw error;
         return { success: true };
       } catch (err) {
-        console.warn("[Supabase Auth] resendConfirmation error:", err.message);
-        return { success: false, error: err.message || "Failed to resend confirmation email." };
+        let msg = err.message || "Failed to resend confirmation email.";
+        if (msg.toLowerCase().includes('rate limit') || msg.toLowerCase().includes('security purposes')) {
+          msg = "Please wait a moment before requesting another confirmation email.";
+        }
+        console.warn("[Supabase Auth] resendConfirmation error:", msg);
+        return { success: false, error: msg };
       }
     }
 
@@ -385,7 +415,16 @@
         }
 
         if (res.error) {
-          return { success: false, error: res.error.message };
+          let friendlyError = res.error.message;
+          const msg = (res.error.message || '').toLowerCase();
+          if (msg.includes('expired') || msg.includes('has expired')) {
+            friendlyError = "The verification code has expired. Please request a new code.";
+          } else if (msg.includes('invalid') || msg.includes('token is invalid')) {
+            friendlyError = "The 6-digit code you entered is invalid. Please double-check and try again.";
+          } else if (msg.includes('rate limit')) {
+            friendlyError = "Too many verification attempts. Please wait a moment.";
+          }
+          return { success: false, error: friendlyError };
         }
 
         const user = res.data.user;
@@ -1349,4 +1388,5 @@
   }
 
   window.supabaseService = new SupabaseService();
+  window.supabaseClient = window.supabaseService.client;
 })(window);
