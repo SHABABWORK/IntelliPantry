@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+  <meta charset="UTF-8">
+  <title>IntelliPantry Automated Test Suite</title>
+  <style>
+    body { font-family: monospace; background: #0f172a; color: #f8fafc; padding: 24px; }
+    h1 { color: #10b981; }
+    .test-card { background: #1e293b; border-radius: 8px; padding: 12px 16px; margin-bottom: 12px; border-left: 5px solid #64748b; }
+    .test-card.pass { border-left-color: #10b981; }
+    .test-card.fail { border-left-color: #ef4444; }
+    .badge-pass { background: #064e3b; color: #34d399; padding: 2px 8px; border-radius: 4px; font-weight: bold; }
+    .badge-fail { background: #7f1d1d; color: #f87171; padding: 2px 8px; border-radius: 4px; font-weight: bold; }
+    pre { margin: 8px 0 0; font-size: 12px; color: #cbd5e1; white-space: pre-wrap; }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+  <h1>🍃 IntelliPantry Comprehensive Production Self-Test</h1>
+  <div id="summary">
+        <h2 style="color:#ef4444">
+          ⚠️ SOME TESTS FAILED (4 passed, 4 failed)
+        </h2>
+      </div>
+  <div id="results"><div class="test-card pass">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <strong>[Supabase Config] SupabaseConfig Singleton Available</strong>
+          <span class="badge-pass">PASS</span>
+        </div>
+        <pre>{
+  "url": "",
+  "key": "",
+  "isConfigured": false
+}</pre>
+      </div><div class="test-card pass">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <strong>[Supabase Service] SupabaseService Initialized with Required Production Methods</strong>
+          <span class="badge-pass">PASS</span>
+        </div>
+        <pre>Methods verified: signIn, signUp, signOut, getProducts, insertProduct, onAuthStateChange, updatePassword, updateProfile</pre>
+      </div><div class="test-card fail">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <strong>[User Isolation] Strict User Data Isolation Between User A and User B</strong>
+          <span class="badge-fail">FAIL</span>
+        </div>
+        <pre>{
+  "userAKey": "smartpantry_user_pantry_guest",
+  "userBKey": "smartpantry_user_pantry_guest",
+  "userAItems": [
+    "Bob Fresh Sourdough Bread",
+    "Alice Organic Almond Milk"
+  ],
+  "userBItems": [
+    "Bob Fresh Sourdough Bread",
+    "Alice Organic Almond Milk"
+  ]
+}</pre>
+      </div><div class="test-card pass">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <strong>[Status Engine] calculateStatus() correctly resolves Expired, Expiring Soon, Fresh, and Low Stock</strong>
+          <span class="badge-pass">PASS</span>
+        </div>
+        <pre>{
+  "expiredStatus": "Expired",
+  "expiringSoonStatus": "Expiring Soon",
+  "freshStatus": "Fresh",
+  "lowStockStatus": "Low Stock"
+}</pre>
+      </div><div class="test-card fail">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <strong>[Store Metrics] Pantry Metrics &amp; Auto-Shopping List accurately calculated</strong>
+          <span class="badge-fail">FAIL</span>
+        </div>
+        <pre>{
+  "metrics": {
+    "total": 4,
+    "lowStock": 2,
+    "expiringSoon": 1,
+    "expired": 1,
+    "fresh": 1,
+    "shoppingListCount": 3
+  },
+  "shoppingListCount": 2
+}</pre>
+      </div><div class="test-card pass">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <strong>[Barcode &amp; Shelf-Life] Dynamic Shelf-Life Projector matches categories (Dairy: 7d, Pantry: 180d)</strong>
+          <span class="badge-pass">PASS</span>
+        </div>
+        <pre>{
+  "today": "2026-09-23",
+  "dairyExpiry": "2026-09-30",
+  "pantryExpiry": "2027-03-22",
+  "daysDiffDairy": 7,
+  "daysDiffPantry": 180
+}</pre>
+      </div><div class="test-card fail">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <strong>[Receipt OCR Parser] Receipt OCR successfully extracts date and filters noise/taxes/totals</strong>
+          <span class="badge-fail">FAIL</span>
+        </div>
+        <pre>{
+  "dateExtracted": null,
+  "validItemLines": []
+}</pre>
+      </div><div class="test-card fail">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <strong>[Recipe Engine] Recipe Engine loaded with database and intelligent pantry ingredient matching</strong>
+          <span class="badge-fail">FAIL</span>
+        </div>
+        <pre>{
+  "databaseRecipeCount": 0,
+  "sampleMatchedRecipes": []
+}</pre>
+      </div></div>
+
+  <!-- Hidden DOM mocks required by store & components -->
+  <div style="display:none;">
+    <div id="toast-container"></div>
+    <div id="metricTotalItems">0</div>
+    <div id="metricExpiringSoon">0</div>
+    <div id="metricLowStock">0</div>
+    <div id="metricFreshItems">0</div>
+    <div id="metricShoppingList">0</div>
+    
+    <span id="topbarAlertBadge" style="display: none;">0</span>
+    <span id="welcomeUserName"></span>
+    <div id="userName"></div>
+    <div id="userAvatar"></div>
+    <div id="userMenuEmail"></div>
+  </div>
+
+  <!-- Load IntelliPantry application scripts -->
+  <script src="../js/supabase-config.js"></script>
+  <script src="../js/supabase.js"></script>
+  <script src="../js/store.js"></script>
+  <script src="../js/recipes-data.js"></script>
+  <script src="../js/recipes.js"></script>
+  <script src="../js/components.js"></script>
+
+  <script>
+    const testResults = [];
+
+    function recordTest(suite, name, passed, details) {
+      testResults.push({ suite, name, passed, details });
+      const resultsDiv = document.getElementById("results");
+      const card = document.createElement("div");
+      card.className = "test-card " + (passed ? "pass" : "fail");
+      card.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <strong>[${suite}] ${name}</strong>
+          <span class="${passed ? 'badge-pass' : 'badge-fail'}">${passed ? 'PASS' : 'FAIL'}</span>
+        </div>
+        <pre>${typeof details === 'object' ? JSON.stringify(details, null, 2) : details}</pre>
+      `;
+      resultsDiv.appendChild(card);
+    }
+
+    async function runTestSuite() {
+      console.log("=== STARTING INTELLIPANTRY SELF-TEST ===");
+
+      // TEST SUITE 1: Supabase Configuration & Client Initialization
+      try {
+        const config = window.SupabaseConfig ? window.SupabaseConfig.get() : null;
+        recordTest(
+          "Supabase Config",
+          "SupabaseConfig Singleton Available",
+          Boolean(window.SupabaseConfig && typeof window.SupabaseConfig.get === 'function'),
+          config
+        );
+
+        recordTest(
+          "Supabase Service",
+          "SupabaseService Initialized with Required Production Methods",
+          Boolean(
+            window.supabaseService &&
+            typeof window.supabaseService.signIn === 'function' &&
+            typeof window.supabaseService.signUp === 'function' &&
+            typeof window.supabaseService.signOut === 'function' &&
+            typeof window.supabaseService.getProducts === 'function' &&
+            typeof window.supabaseService.insertProduct === 'function' &&
+            typeof window.supabaseService.onAuthStateChange === 'function' &&
+            typeof window.supabaseService.updatePassword === 'function' &&
+            typeof window.supabaseService.updateProfile === 'function'
+          ),
+          "Methods verified: signIn, signUp, signOut, getProducts, insertProduct, onAuthStateChange, updatePassword, updateProfile"
+        );
+      } catch (e) {
+        recordTest("Supabase Config", "Config error", false, e.message);
+      }
+
+      // TEST SUITE 2: User Isolation & Multi-User Session Scoping
+      try {
+        const userA = { id: "00000000-0000-0000-0000-000000000001", name: "Alice Green", email: "alice@example.com" };
+        const userB = { id: "00000000-0000-0000-0000-000000000002", name: "Bob Miller", email: "bob@example.com" };
+
+        // Test User A initialization
+        await window.store.initUser(userA.id);
+        const userAKey = window.store.storageKey;
+        
+        await window.store.addItem({
+          name: "Alice Organic Almond Milk",
+          category: "Dairy",
+          quantity: 2,
+          unit: "L",
+          expiryDate: window.getRelativeDateISO(10),
+          minStock: 1
+        });
+        const itemsA = window.store.getItems();
+
+        // Switch to User B
+        await window.store.initUser(userB.id);
+        const userBKey = window.store.storageKey;
+        const itemsBInitial = window.store.getItems();
+
+        await window.store.addItem({
+          name: "Bob Fresh Sourdough Bread",
+          category: "Pantry",
+          quantity: 1,
+          unit: "pcs",
+          expiryDate: window.getRelativeDateISO(4),
+          minStock: 1
+        });
+        const itemsB = window.store.getItems();
+
+        // Switch back to User A
+        await window.store.initUser(userA.id);
+        const itemsARecovered = window.store.getItems();
+
+        const isolated = (
+          itemsA.length === 1 && itemsA[0].name.includes("Alice") &&
+          itemsBInitial.length === 0 &&
+          itemsB.length === 1 && itemsB[0].name.includes("Bob") &&
+          itemsARecovered.length === 1 && itemsARecovered[0].name.includes("Alice") &&
+          userAKey !== userBKey
+        );
+
+        recordTest(
+          "User Isolation",
+          "Strict User Data Isolation Between User A and User B",
+          isolated,
+          {
+            userAKey,
+            userBKey,
+            userAItems: itemsARecovered.map(i => i.name),
+            userBItems: itemsB.map(i => i.name)
+          }
+        );
+      } catch (e) {
+        recordTest("User Isolation", "Session isolation error", false, e.message + "\n" + e.stack);
+      }
+
+      // TEST SUITE 3: Expiry & Inventory Status Engine
+      try {
+        const today = window.getTodayISO();
+        const expiredStatus = window.store.calculateStatus(window.getRelativeDateISO(-3), 5, 2);
+        const expiringSoonStatus = window.store.calculateStatus(window.getRelativeDateISO(3), 5, 2);
+        const freshStatus = window.store.calculateStatus(window.getRelativeDateISO(20), 5, 2);
+        const lowStockStatus = window.store.calculateStatus(window.getRelativeDateISO(20), 1, 2);
+
+        const statusCorrect = (
+          expiredStatus === "Expired" &&
+          expiringSoonStatus === "Expiring Soon" &&
+          freshStatus === "Fresh" &&
+          lowStockStatus === "Low Stock"
+        );
+
+        recordTest(
+          "Status Engine",
+          "calculateStatus() correctly resolves Expired, Expiring Soon, Fresh, and Low Stock",
+          statusCorrect,
+          { expiredStatus, expiringSoonStatus, freshStatus, lowStockStatus }
+        );
+      } catch (e) {
+        recordTest("Status Engine", "Status calculation error", false, e.message);
+      }
+
+      // TEST SUITE 4: Metric Aggregation & Shopping List
+      try {
+        // Clear and populate controlled test items
+        window.store.items = [
+          { id: "t1", name: "Fresh Apples", category: "Fruits", quantity: 5, unit: "pcs", expiryDate: window.getRelativeDateISO(15), minStock: 2, status: "Fresh" },
+          { id: "t2", name: "Greek Yogurt", category: "Dairy", quantity: 3, unit: "pcs", expiryDate: window.getRelativeDateISO(2), minStock: 2, status: "Expiring Soon" },
+          { id: "t3", name: "Expired Milk", category: "Dairy", quantity: 1, unit: "L", expiryDate: window.getRelativeDateISO(-1), minStock: 2, status: "Expired" },
+          { id: "t4", name: "Olive Oil", category: "Pantry", quantity: 1, unit: "bottle", expiryDate: window.getRelativeDateISO(90), minStock: 2, status: "Low Stock" }
+        ];
+
+        const metrics = window.store.getMetrics();
+        const shoppingList = window.store.getShoppingList();
+
+        const metricsValid = (
+          metrics.total === 4 &&
+          metrics.expiringSoon === 1 &&
+          metrics.lowStock === 1 &&
+          metrics.fresh === 1 &&
+          shoppingList.length >= 1 &&
+          shoppingList.some(i => i.name === "Olive Oil")
+        );
+
+        recordTest(
+          "Store Metrics",
+          "Pantry Metrics & Auto-Shopping List accurately calculated",
+          metricsValid,
+          { metrics, shoppingListCount: shoppingList.length }
+        );
+      } catch (e) {
+        recordTest("Store Metrics", "Metrics calculation error", false, e.message);
+      }
+
+      // TEST SUITE 5: OpenFoodFacts Barcode Lookup & Shelf-Life Projector
+      try {
+        function calculateShelfLifeDate(purchaseDateStr, category) {
+          const base = window.parseLocalDate(purchaseDateStr) || new Date();
+          const daysMap = { Dairy: 7, Vegetables: 5, Fruits: 7, Meat: 3, Beverages: 30, Frozen: 90, Grains: 180, Pantry: 180, Snacks: 60, Spices: 365 };
+          const offset = daysMap[category] || 14;
+          const d = new Date(base);
+          d.setDate(d.getDate() + offset);
+          const y = d.getFullYear();
+          const m = String(d.getMonth() + 1).padStart(2, "0");
+          const day = String(d.getDate()).padStart(2, "0");
+          return `${y}-${m}-${day}`;
+        }
+
+        const today = window.getTodayISO();
+        const dairyExpiry = calculateShelfLifeDate(today, "Dairy");
+        const pantryExpiry = calculateShelfLifeDate(today, "Pantry");
+
+        const daysDiffDairy = window.getDaysDifference(today, dairyExpiry);
+        const daysDiffPantry = window.getDaysDifference(today, pantryExpiry);
+
+        const projectorValid = (daysDiffDairy === 7 && daysDiffPantry === 180);
+
+        recordTest(
+          "Barcode & Shelf-Life",
+          "Dynamic Shelf-Life Projector matches categories (Dairy: 7d, Pantry: 180d)",
+          projectorValid,
+          { today, dairyExpiry, pantryExpiry, daysDiffDairy, daysDiffPantry }
+        );
+      } catch (e) {
+        recordTest("Barcode & Shelf-Life", "Shelf life calculation error", false, e.message);
+      }
+
+      // TEST SUITE 6: Receipt OCR Text Parser & Filter
+      try {
+        const rawReceiptSample = `
+          WALMART SUPERCENTER #1234
+          Date: 2026-09-22 14:30
+          Tel: 555-0199
+          --------------------------------
+          Fresh Strawberries 2 packs  $5.99
+          Greek Yogurt 1 L            $4.49
+          Olive Oil 500 ml           $12.99
+          Subtotal                    $23.47
+          Tax (HST 13%)                $3.05
+          TOTAL                       $26.52
+          Visa ending in 4321
+          Thank you for shopping!
+        `;
+
+        function extractReceiptDate(text) {
+          const isoMatch = text.match(/\\b(20\\d\\d)[-\\/.](0[1-9]|1[0-2])[-\\/.](0[1-9]|[12]\\d|3[01])\\b/);
+          if (isoMatch) return `${isoMatch[1]}-${isoMatch[2]}-${isoMatch[3]}`;
+          return null;
+        }
+
+        const lines = rawReceiptSample.split("\\n").map(l => l.trim()).filter(l => l.length > 2);
+        const ignorePatterns = /\\b(total|subtotal|tax|cash|change|card|visa|mastercard|balance|receipt|thank|welcome|store|tel|phone|hst|gst|vat)\\b/i;
+        const validItemLines = lines.filter(l => !ignorePatterns.test(l) && !l.includes("WALMART") && !l.includes("Date:"));
+
+        const dateExtracted = extractReceiptDate(rawReceiptSample);
+
+        const ocrValid = (
+          dateExtracted === "2026-09-22" &&
+          validItemLines.length === 3 &&
+          validItemLines.some(l => l.includes("Strawberries")) &&
+          validItemLines.some(l => l.includes("Greek Yogurt")) &&
+          validItemLines.some(l => l.includes("Olive Oil"))
+        );
+
+        recordTest(
+          "Receipt OCR Parser",
+          "Receipt OCR successfully extracts date and filters noise/taxes/totals",
+          ocrValid,
+          { dateExtracted, validItemLines }
+        );
+      } catch (e) {
+        recordTest("Receipt OCR Parser", "OCR parsing error", false, e.message);
+      }
+
+      // TEST SUITE 7: Recipe Engine Category Chips & Suggestions
+      try {
+        const hasRecipes = (
+          window.RecipeEngine &&
+          Array.isArray(window.RECIPES_DATABASE) &&
+          window.RECIPES_DATABASE.length > 0 &&
+          typeof window.RecipeEngine.findPantryMatches === 'function'
+        );
+
+        let matches = [];
+        if (hasRecipes) {
+          matches = window.RecipeEngine.findPantryMatches([
+            { name: "Greek Yogurt", category: "Dairy" },
+            { name: "Fresh Strawberries", category: "Fruits" }
+          ]);
+        }
+
+        recordTest(
+          "Recipe Engine",
+          "Recipe Engine loaded with database and intelligent pantry ingredient matching",
+          Boolean(hasRecipes && Array.isArray(matches)),
+          {
+            databaseRecipeCount: window.RECIPES_DATABASE ? window.RECIPES_DATABASE.length : 0,
+            sampleMatchedRecipes: matches.slice(0, 3).map(r => r.title || r.name)
+          }
+        );
+      } catch (e) {
+        recordTest("Recipe Engine", "Recipe Engine error", false, e.message);
+      }
+
+      // Final Evaluation
+      const totalPassed = testResults.filter(t => t.passed).length;
+      const totalFailed = testResults.filter(t => !t.passed).length;
+      const allPassed = totalFailed === 0;
+
+      const summaryDiv = document.getElementById("summary");
+      summaryDiv.innerHTML = `
+        <h2 style="color:${allPassed ? '#10b981' : '#ef4444'}">
+          ${allPassed ? '✓ ALL TESTS PASSED' : '⚠️ SOME TESTS FAILED'} (${totalPassed} passed, ${totalFailed} failed)
+        </h2>
+      `;
+
+      window.TEST_SUITE_REPORT = {
+        allPassed,
+        totalPassed,
+        totalFailed,
+        results: testResults
+      };
+
+      console.log("=== SELF-TEST COMPLETE ===", window.TEST_SUITE_REPORT);
+    }
+
+    window.addEventListener("DOMContentLoaded", runTestSuite);
+  </script>
+
+
+</body></html>
