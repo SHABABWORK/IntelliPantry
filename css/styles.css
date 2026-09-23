@@ -25,8 +25,11 @@
   --shadow-card: 0 2px 10px rgba(0, 0, 0, 0.02);
 }
 
-* {
+*, *::before, *::after {
   box-sizing: border-box;
+}
+
+* {
   margin: 0;
   padding: 0;
   -webkit-tap-highlight-color: transparent;
@@ -359,7 +362,10 @@ body {
    CENTER CONTENT
    ========================================== */
 .center-content {
-  flex: 1;
+  width: 100%;
+  max-width: none;
+  box-sizing: border-box;
+  flex: 1 1 auto;
   min-width: 0;
   display: flex;
   flex-direction: column;
@@ -1704,20 +1710,25 @@ html.dark-theme .scanner-mini-footer-tip {
   font-size: 13px;
 }
 
-/* Modals */
-.modal-overlay {
+/* Modals & Dialog System */
+.modal-overlay,
+.modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(15, 23, 42, 0.5);
-  backdrop-filter: blur(4px);
+  background: rgba(15, 23, 42, 0.55);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   z-index: 9999;
   display: none;
   align-items: center;
   justify-content: center;
   padding: 20px;
+  box-sizing: border-box;
+  overflow-y: auto;
 }
 
-.modal-overlay.active {
+.modal-overlay.active,
+.modal-backdrop.active {
   display: flex;
 }
 
@@ -1730,6 +1741,127 @@ html.dark-theme .scanner-mini-footer-tip {
   box-shadow: 0 20px 40px rgba(0,0,0,0.1);
   max-height: 90vh;
   overflow-y: auto;
+  box-sizing: border-box;
+}
+
+.modal-card {
+  background: #ffffff;
+  width: 100%;
+  max-width: 680px;
+  border-radius: 24px;
+  padding: 24px;
+  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.12);
+  max-height: 90vh;
+  overflow-y: auto;
+  box-sizing: border-box;
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0 auto;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.modal-header h3 {
+  font-size: 17px;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0;
+}
+
+.modal-header p {
+  font-size: 12px;
+  color: #64748b;
+  margin: 2px 0 0;
+}
+
+.modal-close-btn {
+  background: #f1f5f9;
+  border: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  font-size: 14px;
+  color: #64748b;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.modal-close-btn:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+.modal-save-btn {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 11px 18px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #ffffff;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.modal-cancel-btn {
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #e2e8f0;
+  padding: 10px 18px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.modal-cancel-btn:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+/* Ensure inputs, selects, and buttons inside modal sections expand across their full grid column */
+.modal-card input:not([type="checkbox"]):not([type="radio"]),
+.modal-card select,
+.modal-card textarea {
+  width: 100% !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+.modal-card .grid > div {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+/* Responsive grid collapse for form fields: 2 cols on desktop, 1 col on <= 768px */
+@media (max-width: 768px) {
+  #barcodeProductForm .grid-cols-2,
+  .modal-card .grid-cols-2,
+  .modal-dialog .grid-cols-2 {
+    grid-template-columns: 1fr !important;
+  }
+
+  .modal-card {
+    padding: 18px 16px;
+    max-width: 100%;
+  }
+
+  .modal-actions-grid {
+    grid-template-columns: 1fr !important;
+  }
 }
 
 /* ==========================================
