@@ -97,6 +97,9 @@ class AppRouter {
   showExpiry() {
     this.showDashboard();
     setCategoryFilter("All");
+    if (typeof setStatusFilter === "function") {
+      setStatusFilter("Expiring Soon");
+    }
     const expiringItems = window.store.getItems().filter(i => {
       const status = window.store.calculateStatus(i.expiryDate, i.quantity);
       return status === "Expiring Soon" || status === "Expired";

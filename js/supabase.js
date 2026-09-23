@@ -927,7 +927,9 @@
         ingredients: row.ingredients || '',
         nutrition: row.nutrition || null,
         emoji: row.emoji || (window.store ? window.store.detectEmoji(row.product_name || row.name, row.category) : '📦'),
-        status: row.status || (window.store ? window.store.calculateStatus(row.expiry_date, row.quantity, row.minimum_stock || row.min_stock) : 'Fresh'),
+        status: (window.store && row.expiry_date) 
+          ? window.store.calculateStatus(row.expiry_date, row.quantity, row.minimum_stock !== undefined ? row.minimum_stock : row.min_stock) 
+          : (row.status || 'Fresh'),
         addedAt: row.created_at || new Date().toISOString(),
         updatedAt: row.updated_at || new Date().toISOString()
       };

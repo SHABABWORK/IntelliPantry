@@ -30,7 +30,7 @@ function updateMetricsDisplay() {
   if (lowStockEl) lowStockEl.textContent = metrics.lowStock;
   if (expiringEl) expiringEl.textContent = metrics.expiringSoon;
   if (shoppingEl) shoppingEl.textContent = metrics.shoppingListCount;
-  if (freshEl) freshEl.textContent = Math.max(0, metrics.total - metrics.lowStock - metrics.expiringSoon - metrics.expired);
+  if (freshEl) freshEl.textContent = metrics.fresh !== undefined ? metrics.fresh : Math.max(0, metrics.total - metrics.lowStock - metrics.expiringSoon - metrics.expired);
 }
 
 // Status filter pill handling
@@ -52,6 +52,7 @@ function renderInventoryTable() {
   if (!tbody) return;
 
   const allItems = window.store.getItems();
+  const warnDays = window.store?.fullSettings?.pantry_settings?.expiry_warning_days || 7;
   const filtered = allItems.filter(item => {
     const itemCat = (item.category || "Pantry").toLowerCase();
     const filterCat = currentCategoryFilter.toLowerCase();
@@ -65,7 +66,7 @@ function renderInventoryTable() {
       (item.barcode || "").toLowerCase().includes(q) ||
       (item.storageLocation || "").toLowerCase().includes(q);
 
-    const computedStatus = window.store.calculateStatus(item.expiryDate, item.quantity, item.minStock);
+    const computedStatus = window.store.calculateStatus(item.expiryDate, item.quantity, item.minStock, warnDays);
     let matchesStatus = true;
     if (currentStatusFilter !== "All") {
       if (currentStatusFilter === "Expiring Soon") {
@@ -75,7 +76,7 @@ function renderInventoryTable() {
       } else if (currentStatusFilter === "Low Stock") {
         matchesStatus = computedStatus === "Low Stock" || Number(item.quantity) <= (item.minStock !== undefined ? Number(item.minStock) : 2);
       } else if (currentStatusFilter === "Fresh" || currentStatusFilter === "In Stock") {
-        matchesStatus = computedStatus === "Fresh" || computedStatus === "In Stock";
+        matchesStatus = (computedStatus === "Fresh" || computedStatus === "In Stock") && Number(item.quantity) > (item.minStock !== undefined ? Number(item.minStock) : 2);
       }
     }
 
@@ -112,8 +113,8 @@ function renderInventoryTable() {
   }
 
   tbody.innerHTML = filtered.map(item => {
-    const computedStatus = window.store.calculateStatus(item.expiryDate, item.quantity, item.minStock);
-    const rel = window.formatRelativeExpiry ? window.formatRelativeExpiry(item.expiryDate) : { text: item.expiryDate || "—", urgent: false, days: null };
+    const computedStatus = window.store.calculateStatus(item.expiryDate, item.quantity, item.minStock, warnDays);
+    const rel = window.formatRelativeExpiry ? window.formatRelativeExpiry(item.expiryDate, warnDays) : { text: item.expiryDate || "—", urgent: false, days: null };
 
     let statusClass = "status-fresh";
     let statusLabel = "Fresh";
@@ -121,7 +122,7 @@ function renderInventoryTable() {
     if (computedStatus === "Expired" || (rel.days !== null && rel.days < 0)) {
       statusClass = "status-expired";
       statusLabel = "Expired";
-    } else if (computedStatus === "Expiring Soon" || (rel.days !== null && rel.days <= 7)) {
+    } else if (computedStatus === "Expiring Soon" || (rel.days !== null && rel.days <= warnDays)) {
       statusClass = "status-expiring";
       statusLabel = "Expiring Soon";
     } else if (computedStatus === "Low Stock" || Number(item.quantity) <= (item.minStock !== undefined ? Number(item.minStock) : 2)) {
@@ -1253,6 +1254,7 @@ window.setCategoryValue = setCategoryValue;
 window.renderInventoryTable = renderInventoryTable;
 window.updateMetricsDisplay = updateMetricsDisplay;
 window.setCategoryFilter = setCategoryFilter;
+window.setStatusFilter = setStatusFilter;
 window.deletePantryItem = deletePantryItem;
 window.openEmailAlertModal = openEmailAlertModal;
 window.closeEmailAlertModal = closeEmailAlertModal;

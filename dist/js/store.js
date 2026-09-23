@@ -22,36 +22,73 @@ function getRelativeDateISO(offsetDays = 0) {
   return `${year}-${month}-${day}`;
 }
 
-// Timezone-safe local calendar date parser
+// Timezone-safe local calendar date parser supporting multiple formats:
+// YYYY-MM-DD, YYYY/MM/DD, YYYY.MM.DD, DD/MM/YYYY, DD-MM-YYYY, DD.MM.YYYY, ISO 8601
 function parseLocalDate(dateStr) {
   if (!dateStr) return null;
-  if (dateStr instanceof Date) return dateStr;
-  const parts = String(dateStr).split(/[-T/]/);
-  if (parts.length >= 3) {
-    const year = parseInt(parts[0], 10);
-    const month = parseInt(parts[1], 10) - 1;
-    const day = parseInt(parts[2], 10);
-    return new Date(year, month, day, 0, 0, 0, 0);
+  if (dateStr instanceof Date) return isNaN(dateStr.getTime()) ? null : dateStr;
+
+  const str = String(dateStr).trim();
+  if (!str) return null;
+
+  // 1. Match ISO format: YYYY-MM-DD, YYYY/MM/DD, YYYY.MM.DD (optionally with T...)
+  const isoMatch = str.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/);
+  if (isoMatch) {
+    const year = parseInt(isoMatch[1], 10);
+    const month = parseInt(isoMatch[2], 10) - 1;
+    const day = parseInt(isoMatch[3], 10);
+    if (month >= 0 && month <= 11 && day >= 1 && day <= 31) {
+      return new Date(year, month, day, 0, 0, 0, 0);
+    }
   }
-  const d = new Date(dateStr);
+
+  // 2. Match DD-MM-YYYY, DD/MM/YYYY, DD.MM.YYYY or MM/DD/YYYY
+  const dmyMatch = str.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})/);
+  if (dmyMatch) {
+    let day = parseInt(dmyMatch[1], 10);
+    let month = parseInt(dmyMatch[2], 10) - 1;
+    const year = parseInt(dmyMatch[3], 10);
+
+    // If month > 11 and day <= 12, user input was MM/DD/YYYY
+    if (month > 11 && day <= 12) {
+      const temp = day - 1;
+      day = parseInt(dmyMatch[2], 10);
+      month = temp;
+    }
+
+    if (month >= 0 && month <= 11 && day >= 1 && day <= 31) {
+      return new Date(year, month, day, 0, 0, 0, 0);
+    }
+  }
+
+  // 3. Native Date parser fallback
+  const d = new Date(str);
   return isNaN(d.getTime()) ? null : new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0);
 }
 
-// Calculate exact calendar days between today (00:00 local) and target date
-function getDaysDifference(targetDateStr) {
-  if (!targetDateStr) return null;
-  const target = parseLocalDate(targetDateStr);
-  if (!target) return null;
+// Calculate exact calendar days between today (00:00 local) and target date,
+// or between startDate and targetDate when two arguments are provided
+function getDaysDifference(targetOrStartDate, maybeTargetDate) {
+  if (!targetOrStartDate) return null;
 
-  const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+  let baseDate, targetDate;
+  if (maybeTargetDate !== undefined && maybeTargetDate !== null) {
+    baseDate = parseLocalDate(targetOrStartDate);
+    targetDate = parseLocalDate(maybeTargetDate);
+  } else {
+    const now = new Date();
+    baseDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+    targetDate = parseLocalDate(targetOrStartDate);
+  }
 
-  const diffMs = target.getTime() - today.getTime();
+  if (!baseDate || !targetDate) return null;
+
+  const diffMs = targetDate.getTime() - baseDate.getTime();
   return Math.round(diffMs / (1000 * 60 * 60 * 24));
 }
 
 // Format human-friendly relative expiry label
-function formatRelativeExpiry(expiryDateStr) {
+function formatRelativeExpiry(expiryDateStr, warningDays = 7) {
   if (!expiryDateStr) {
     return { text: "No expiry set", label: "—", status: "Fresh", urgent: false, days: null };
   }
@@ -61,6 +98,8 @@ function formatRelativeExpiry(expiryDateStr) {
     return { text: "—", label: "—", status: "Fresh", urgent: false, days: null };
   }
 
+  const warnThreshold = Number(warningDays) || 7;
+
   if (diffDays < 0) {
     const abs = Math.abs(diffDays);
     const text = abs === 1 ? "Expired yesterday" : `Expired ${abs} days ago`;
@@ -69,7 +108,7 @@ function formatRelativeExpiry(expiryDateStr) {
     return { text: "Expires today", label: "Expires today", status: "Expiring Soon", urgent: true, days: 0 };
   } else if (diffDays === 1) {
     return { text: "1 day remaining (Tomorrow)", label: "1 day remaining", status: "Expiring Soon", urgent: true, days: 1 };
-  } else if (diffDays <= 7) {
+  } else if (diffDays <= warnThreshold) {
     return { text: `${diffDays} days remaining`, label: `${diffDays} days left`, status: "Expiring Soon", urgent: true, days: diffDays };
   } else {
     return { text: `${diffDays} days remaining`, label: `${diffDays} days left`, status: "Fresh", urgent: false, days: diffDays };
@@ -573,7 +612,8 @@ class PantryStore {
 
   async addItem(item) {
     const resolvedEmoji = item.emoji || this.detectEmoji(item.name, item.category);
-    const computedStatus = item.status || this.calculateStatus(item.expiryDate, item.quantity);
+    const warnDays = this.fullSettings?.pantry_settings?.expiry_warning_days || 7;
+    const computedStatus = this.calculateStatus(item.expiryDate, item.quantity, item.minStock, warnDays);
 
     const newItem = {
       name: item.name,
@@ -593,7 +633,7 @@ class PantryStore {
       emoji: resolvedEmoji
     };
 
-    newItem.id = item.id || 'prod_' + Date.now();
+    newItem.id = item.id || ('prod_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6));
     newItem.addedAt = new Date().toISOString();
 
     const effectiveUserId = window.supabaseService ? await window.supabaseService.getAuthenticatedUserId(this.userId) : this.userId;
@@ -610,7 +650,7 @@ class PantryStore {
       }
     }
 
-    this.items = [newItem, ...this.items.filter(i => i.id !== newItem.id)];
+    this.items = [newItem, ...this.items.filter(i => String(i.id) !== String(newItem.id))];
     this.saveItems(this.items);
 
     // Log Activity
@@ -629,10 +669,11 @@ class PantryStore {
     const oldQty = current ? Number(current.quantity) : 1;
     const newQty = updates.quantity !== undefined ? Number(updates.quantity) : oldQty;
 
+    const warnDays = this.fullSettings?.pantry_settings?.expiry_warning_days || 7;
     if (updates.expiryDate !== undefined || updates.quantity !== undefined || updates.minStock !== undefined) {
       const exp = updates.expiryDate !== undefined ? updates.expiryDate : (current ? current.expiryDate : "");
       const stk = updates.minStock !== undefined ? updates.minStock : (current && current.minStock !== undefined ? current.minStock : 2);
-      updates.status = this.calculateStatus(exp, newQty, stk);
+      updates.status = this.calculateStatus(exp, newQty, stk, warnDays);
     }
 
     const effectiveUserId = window.supabaseService ? await window.supabaseService.getAuthenticatedUserId(this.userId) : this.userId;
@@ -646,7 +687,7 @@ class PantryStore {
       }
     }
 
-    this.items = this.items.map(item => item.id === id ? { ...item, ...updates } : item);
+    this.items = this.items.map(item => String(item.id) === String(id) ? { ...item, ...updates } : item);
     this.saveItems(this.items);
 
     // Log Activity (Distinguish quantity changes from info edits)
@@ -681,8 +722,17 @@ class PantryStore {
       }
     }
 
-    this.items = this.items.filter(item => item.id !== id);
+    this.items = this.items.filter(item => String(item.id) !== String(id));
     this.saveItems(this.items);
+
+    // Clean up any alerts associated with this deleted product
+    if (Array.isArray(this.alerts)) {
+      this.alerts = this.alerts.filter(a => String(a.product_id) !== String(id));
+      try {
+        localStorage.setItem(this.alertsKey, JSON.stringify(this.alerts));
+      } catch(e) {}
+      this.updateAlertBadge();
+    }
 
     // Log Activity
     await this.logActivity('deleted', id, itemName, `Removed from pantry`);
@@ -698,6 +748,18 @@ class PantryStore {
 
   getItemById(id) {
     return this.getItems().find(i => String(i.id) === String(id));
+  }
+
+  getShoppingList() {
+    if (window.RecipeEngine && typeof window.RecipeEngine.getShoppingList === 'function') {
+      const list = window.RecipeEngine.getShoppingList();
+      if (Array.isArray(list) && list.length > 0) return list;
+    }
+    return this.getItems().filter(i => {
+      const threshold = i.minStock !== undefined && i.minStock !== null && !isNaN(Number(i.minStock)) ? Number(i.minStock) : 2;
+      const s = this.calculateStatus(i.expiryDate, i.quantity, threshold);
+      return s === "Low Stock" || s === "Expired" || Number(i.quantity) <= threshold;
+    });
   }
 
   // ==========================================
@@ -1187,9 +1249,12 @@ class PantryStore {
     return CATEGORY_EMOJIS[category] || "📦";
   }
 
-  calculateStatus(expiryDate, quantity, minStock = 2) {
+  calculateStatus(expiryDate, quantity, minStock = 2, warningDays = null) {
     const qty = Number(quantity);
     const threshold = minStock !== undefined && minStock !== null && !isNaN(Number(minStock)) ? Number(minStock) : 2;
+    const warnDays = warningDays !== null && warningDays !== undefined && !isNaN(Number(warningDays))
+      ? Number(warningDays)
+      : (this.fullSettings?.pantry_settings?.expiry_warning_days || 7);
 
     if (!expiryDate) {
       return qty <= threshold ? "Low Stock" : "Fresh";
@@ -1201,7 +1266,7 @@ class PantryStore {
     }
 
     if (diffDays < 0) return "Expired";
-    if (diffDays <= 7) return "Expiring Soon";
+    if (diffDays <= warnDays) return "Expiring Soon";
     if (qty <= threshold) return "Low Stock";
     return "Fresh";
   }
@@ -1212,13 +1277,19 @@ class PantryStore {
     let lowStock = 0;
     let expiringSoon = 0;
     let expired = 0;
+    let fresh = 0;
+
+    const warnDays = this.fullSettings?.pantry_settings?.expiry_warning_days || 7;
 
     items.forEach(i => {
       const threshold = i.minStock !== undefined && i.minStock !== null && !isNaN(Number(i.minStock)) ? Number(i.minStock) : 2;
-      const s = this.calculateStatus(i.expiryDate, i.quantity, threshold);
-      if (s === "Low Stock" || Number(i.quantity) <= threshold) lowStock++;
+      const qty = Number(i.quantity) || 0;
+      const s = this.calculateStatus(i.expiryDate, qty, threshold, warnDays);
+
+      if (s === "Low Stock" || qty <= threshold) lowStock++;
       if (s === "Expiring Soon") expiringSoon++;
       if (s === "Expired") expired++;
+      if (s === "Fresh" && qty > threshold) fresh++;
     });
 
     return {
@@ -1226,6 +1297,7 @@ class PantryStore {
       lowStock: lowStock,
       expiringSoon: expiringSoon,
       expired: expired,
+      fresh: fresh,
       shoppingListCount: lowStock + expired
     };
   }
@@ -1246,12 +1318,14 @@ class PantryStore {
 
       const now = Date.now();
       const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+      const warnDays = this.fullSettings?.pantry_settings?.expiry_warning_days || 7;
 
       const expiringItems = [];
       const lowStockItems = [];
 
       items.forEach(item => {
-        const status = this.calculateStatus(item.expiryDate, item.quantity);
+        const threshold = item.minStock !== undefined && item.minStock !== null && !isNaN(Number(item.minStock)) ? Number(item.minStock) : 2;
+        const status = this.calculateStatus(item.expiryDate, item.quantity, threshold, warnDays);
         const lastSent = alertHistory[item.id] || 0;
         const needsAlert = force || (now - lastSent > ONE_DAY_MS);
 

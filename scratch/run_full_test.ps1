@@ -1,8 +1,8 @@
 $edge = 'C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe'
-$outFile = Join-Path $PSScriptRoot "test_output.html"
-$url = "file:///" + (Join-Path $PSScriptRoot "test_pantry_expiry.html").Replace('\', '/').Replace(' ', '%20')
+$outFile = Join-Path $PSScriptRoot "full_test_output.html"
+$url = "file:///" + (Join-Path $PSScriptRoot "run_full_self_test.html").Replace('\', '/').Replace(' ', '%20')
 
-$tempDir = Join-Path $env:TEMP "edge_test_profile_$([Guid]::NewGuid().ToString())"
+$tempDir = Join-Path $env:TEMP "edge_fulltest_profile_$([Guid]::NewGuid().ToString())"
 New-Item -ItemType Directory -Force -Path $tempDir | Out-Null
 
 $edgeArgs = @(
