@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+  <meta charset="UTF-8">
+  <title>Pantry Item Adding &amp; Expiry Test Suite</title>
+  <style>
+    body { font-family: monospace; background: #0f172a; color: #f8fafc; padding: 24px; }
+    h1 { color: #10b981; }
+    .test-card { background: #1e293b; border-radius: 8px; padding: 12px 16px; margin-bottom: 12px; border-left: 5px solid #64748b; }
+    .test-card.pass { border-left-color: #10b981; }
+    .test-card.fail { border-left-color: #ef4444; }
+    .badge-pass { background: #064e3b; color: #34d399; padding: 2px 8px; border-radius: 4px; font-weight: bold; }
+    .badge-fail { background: #7f1d1d; color: #f87171; padding: 2px 8px; border-radius: 4px; font-weight: bold; }
+    pre { margin: 8px 0 0; font-size: 12px; color: #cbd5e1; white-space: pre-wrap; }
+  </style>
+</head>
+<body>
+  <h1>🧪 IntelliPantry Item Adding, Expiry Engine &amp; Persistence Test</h1>
+  <div id="summary"><h2 style="color:#10b981">✅ ALL TESTS PASSED (7/7)</h2></div>
+  <div id="results"><div class="test-card pass">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <strong>[Date Parser] parseLocalDate handles ISO, slash, dash, dot, and ISO-T formats without century bugs</strong>
+          <span class="badge-pass">PASS</span>
+        </div>
+        <pre>{
+  "2026-09-25": "2026-09-24T18:30:00.000Z",
+  "25/09/2026": "2026-09-24T18:30:00.000Z",
+  "25-09-2026": "2026-09-24T18:30:00.000Z",
+  "25.09.2026": "2026-09-24T18:30:00.000Z",
+  "2026-09-25T14:30:00Z": "2026-09-24T18:30:00.000Z"
+}</pre>
+      </div><div class="test-card pass">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <strong>[Days Difference] getDaysDifference correctly calculates future (+5), past (-3), and 2-arg spans</strong>
+          <span class="badge-pass">PASS</span>
+        </div>
+        <pre>{
+  "diffFuture": 5,
+  "diffPast": -3,
+  "diffSpan": 5
+}</pre>
+      </div><div class="test-card pass">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <strong>[Status Engine] calculateStatus resolves Expired, Expiring Today, Expiring Soon, Fresh, and Low Stock</strong>
+          <span class="badge-pass">PASS</span>
+        </div>
+        <pre>{
+  "expired": "Expired",
+  "expiresToday": "Expiring Soon",
+  "expiringSoon": "Expiring Soon",
+  "fresh": "Fresh",
+  "lowStock": "Low Stock",
+  "noExpiryFresh": "Fresh",
+  "noExpiryLow": "Low Stock"
+}</pre>
+      </div><div class="test-card pass">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <strong>[Add Items] Successfully adds Fresh, Expiring, Expired, and Low Stock items with proper statuses</strong>
+          <span class="badge-pass">PASS</span>
+        </div>
+        <pre>{
+  "itemsCount": 4,
+  "itemStatuses": [
+    {
+      "name": "Canned Black Beans",
+      "status": "Low Stock",
+      "expiry": ""
+    },
+    {
+      "name": "Expired Greek Yogurt",
+      "status": "Expired",
+      "expiry": "2026-09-19"
+    },
+    {
+      "name": "Ripe Bananas",
+      "status": "Expiring Soon",
+      "expiry": "2026-09-25"
+    },
+    {
+      "name": "Fresh Whole Milk",
+      "status": "Fresh",
+      "expiry": "2026-10-05"
+    }
+  ]
+}</pre>
+      </div><div class="test-card pass">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <strong>[Expiry Persistence] Expired items are NEVER automatically deleted; they persist with Expired badge, alert notification &amp; metric inclusion</strong>
+          <span class="badge-pass">PASS</span>
+        </div>
+        <pre>{
+  "expiredItemPersisted": true,
+  "totalItems": 4,
+  "hasExpiredAlert": true,
+  "metrics": {
+    "total": 4,
+    "lowStock": 1,
+    "expiringSoon": 1,
+    "expired": 1,
+    "fresh": 1,
+    "shoppingListCount": 2
+  }
+}</pre>
+      </div><div class="test-card pass">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <strong>[UI Table Rendering] Inventory table correctly displays Expired badge and filters expired items</strong>
+          <span class="badge-pass">PASS</span>
+        </div>
+        <pre>{
+  "rowsCount": 1,
+  "renderedTextSnippet": "🥛 Expired Greek Yogurt Dairy 📍 Pantry 2 cups Min: 1 19 Sept 2026 Expired 4 days ago Expired ✏️ 🗑️"
+}</pre>
+      </div><div class="test-card pass">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <strong>[Manual Deletion] Items are deleted ONLY upon explicit user deletion, cleaning up associated alerts and logging activity</strong>
+          <span class="badge-pass">PASS</span>
+        </div>
+        <pre>{
+  "remainingItems": [
+    "Canned Black Beans",
+    "Ripe Bananas",
+    "Fresh Whole Milk"
+  ],
+  "associatedAlertsCleaned": true,
+  "deleteLogged": true
+}</pre>
+      </div></div>
+
+  <!-- Hidden DOM mocks required by store & components -->
+  <div style="display:none;">
+    <div id="toast-container"></div>
+    <div id="metricTotalItems">0</div>
+    <div id="metricExpiringSoon">0</div>
+    <div id="metricLowStock">0</div>
+    <div id="metricFreshItems">0</div>
+    <div id="metricShoppingList">0</div>
+    <table class="inv-table">
+      <tbody id="inventoryTableBody">
+      <tr data-id="f4030aca-f541-447a-a0a5-3da3ca1ff79c">
+        <td>
+          <div class="item-cell">
+            <div class="item-thumb">🥛</div>
+            <div>
+              <span style="font-weight: 700; color: #0f172a;">Expired Greek Yogurt</span>
+              
+              
+            </div>
+          </div>
+        </td>
+        <td style="color: #64748b;">
+          <span style="display:inline-flex; align-items:center; gap:6px;">
+            <img src="assets/categories/dairy.png" alt="" style="width: 20px; height: 18px; object-fit: contain; display: none;" onerror="this.style.display='none'">
+            <span>Dairy</span>
+          </span>
+          <div style="font-size:10.5px; color:#94a3b8; margin-top:2px;">📍 Pantry</div>
+        </td>
+        <td style="font-weight: 600;">
+          2 cups
+          <div style="font-size:10.5px; color:#94a3b8; font-weight:400;">Min: 1</div>
+        </td>
+        <td class="expiry-urgent">
+          <div style="display:flex; flex-direction:column; gap:2px;">
+            <span style="font-weight: 600;">19 Sept 2026</span>
+            <span style="font-size: 11px; font-weight: 700; color: #ef4444;">Expired 4 days ago</span>
+          </div>
+        </td>
+        <td>
+          <span class="badge-status status-expired">
+            Expired
+          </span>
+        </td>
+        <td style="text-align: right;">
+          <div style="display: flex; justify-content: flex-end; gap: 4px;">
+            <button class="action-dots-btn" onclick="openAddEditModal('f4030aca-f541-447a-a0a5-3da3ca1ff79c')" title="Edit Item">
+              ✏️
+            </button>
+            <button class="action-dots-btn" onclick="deletePantryItem('f4030aca-f541-447a-a0a5-3da3ca1ff79c')" title="Delete Item">
+              🗑️
+            </button>
+          </div>
+        </td>
+      </tr>
+    </tbody>
+    </table>
+    <span id="topbarAlertBadge" style="display: flex;">2</span>
+    <span id="welcomeUserName"></span>
+    <div id="userName"></div>
+    <div id="userAvatar"></div>
+    <div id="userMenuEmail"></div>
+  </div>
+
+  <script src="../js/supabase-config.js"></script>
+  <script src="../js/supabase.js"></script>
+  <script src="../js/store.js"></script>
+  <script src="../js/components.js"></script>
+
+  <script>
+    const testResults = [];
+
+    function recordTest(suite, name, passed, details) {
+      testResults.push({ suite, name, passed, details });
+      const resultsDiv = document.getElementById("results");
+      const card = document.createElement("div");
+      card.className = "test-card " + (passed ? "pass" : "fail");
+      card.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <strong>[${suite}] ${name}</strong>
+          <span class="${passed ? 'badge-pass' : 'badge-fail'}">${passed ? 'PASS' : 'FAIL'}</span>
+        </div>
+        <pre>${typeof details === 'object' ? JSON.stringify(details, null, 2) : details}</pre>
+      `;
+      resultsDiv.appendChild(card);
+    }
+
+    async function runTestSuite() {
+      console.log("=== STARTING PANTRY ADDING & EXPIRY TESTS ===");
+
+      // TEST 1: Date Parser Multi-Format Robustness
+      try {
+        const d1 = window.parseLocalDate("2026-09-25");
+        const d2 = window.parseLocalDate("25/09/2026");
+        const d3 = window.parseLocalDate("25-09-2026");
+        const d4 = window.parseLocalDate("25.09.2026");
+        const d5 = window.parseLocalDate("2026-09-25T14:30:00Z");
+
+        const allValid = [d1, d2, d3, d4, d5].every(d => 
+          d instanceof Date && 
+          !isNaN(d.getTime()) && 
+          d.getFullYear() === 2026 && 
+          d.getMonth() === 8 && 
+          d.getDate() === 25
+        );
+
+        recordTest("Date Parser", "parseLocalDate handles ISO, slash, dash, dot, and ISO-T formats without century bugs", allValid, {
+          "2026-09-25": d1?.toISOString(),
+          "25/09/2026": d2?.toISOString(),
+          "25-09-2026": d3?.toISOString(),
+          "25.09.2026": d4?.toISOString(),
+          "2026-09-25T14:30:00Z": d5?.toISOString()
+        });
+      } catch (e) {
+        recordTest("Date Parser", "Date parser error", false, e.message);
+      }
+
+      // TEST 2: getDaysDifference supporting 1 and 2 arguments
+      try {
+        const today = window.getTodayISO();
+        const future5 = window.getRelativeDateISO(5);
+        const past3 = window.getRelativeDateISO(-3);
+
+        const diff1 = window.getDaysDifference(future5); // 5 days from today
+        const diff2 = window.getDaysDifference(past3);   // -3 days from today
+        const diff3 = window.getDaysDifference(today, future5); // 5 days between today and future5
+
+        const daysOk = (diff1 === 5 && diff2 === -3 && diff3 === 5);
+        recordTest("Days Difference", "getDaysDifference correctly calculates future (+5), past (-3), and 2-arg spans", daysOk, {
+          diffFuture: diff1,
+          diffPast: diff2,
+          diffSpan: diff3
+        });
+      } catch (e) {
+        recordTest("Days Difference", "Days difference error", false, e.message);
+      }
+
+      // TEST 3: Expiry Status Calculation
+      try {
+        const expired = window.store.calculateStatus(window.getRelativeDateISO(-2), 5, 2);
+        const expiresToday = window.store.calculateStatus(window.getTodayISO(), 5, 2);
+        const expiringSoon = window.store.calculateStatus(window.getRelativeDateISO(3), 5, 2);
+        const fresh = window.store.calculateStatus(window.getRelativeDateISO(15), 5, 2);
+        const lowStock = window.store.calculateStatus(window.getRelativeDateISO(15), 1, 2);
+        const noExpiryFresh = window.store.calculateStatus("", 5, 2);
+        const noExpiryLow = window.store.calculateStatus("", 1, 2);
+
+        const statusMatch = (
+          expired === "Expired" &&
+          expiresToday === "Expiring Soon" &&
+          expiringSoon === "Expiring Soon" &&
+          fresh === "Fresh" &&
+          lowStock === "Low Stock" &&
+          noExpiryFresh === "Fresh" &&
+          noExpiryLow === "Low Stock"
+        );
+
+        recordTest("Status Engine", "calculateStatus resolves Expired, Expiring Today, Expiring Soon, Fresh, and Low Stock", statusMatch, {
+          expired, expiresToday, expiringSoon, fresh, lowStock, noExpiryFresh, noExpiryLow
+        });
+      } catch (e) {
+        recordTest("Status Engine", "Status calculation error", false, e.message);
+      }
+
+      // TEST 4: Adding Items (Fresh, Expiring Soon, Expired, and No Expiry)
+      try {
+        window.store.clearAll();
+
+        const item1 = await window.store.addItem({
+          name: "Fresh Whole Milk",
+          category: "Dairy",
+          quantity: 3,
+          unit: "L",
+          expiryDate: window.getRelativeDateISO(12),
+          minStock: 1
+        });
+
+        const item2 = await window.store.addItem({
+          name: "Ripe Bananas",
+          category: "Fruits",
+          quantity: 6,
+          unit: "pcs",
+          expiryDate: window.getRelativeDateISO(2),
+          minStock: 2
+        });
+
+        const item3 = await window.store.addItem({
+          name: "Expired Greek Yogurt",
+          category: "Dairy",
+          quantity: 2,
+          unit: "cups",
+          expiryDate: window.getRelativeDateISO(-4), // Already expired 4 days ago!
+          minStock: 1
+        });
+
+        const item4 = await window.store.addItem({
+          name: "Canned Black Beans",
+          category: "Pantry",
+          quantity: 1,
+          unit: "can",
+          expiryDate: "", // No expiry
+          minStock: 2
+        });
+
+        const allItems = window.store.getItems();
+        const addingSuccess = (
+          allItems.length === 4 &&
+          allItems.some(i => i.name === "Fresh Whole Milk" && i.status === "Fresh") &&
+          allItems.some(i => i.name === "Ripe Bananas" && i.status === "Expiring Soon") &&
+          allItems.some(i => i.name === "Expired Greek Yogurt" && i.status === "Expired") &&
+          allItems.some(i => i.name === "Canned Black Beans" && i.status === "Low Stock")
+        );
+
+        recordTest("Add Items", "Successfully adds Fresh, Expiring, Expired, and Low Stock items with proper statuses", addingSuccess, {
+          itemsCount: allItems.length,
+          itemStatuses: allItems.map(i => ({ name: i.name, status: i.status, expiry: i.expiryDate }))
+        });
+      } catch (e) {
+        recordTest("Add Items", "Error adding items", false, e.message);
+      }
+
+      // TEST 5: CRITICAL REQUIREMENT - EXPIRED ITEMS MUST NOT BE DELETED!
+      try {
+        const itemsBefore = window.store.getItems();
+        const expiredItemBefore = itemsBefore.find(i => i.name === "Expired Greek Yogurt");
+
+        // Run syncAlertsFromPantry, saveItems, getMetrics multiple times
+        window.store.syncAlertsFromPantry();
+        window.store.saveItems(window.store.getItems());
+        const metrics = window.store.getMetrics();
+        const alerts = window.store.getAlerts();
+
+        const itemsAfter = window.store.getItems();
+        const expiredItemAfter = itemsAfter.find(i => i.name === "Expired Greek Yogurt");
+
+        // Verify expired item STILL exists in inventory
+        const notDeleted = (
+          expiredItemBefore !== undefined &&
+          expiredItemAfter !== undefined &&
+          itemsAfter.length === 4 &&
+          expiredItemAfter.status === "Expired"
+        );
+
+        // Verify expired item created an alert
+        const hasExpiredAlert = alerts.some(a => 
+          a.product_id === expiredItemAfter.id && 
+          a.title === "Product Expired" && 
+          a.message.includes("Expired Greek Yogurt")
+        );
+
+        // Verify metrics
+        const metricsAccurate = (
+          metrics.total === 4 &&
+          metrics.expired === 1 &&
+          metrics.expiringSoon === 1 &&
+          metrics.lowStock === 1 &&
+          metrics.fresh === 1
+        );
+
+        recordTest(
+          "Expiry Persistence",
+          "Expired items are NEVER automatically deleted; they persist with Expired badge, alert notification & metric inclusion",
+          notDeleted && hasExpiredAlert && metricsAccurate,
+          {
+            expiredItemPersisted: Boolean(expiredItemAfter),
+            totalItems: itemsAfter.length,
+            hasExpiredAlert,
+            metrics
+          }
+        );
+      } catch (e) {
+        recordTest("Expiry Persistence", "Error verifying expiry persistence", false, e.message);
+      }
+
+      // TEST 6: Table Rendering & Expired Filter Tab
+      try {
+        window.setCategoryFilter("All");
+        window.setStatusFilter("Expired");
+
+        const tbody = document.getElementById("inventoryTableBody");
+        const rows = tbody.querySelectorAll("tr[data-id]");
+        
+        const filterWorks = (
+          rows.length === 1 && 
+          tbody.textContent.includes("Expired Greek Yogurt") &&
+          tbody.innerHTML.includes("status-expired")
+        );
+
+        recordTest("UI Table Rendering", "Inventory table correctly displays Expired badge and filters expired items", filterWorks, {
+          rowsCount: rows.length,
+          renderedTextSnippet: tbody.textContent.trim().replace(/\s+/g, ' ').substring(0, 150)
+        });
+      } catch (e) {
+        recordTest("UI Table Rendering", "Table rendering error", false, e.message);
+      }
+
+      // TEST 7: Manual Deletion Only
+      try {
+        const items = window.store.getItems();
+        const expiredItem = items.find(i => i.name === "Expired Greek Yogurt");
+        
+        // Explicit manual delete call
+        await window.store.deleteItem(expiredItem.id);
+
+        const itemsAfterDelete = window.store.getItems();
+        const deletedAlerts = window.store.getAlerts().filter(a => a.product_id === expiredItem.id);
+        const activities = window.store.getActivity();
+        const deleteLogged = activities.some(a => a.action === 'deleted' && a.product_name === "Expired Greek Yogurt");
+
+        const manualDeleteOk = (
+          itemsAfterDelete.length === 3 &&
+          !itemsAfterDelete.some(i => i.id === expiredItem.id) &&
+          deletedAlerts.length === 0 &&
+          deleteLogged
+        );
+
+        recordTest(
+          "Manual Deletion",
+          "Items are deleted ONLY upon explicit user deletion, cleaning up associated alerts and logging activity",
+          manualDeleteOk,
+          {
+            remainingItems: itemsAfterDelete.map(i => i.name),
+            associatedAlertsCleaned: deletedAlerts.length === 0,
+            deleteLogged
+          }
+        );
+      } catch (e) {
+        recordTest("Manual Deletion", "Manual deletion error", false, e.message);
+      }
+
+      // Final summary
+      const passedCount = testResults.filter(t => t.passed).length;
+      const totalCount = testResults.length;
+      const allPassed = passedCount === totalCount;
+      const summaryDiv = document.getElementById("summary");
+      summaryDiv.innerHTML = `<h2 style="color:${allPassed ? '#10b981' : '#ef4444'}">${allPassed ? '✅ ALL TESTS PASSED' : '❌ SOME TESTS FAILED'} (${passedCount}/${totalCount})</h2>`;
+      console.log(`=== TEST COMPLETE: ${passedCount}/${totalCount} PASSED ===`);
+      window.__TEST_COMPLETE__ = true;
+      window.__ALL_PASSED__ = allPassed;
+      window.__TEST_RESULTS__ = testResults;
+    }
+
+    window.addEventListener("DOMContentLoaded", runTestSuite);
+  </script>
+
+
+</body></html>
