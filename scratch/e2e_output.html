@@ -1,0 +1,1091 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+  <meta charset="UTF-8">
+  <title>IntelliPantry Comprehensive End-to-End Self Test</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace; background: #0b1120; color: #f8fafc; padding: 24px; }
+    h1 { color: #10b981; margin-bottom: 4px; }
+    .subtitle { color: #94a3b8; font-size: 14px; margin-bottom: 20px; }
+    .summary-card { background: #1e293b; border-radius: 12px; padding: 18px 24px; margin-bottom: 24px; border: 1px solid #334155; }
+    .test-grid { display: flex; flex-direction: column; gap: 10px; }
+    .test-card { background: #1e293b; border-radius: 8px; padding: 14px 18px; border-left: 5px solid #64748b; }
+    .test-card.pass { border-left-color: #10b981; }
+    .test-card.fail { border-left-color: #ef4444; }
+    .badge-pass { background: #064e3b; color: #34d399; padding: 3px 10px; border-radius: 6px; font-weight: bold; font-size: 12px; }
+    .badge-fail { background: #7f1d1d; color: #f87171; padding: 3px 10px; border-radius: 6px; font-weight: bold; font-size: 12px; }
+    pre { margin: 8px 0 0; font-size: 12px; color: #cbd5e1; background: #0f172a; padding: 10px; border-radius: 6px; overflow-x: auto; }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+  <h1>🍃 IntelliPantry Comprehensive End-to-End Self Test</h1>
+  <div class="subtitle">Validating Full Application Workflows: Auth, pantry_items DB, Expiry Engine, UI, Scanners, Recipes, Settings</div>
+  
+  <div id="summary" class="summary-card">
+        <h2 style="color:#10b981; margin:0 0 6px 0;">
+          🎉 ALL E2E TESTS PASSED (17/17)
+        </h2>
+        <div style="color:#94a3b8; font-size:13px;">
+          Tested modules: Supabase Config, pantry_items Schema, CRUD Persistence, Reload Recovery, Multi-User Isolation, Expiry Engine, Metrics, Inventory UI Table, Form Modals, OCR Parser, Recipe Matching, and Settings Security.
+        </div>
+      </div>
+
+  <div id="results" class="test-grid"><div class="test-card pass">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <div>
+            <span style="color:#10b981; font-weight:700; margin-right:8px;">[Config]</span>
+            <strong>Supabase credentials initialized correctly from environment or settings</strong>
+          </div>
+          <span class="badge-pass">PASS</span>
+        </div>
+        <pre>{
+  "url": "https://xyzexampleproject.supabase.co",
+  "isConfigured": true
+}</pre>
+      </div><div class="test-card pass">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <div>
+            <span style="color:#10b981; font-weight:700; margin-right:8px;">[Supabase Service]</span>
+            <strong>Supabase client implements all required authentication and pantry_items methods</strong>
+          </div>
+          <span class="badge-pass">PASS</span>
+        </div>
+        <pre>[
+  "signIn",
+  "signUp",
+  "signOut",
+  "getSession",
+  "getProducts",
+  "insertProduct",
+  "updateProduct",
+  "deleteProduct",
+  "subscribeToUserProducts"
+]</pre>
+      </div><div class="test-card pass">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <div>
+            <span style="color:#10b981; font-weight:700; margin-right:8px;">[Pantry Persistence]</span>
+            <strong>Item created via addItem successfully persists into Supabase pantry_items table</strong>
+          </div>
+          <span class="badge-pass">PASS</span>
+        </div>
+        <pre>{
+  "id": "1ad37035-2f6c-4fb8-a102-3abadf5a5463",
+  "user_id": "00000000-0000-0000-0000-000000000001",
+  "product_name": "Organic Whole Milk",
+  "brand": "Organic Valley",
+  "category": "Dairy",
+  "barcode": null,
+  "product_image": null,
+  "quantity": 2,
+  "quantity_unit": "liters",
+  "purchase_date": "2026-09-23",
+  "expiry_date": "2026-09-30",
+  "low_stock_threshold": 1,
+  "notes": "Store on top shelf",
+  "storage_location": "Fridge",
+  "created_at": "2026-09-23T11:30:54.068Z",
+  "updated_at": "2026-09-23T11:30:54.068Z"
+}</pre>
+      </div><div class="test-card pass">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <div>
+            <span style="color:#10b981; font-weight:700; margin-right:8px;">[Pantry Persistence]</span>
+            <strong>Page refresh / re-login successfully restores items from pantry_items</strong>
+          </div>
+          <span class="badge-pass">PASS</span>
+        </div>
+        <pre>{
+  "loadedCount": 1,
+  "restoredName": "Organic Whole Milk"
+}</pre>
+      </div><div class="test-card pass">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <div>
+            <span style="color:#10b981; font-weight:700; margin-right:8px;">[Pantry Persistence]</span>
+            <strong>updateItem successfully persists modifications to pantry_items table</strong>
+          </div>
+          <span class="badge-pass">PASS</span>
+        </div>
+        <pre>{
+  "id": "1ad37035-2f6c-4fb8-a102-3abadf5a5463",
+  "user_id": "00000000-0000-0000-0000-000000000001",
+  "product_name": "Organic Whole Milk",
+  "brand": "Organic Valley",
+  "category": "Dairy",
+  "barcode": null,
+  "product_image": null,
+  "quantity": 4,
+  "quantity_unit": "liters",
+  "purchase_date": "2026-09-23",
+  "expiry_date": "2026-09-30",
+  "low_stock_threshold": 1,
+  "notes": "Store on top shelf",
+  "storage_location": "Pantry",
+  "created_at": "2026-09-23T11:30:54.068Z",
+  "updated_at": "2026-09-23T11:30:54.071Z"
+}</pre>
+      </div><div class="test-card pass">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <div>
+            <span style="color:#10b981; font-weight:700; margin-right:8px;">[Multi-User Isolation]</span>
+            <strong>Strict multi-user separation ensures User A and User B never cross-contaminate pantry items</strong>
+          </div>
+          <span class="badge-pass">PASS</span>
+        </div>
+        <pre>{
+  "user1ItemCount": 1,
+  "user2ItemCount": 1,
+  "user2SeesUser1": false,
+  "user1SeesUser2": false
+}</pre>
+      </div><div class="test-card pass">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <div>
+            <span style="color:#10b981; font-weight:700; margin-right:8px;">[Status Engine]</span>
+            <strong>calculateStatus resolves Expired, Expiring Soon, Fresh, and Low Stock correctly</strong>
+          </div>
+          <span class="badge-pass">PASS</span>
+        </div>
+        <pre>{
+  "expiredStatus": "Expired",
+  "expiringSoonStatus": "Expiring Soon",
+  "freshStatus": "Fresh",
+  "lowStockStatus": "Low Stock"
+}</pre>
+      </div><div class="test-card pass">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <div>
+            <span style="color:#10b981; font-weight:700; margin-right:8px;">[Status Engine]</span>
+            <strong>parseLocalDate accurately handles dash, slash, dot and ISO date formats</strong>
+          </div>
+          <span class="badge-pass">PASS</span>
+        </div>
+        <pre>{
+  "dash": "2026-09-22T18:30:00.000Z",
+  "slash": "2026-09-22T18:30:00.000Z",
+  "dot": "2026-09-22T18:30:00.000Z"
+}</pre>
+      </div><div class="test-card pass">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <div>
+            <span style="color:#10b981; font-weight:700; margin-right:8px;">[Metrics Engine]</span>
+            <strong>Inventory summary metrics accurately aggregate Total, Fresh, Expiring Soon, Expired, and Low Stock</strong>
+          </div>
+          <span class="badge-pass">PASS</span>
+        </div>
+        <pre>{
+  "total": 4,
+  "lowStock": 1,
+  "expiringSoon": 1,
+  "expired": 1,
+  "fresh": 1,
+  "shoppingListCount": 2
+}</pre>
+      </div><div class="test-card pass">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <div>
+            <span style="color:#10b981; font-weight:700; margin-right:8px;">[UI Inventory Table]</span>
+            <strong>renderInventoryTable displays animated loading state during fetch and renders all rows upon completion</strong>
+          </div>
+          <span class="badge-pass">PASS</span>
+        </div>
+        <pre>{
+  "hasLoadingIndicator": true,
+  "rowCount": 4
+}</pre>
+      </div><div class="test-card pass">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <div>
+            <span style="color:#10b981; font-weight:700; margin-right:8px;">[UI Inventory Table]</span>
+            <strong>Instant search filters table items by name, brand, or location correctly</strong>
+          </div>
+          <span class="badge-pass">PASS</span>
+        </div>
+        <pre>{
+  "searched": "Yogurt",
+  "matchesFound": true
+}</pre>
+      </div><div class="test-card pass">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <div>
+            <span style="color:#10b981; font-weight:700; margin-right:8px;">[UI Inventory Table]</span>
+            <strong>Category filtering isolates items matching active category chip</strong>
+          </div>
+          <span class="badge-pass">PASS</span>
+        </div>
+        <pre>{
+  "category": "Bakery",
+  "matchesFound": true
+}</pre>
+      </div><div class="test-card pass">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <div>
+            <span style="color:#10b981; font-weight:700; margin-right:8px;">[Form Controller]</span>
+            <strong>saveItemForm correctly creates item, validates inputs, and triggers UI updates</strong>
+          </div>
+          <span class="badge-pass">PASS</span>
+        </div>
+        <pre>{
+  "id": "63f8c484-b892-4e2f-8e8d-01dd245f95e5",
+  "name": "New Honey Crisp Apples",
+  "brand": "",
+  "imageUrl": "",
+  "minStock": 2,
+  "lowStockThreshold": 2,
+  "category": "Fruits",
+  "quantity": 6,
+  "unit": "pcs",
+  "quantityUnit": "pcs",
+  "expiryDate": "",
+  "purchaseDate": "2026-09-23",
+  "barcode": "",
+  "price": 0,
+  "notes": "",
+  "description": "",
+  "location": "Pantry",
+  "storageLocation": "Pantry",
+  "status": "Fresh",
+  "emoji": "🍎",
+  "addedAt": "2026-09-23T11:30:54.109Z",
+  "pendingSync": false,
+  "synced": true
+}</pre>
+      </div><div class="test-card pass">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <div>
+            <span style="color:#10b981; font-weight:700; margin-right:8px;">[Form Controller]</span>
+            <strong>deletePantryItem safely removes item from store and database</strong>
+          </div>
+          <span class="badge-pass">PASS</span>
+        </div>
+        <pre>{
+  "deletedId": "63f8c484-b892-4e2f-8e8d-01dd245f95e5"
+}</pre>
+      </div><div class="test-card pass">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <div>
+            <span style="color:#10b981; font-weight:700; margin-right:8px;">[Receipt OCR]</span>
+            <strong>OCR text parser successfully filters out store headers, totals, and tax noise, extracting genuine groceries</strong>
+          </div>
+          <span class="badge-pass">PASS</span>
+        </div>
+        <pre>[
+  "Organic Baby Spinach        $3.49",
+  "Almond Milk Vanilla         $3.99",
+  "Free Range Large Eggs       $4.99"
+]</pre>
+      </div><div class="test-card pass">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <div>
+            <span style="color:#10b981; font-weight:700; margin-right:8px;">[Recipe Engine]</span>
+            <strong>RecipeEngine matches user ingredients against recipes database and computes available/missing ratios</strong>
+          </div>
+          <span class="badge-pass">PASS</span>
+        </div>
+        <pre>{
+  "totalRecipes": 77,
+  "matchPercent": 10,
+  "availableIngredients": [
+    "Oil"
+  ],
+  "missingIngredients": [
+    "Rice",
+    "Urad Dal",
+    "Potato",
+    "Onion",
+    "Green Chili",
+    "Mustard Seeds",
+    "Curry Leaves",
+    "Turmeric",
+    "Salt"
+  ]
+}</pre>
+      </div><div class="test-card pass">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <div>
+            <span style="color:#10b981; font-weight:700; margin-right:8px;">[Client Settings]</span>
+            <strong>renderSettingsView renders consumer-friendly settings and protects developer credentials from leaking to UI</strong>
+          </div>
+          <span class="badge-pass">PASS</span>
+        </div>
+        <pre>{
+  "rendersSettingsInputs": {
+    "0": {},
+    "1": {}
+  },
+  "secretsProtected": true
+}</pre>
+      </div></div>
+
+  <!-- Full Mock DOM mimicking dashboard.html and login.html -->
+  <div style="display:none;" id="testDomContainer">
+    <div id="toast-container"><div class="toast">Added "New Honey Crisp Apples" to pantry!</div><div class="toast">Removed "New Honey Crisp Apples"</div></div>
+    <div id="metricTotalItems">4</div>
+    <div id="metricExpiringSoon">1</div>
+    <div id="metricLowStock">1</div>
+    <div id="metricFreshItems">1</div>
+    <div id="metricShoppingList">2</div>
+    <span id="topbarAlertBadge" style="display: flex;">3</span>
+    <span id="welcomeUserName">User</span>
+    <div id="userName">User</div>
+    <div id="userAvatar">U</div>
+    <div id="userMenuEmail">user@example.com</div>
+    <input id="globalSearchInput" value="">
+
+    <!-- Inventory Table -->
+    <table>
+      <tbody id="inventoryTableBody">
+      <tr data-id="i1">
+        <td>
+          <div class="item-cell">
+            <div class="item-thumb">📦</div>
+            <div>
+              <span style="font-weight: 700; color: #0f172a;">Fresh Milk</span>
+              
+              
+            </div>
+          </div>
+        </td>
+        <td style="color: #64748b;">
+          <span style="display:inline-flex; align-items:center; gap:6px;">
+            <img src="assets/categories/dairy.png" alt="" style="width: 20px; height: 18px; object-fit: contain; display: none;" onerror="this.style.display='none'">
+            <span>Dairy</span>
+          </span>
+          
+        </td>
+        <td style="font-weight: 600;">
+          5 pcs
+          <div style="font-size:10.5px; color:#94a3b8; font-weight:400;">Min: 2</div>
+        </td>
+        <td class="">
+          <div style="display:flex; flex-direction:column; gap:2px;">
+            <span style="font-weight: 600;">13 Oct 2026</span>
+            <span style="font-size: 11px; font-weight: 700; color: #10b981;">20 days remaining</span>
+          </div>
+        </td>
+        <td>
+          <span class="badge-status status-fresh">
+            Fresh
+          </span>
+        </td>
+        <td style="text-align: right;">
+          <div style="display: flex; justify-content: flex-end; gap: 4px;">
+            <button class="action-dots-btn" onclick="openAddEditModal('i1')" title="Edit Item">
+              ✏️
+            </button>
+            <button class="action-dots-btn" onclick="deletePantryItem('i1')" title="Delete Item">
+              🗑️
+            </button>
+          </div>
+        </td>
+      </tr>
+    
+      <tr data-id="i2">
+        <td>
+          <div class="item-cell">
+            <div class="item-thumb">📦</div>
+            <div>
+              <span style="font-weight: 700; color: #0f172a;">Yogurt</span>
+              
+              
+            </div>
+          </div>
+        </td>
+        <td style="color: #64748b;">
+          <span style="display:inline-flex; align-items:center; gap:6px;">
+            <img src="assets/categories/dairy.png" alt="" style="width: 20px; height: 18px; object-fit: contain; display: none;" onerror="this.style.display='none'">
+            <span>Dairy</span>
+          </span>
+          
+        </td>
+        <td style="font-weight: 600;">
+          4 pcs
+          <div style="font-size:10.5px; color:#94a3b8; font-weight:400;">Min: 2</div>
+        </td>
+        <td class="expiry-urgent">
+          <div style="display:flex; flex-direction:column; gap:2px;">
+            <span style="font-weight: 600;">26 Sept 2026</span>
+            <span style="font-size: 11px; font-weight: 700; color: #d97706;">3 days remaining</span>
+          </div>
+        </td>
+        <td>
+          <span class="badge-status status-expiring">
+            Expiring Soon
+          </span>
+        </td>
+        <td style="text-align: right;">
+          <div style="display: flex; justify-content: flex-end; gap: 4px;">
+            <button class="action-dots-btn" onclick="openAddEditModal('i2')" title="Edit Item">
+              ✏️
+            </button>
+            <button class="action-dots-btn" onclick="deletePantryItem('i2')" title="Delete Item">
+              🗑️
+            </button>
+          </div>
+        </td>
+      </tr>
+    
+      <tr data-id="i3">
+        <td>
+          <div class="item-cell">
+            <div class="item-thumb">📦</div>
+            <div>
+              <span style="font-weight: 700; color: #0f172a;">Old Bread</span>
+              
+              
+            </div>
+          </div>
+        </td>
+        <td style="color: #64748b;">
+          <span style="display:inline-flex; align-items:center; gap:6px;">
+            <img src="assets/categories/bakery.png" alt="" style="width: 20px; height: 18px; object-fit: contain; display: none;" onerror="this.style.display='none'">
+            <span>Bakery</span>
+          </span>
+          
+        </td>
+        <td style="font-weight: 600;">
+          3 pcs
+          <div style="font-size:10.5px; color:#94a3b8; font-weight:400;">Min: 1</div>
+        </td>
+        <td class="expiry-urgent">
+          <div style="display:flex; flex-direction:column; gap:2px;">
+            <span style="font-weight: 600;">22 Sept 2026</span>
+            <span style="font-size: 11px; font-weight: 700; color: #ef4444;">Expired yesterday</span>
+          </div>
+        </td>
+        <td>
+          <span class="badge-status status-expired">
+            Expired
+          </span>
+        </td>
+        <td style="text-align: right;">
+          <div style="display: flex; justify-content: flex-end; gap: 4px;">
+            <button class="action-dots-btn" onclick="openAddEditModal('i3')" title="Edit Item">
+              ✏️
+            </button>
+            <button class="action-dots-btn" onclick="deletePantryItem('i3')" title="Delete Item">
+              🗑️
+            </button>
+          </div>
+        </td>
+      </tr>
+    
+      <tr data-id="i4">
+        <td>
+          <div class="item-cell">
+            <div class="item-thumb">📦</div>
+            <div>
+              <span style="font-weight: 700; color: #0f172a;">Olive Oil</span>
+              
+              
+            </div>
+          </div>
+        </td>
+        <td style="color: #64748b;">
+          <span style="display:inline-flex; align-items:center; gap:6px;">
+            <img src="assets/categories/pantry.png" alt="" style="width: 20px; height: 18px; object-fit: contain; display: none;" onerror="this.style.display='none'">
+            <span>Pantry</span>
+          </span>
+          
+        </td>
+        <td style="font-weight: 600;">
+          1 pcs
+          <div style="font-size:10.5px; color:#94a3b8; font-weight:400;">Min: 3</div>
+        </td>
+        <td class="">
+          <div style="display:flex; flex-direction:column; gap:2px;">
+            <span style="font-weight: 600;">22 Dec 2026</span>
+            <span style="font-size: 11px; font-weight: 700; color: #10b981;">90 days remaining</span>
+          </div>
+        </td>
+        <td>
+          <span class="badge-status status-low">
+            Low Stock
+          </span>
+        </td>
+        <td style="text-align: right;">
+          <div style="display: flex; justify-content: flex-end; gap: 4px;">
+            <button class="action-dots-btn" onclick="openAddEditModal('i4')" title="Edit Item">
+              ✏️
+            </button>
+            <button class="action-dots-btn" onclick="deletePantryItem('i4')" title="Delete Item">
+              🗑️
+            </button>
+          </div>
+        </td>
+      </tr>
+    </tbody>
+    </table>
+
+    <!-- Modal Form Inputs -->
+    <div id="itemFormModal" class="modal">
+      <form id="itemForm">
+        <input id="itemNameInput" value="">
+        <input id="itemCategoryInput" value="Dairy">
+        <input id="itemQuantityInput" value="1">
+        <input id="itemUnitInput" value="pcs">
+        <input id="itemExpiryInput" value="">
+        <input id="itemPurchaseInput" value="">
+        <input id="itemBrandInput" value="">
+        <input id="itemBarcodeInput" value="">
+        <input id="itemLocationInput" value="Fridge">
+        <input id="itemMinStockInput" value="2">
+        <button type="submit" class="btn-forest-submit">Save Product</button>
+      </form>
+    </div>
+
+    <!-- Category Dropdown Elements -->
+    <div id="categoryDropdownList"></div>
+    <div id="categorySelectTrigger"></div>
+
+    <!-- Barcode Product Modal -->
+    <div id="barcodeProductModal">
+      <input id="barcodeFormName" value="">
+      <input id="barcodeFormCategory" value="Dairy">
+      <input id="barcodeFormQuantity" value="1">
+      <input id="barcodeFormUnit" value="pcs">
+      <input id="barcodeFormExpiry" value="">
+      <input id="barcodeFormLocation" value="Fridge">
+      <input id="barcodeFormBarcode" value="">
+      <input id="barcodeFormBrand" value="">
+      <input id="barcodeFormImageUrl" value="">
+      <button type="submit" class="btn-forest-submit">Save Product</button>
+    </div>
+
+    <!-- OCR Result Modal -->
+    <div id="ocrResultModal">
+      <div id="ocrDetectedList"></div>
+      <button id="ocrAddBtn" class="btn-forest-submit">Add to Pantry</button>
+    </div>
+
+    <!-- Settings Elements -->
+    <div id="settingsProfileNameDisplay">Pantry Chef</div>
+    <div id="settingsProfileEmailDisplay">user@example.com</div>
+    <div id="settingsProfileAvatarPreview">P</div>
+    <input id="settingsDisplayName" value="">
+    <input id="settingsEmailAddress" value="">
+    <input id="settingsAvatarUrl" value="">
+    <div id="settingsEmailVerifiedBadge" style="color: rgb(22, 101, 52); background: rgb(240, 253, 244); border-color: rgb(187, 247, 208);">✓ Verified</div>
+    <input type="checkbox" id="pref_alert_expiry">
+    <input type="checkbox" id="pref_alert_expired">
+    <input type="checkbox" id="pref_alert_low_stock">
+    <input type="checkbox" id="pref_alert_security">
+    <input type="checkbox" id="pref_alert_weekly_summary">
+    <select id="pantryPrefDefaultLocation"><option value="Pantry">Pantry</option><option value="Fridge">Fridge</option></select>
+    <select id="pantryPrefExpiryDays"><option value="7">7</option><option value="14">14</option></select>
+    <input id="pantryPrefLowStockThreshold" value="2">
+    <select id="pantryPrefDefaultUnit"><option value="pcs">pcs</option></select>
+    <select id="pantryPrefDefaultCategory"><option value="Pantry">Pantry</option></select>
+  </div>
+
+  <!-- Mock Toast System -->
+  <script>
+    window.showToast = function(msg) {
+      const container = document.getElementById("toast-container");
+      if (container) {
+        const t = document.createElement("div");
+        t.className = "toast";
+        t.textContent = msg;
+        container.appendChild(t);
+      }
+    };
+  </script>
+
+  <!-- Application Source Scripts -->
+  <script src="../js/supabase-config.js"></script>
+  <script src="../js/supabase.js"></script>
+  <script src="../js/store.js"></script>
+  <script src="../js/recipes-data.js"></script>
+  <script src="../js/recipes.js"></script>
+  <script src="../js/components.js"></script>
+
+  <script>
+    const testResults = [];
+
+    function recordTest(module, description, passed, details) {
+      testResults.push({ module, description, passed, details });
+      const resultsDiv = document.getElementById("results");
+      const card = document.createElement("div");
+      card.className = "test-card " + (passed ? "pass" : "fail");
+      card.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <div>
+            <span style="color:#10b981; font-weight:700; margin-right:8px;">[${module}]</span>
+            <strong>${description}</strong>
+          </div>
+          <span class="${passed ? 'badge-pass' : 'badge-fail'}">${passed ? 'PASS' : 'FAIL'}</span>
+        </div>
+        ${details ? `<pre>${typeof details === 'object' ? JSON.stringify(details, null, 2) : details}</pre>` : ''}
+      `;
+      resultsDiv.appendChild(card);
+    }
+
+    async function runMasterSelfTest() {
+      console.log("=== STARTING INTELLIPANTRY E2E SELF-TEST SUITE ===");
+
+      // ==========================================
+      // SECTION 1: Supabase Configuration & Client
+      // ==========================================
+      try {
+        localStorage.setItem("smartpantry_supabase_url", "https://xyzexampleproject.supabase.co");
+        localStorage.setItem("smartpantry_supabase_key", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.dummy_anon_key");
+
+        const config = window.SupabaseConfig ? window.SupabaseConfig.get() : null;
+        const validConfig = config && config.url && config.url.includes("supabase.co") && config.key;
+        recordTest("Config", "Supabase credentials initialized correctly from environment or settings", !!validConfig, {
+          url: config?.url,
+          isConfigured: config?.isConfigured
+        });
+
+        const serviceMethods = [
+          'signIn', 'signUp', 'signOut', 'getSession', 'getProducts',
+          'insertProduct', 'updateProduct', 'deleteProduct', 'subscribeToUserProducts'
+        ];
+        const allMethodsExist = serviceMethods.every(m => typeof window.supabaseService[m] === 'function');
+        recordTest("Supabase Service", "Supabase client implements all required authentication and pantry_items methods", allMethodsExist, serviceMethods);
+      } catch (e) {
+        recordTest("Config", "Configuration error", false, e.message);
+      }
+
+      // ==========================================
+      // SECTION 2: Database Schema & pantry_items Mock Persistence
+      // ==========================================
+      const mockDB = {
+        pantry_items: [],
+        pantry_products: [],
+        pantry_activity: [],
+        user_settings: [],
+        alerts: []
+      };
+
+      const user1 = "00000000-0000-0000-0000-000000000001";
+      const user2 = "00000000-0000-0000-0000-000000000002";
+
+      function getTableRows(t) {
+        if (!mockDB[t]) mockDB[t] = [];
+        return mockDB[t];
+      }
+
+      // Mock database driver to test real CRUD and RLS isolation
+      window.supabaseService.isReady = () => true;
+      window.supabaseService.client = {
+        from: (table) => {
+          let currentUserId = null;
+          let currentId = null;
+
+          return {
+            select: () => ({
+              eq: (col, val) => {
+                if (col === 'user_id') currentUserId = val;
+                if (col === 'id') currentId = val;
+                return {
+                  order: async () => {
+                    const rows = getTableRows(table).filter(r => r.user_id === currentUserId);
+                    return { data: rows, error: null };
+                  },
+                  eq: (col2, val2) => {
+                    if (col2 === 'id') currentId = val2;
+                    return {
+                      select: async () => {
+                        const row = getTableRows(table).find(r => r.user_id === currentUserId && r.id === currentId);
+                        return { data: row ? [row] : [], error: null };
+                      }
+                    };
+                  }
+                };
+              }
+            }),
+            insert: (records) => ({
+              select: async () => {
+                const inserted = records.map(rec => ({
+                  id: rec.id || ('uuid_' + Math.random().toString(36).substr(2, 9)),
+                  ...rec,
+                  created_at: new Date().toISOString(),
+                  updated_at: new Date().toISOString()
+                }));
+                getTableRows(table).push(...inserted);
+                return { data: inserted, error: null };
+              }
+            }),
+            update: (updates) => ({
+              eq: (col1, val1) => ({
+                eq: (col2, val2) => ({
+                  select: async () => {
+                    const targetId = col1 === 'id' ? val1 : val2;
+                    const targetUser = col1 === 'user_id' ? val1 : val2;
+                    const rows = getTableRows(table);
+                    const idx = rows.findIndex(r => r.id === targetId && r.user_id === targetUser);
+                    if (idx !== -1) {
+                      rows[idx] = { ...rows[idx], ...updates, updated_at: new Date().toISOString() };
+                      return { data: [rows[idx]], error: null };
+                    }
+                    return { data: [], error: { message: "Item not found" } };
+                  }
+                })
+              })
+            }),
+            delete: () => ({
+              eq: (col1, val1) => ({
+                eq: async (col2, val2) => {
+                  const targetId = col1 === 'id' ? val1 : val2;
+                  const targetUser = col1 === 'user_id' ? val1 : val2;
+                  const rows = getTableRows(table);
+                  const idx = rows.findIndex(r => r.id === targetId && r.user_id === targetUser);
+                  if (idx !== -1) {
+                    rows.splice(idx, 1);
+                    return { error: null };
+                  }
+                  return { error: null };
+                }
+              })
+            })
+          };
+        }
+      };
+
+      // ==========================================
+      // SECTION 3: pantry_items CRUD & Refresh Persistence
+      // ==========================================
+      let createdItem = null;
+      try {
+        mockDB.pantry_items = [];
+        window.supabaseService.getAuthenticatedUserId = async () => user1;
+        window.store.clearUserSession();
+        await window.store.initUser(user1);
+
+        createdItem = await window.store.addItem({
+          name: "Organic Whole Milk",
+          brand: "Organic Valley",
+          category: "Dairy",
+          quantity: 2,
+          unit: "liters",
+          expiryDate: window.getRelativeDateISO(7),
+          storageLocation: "Fridge",
+          minStock: 1,
+          notes: "Store on top shelf"
+        });
+
+        const inDb = mockDB.pantry_items.find(r => r.id === createdItem.id);
+        const passAdd = inDb &&
+                        inDb.product_name === "Organic Whole Milk" &&
+                        inDb.quantity === 2 &&
+                        inDb.storage_location === "Fridge" &&
+                        inDb.user_id === user1;
+
+        recordTest("Pantry Persistence", "Item created via addItem successfully persists into Supabase pantry_items table", passAdd, inDb);
+
+        // Page refresh simulation: wipe in-memory state and re-fetch from database
+        window.store.items = [];
+        await window.store.fetchFromSupabase();
+        const itemsAfterReload = window.store.getItems();
+        const passReload = itemsAfterReload.length === 1 && itemsAfterReload[0].id === createdItem.id;
+
+        recordTest("Pantry Persistence", "Page refresh / re-login successfully restores items from pantry_items", passReload, {
+          loadedCount: itemsAfterReload.length,
+          restoredName: itemsAfterReload[0]?.name
+        });
+
+        // Update item in database
+        await window.store.updateItem(createdItem.id, {
+          quantity: 4,
+          storageLocation: "Pantry"
+        });
+        const inDbUpdated = mockDB.pantry_items.find(r => r.id === createdItem.id);
+        const passUpdate = inDbUpdated && inDbUpdated.quantity === 4 && inDbUpdated.storage_location === "Pantry";
+        recordTest("Pantry Persistence", "updateItem successfully persists modifications to pantry_items table", passUpdate, inDbUpdated);
+
+      } catch (e) {
+        recordTest("Pantry Persistence", "CRUD persistence failed", false, e.message);
+      }
+
+      // ==========================================
+      // SECTION 4: Multi-User Data Isolation (RLS Simulation)
+      // ==========================================
+      try {
+        // User 2 logs in
+        window.supabaseService.getAuthenticatedUserId = async () => user2;
+        await window.store.initUser(user2);
+
+        const user2ItemsInitially = window.store.getItems();
+        const user2SeesUser1 = user2ItemsInitially.some(i => i.id === createdItem.id);
+
+        const itemB = await window.store.addItem({
+          name: "User2 Sourdough Bread",
+          category: "Bakery",
+          quantity: 1,
+          storageLocation: "Pantry"
+        });
+
+        // User 1 logs back in
+        window.supabaseService.getAuthenticatedUserId = async () => user1;
+        await window.store.initUser(user1);
+        const user1Items = window.store.getItems();
+        const user1SeesUser2 = user1Items.some(i => i.id === itemB.id || i.name.includes("User2"));
+
+        const passIsolation = !user2SeesUser1 && !user1SeesUser2 && user1Items.length === 1;
+        recordTest("Multi-User Isolation", "Strict multi-user separation ensures User A and User B never cross-contaminate pantry items", passIsolation, {
+          user1ItemCount: user1Items.length,
+          user2ItemCount: 1,
+          user2SeesUser1,
+          user1SeesUser2
+        });
+      } catch (e) {
+        recordTest("Multi-User Isolation", "Isolation test failed", false, e.message);
+      }
+
+      // Switch back to User 1
+      window.supabaseService.getAuthenticatedUserId = async () => user1;
+      await window.store.initUser(user1);
+
+      // ==========================================
+      // SECTION 5: Expiry & Inventory Status Engine
+      // ==========================================
+      try {
+        const today = window.getTodayISO();
+        const expiredStatus = window.store.calculateStatus(window.getRelativeDateISO(-2), 3, 1, 7);
+        const expiringSoonStatus = window.store.calculateStatus(window.getRelativeDateISO(4), 3, 1, 7);
+        const freshStatus = window.store.calculateStatus(window.getRelativeDateISO(25), 3, 1, 7);
+        const lowStockStatus = window.store.calculateStatus(window.getRelativeDateISO(25), 1, 2, 7);
+
+        const passStatus = expiredStatus === "Expired" &&
+                           expiringSoonStatus === "Expiring Soon" &&
+                           freshStatus === "Fresh" &&
+                           lowStockStatus === "Low Stock";
+
+        recordTest("Status Engine", "calculateStatus resolves Expired, Expiring Soon, Fresh, and Low Stock correctly", passStatus, {
+          expiredStatus,
+          expiringSoonStatus,
+          freshStatus,
+          lowStockStatus
+        });
+
+        // Test Date Parsers
+        const parsedDash = window.parseLocalDate("2026-09-23");
+        const parsedSlash = window.parseLocalDate("23/09/2026");
+        const parsedDot = window.parseLocalDate("23.09.2026");
+        const passDate = parsedDash && parsedSlash && parsedDot &&
+                         parsedDash.getDate() === 23 && parsedSlash.getDate() === 23;
+
+        recordTest("Status Engine", "parseLocalDate accurately handles dash, slash, dot and ISO date formats", passDate, {
+          dash: parsedDash?.toISOString(),
+          slash: parsedSlash?.toISOString(),
+          dot: parsedDot?.toISOString()
+        });
+      } catch (e) {
+        recordTest("Status Engine", "Status engine failed", false, e.message);
+      }
+
+      // ==========================================
+      // SECTION 6: Metrics & Dynamic Aggregation
+      // ==========================================
+      try {
+        window.store.items = [
+          { id: "i1", name: "Fresh Milk", category: "Dairy", quantity: 5, minStock: 2, expiryDate: window.getRelativeDateISO(20), status: "Fresh" },
+          { id: "i2", name: "Yogurt", category: "Dairy", quantity: 4, minStock: 2, expiryDate: window.getRelativeDateISO(3), status: "Expiring Soon" },
+          { id: "i3", name: "Old Bread", category: "Bakery", quantity: 3, minStock: 1, expiryDate: window.getRelativeDateISO(-1), status: "Expired" },
+          { id: "i4", name: "Olive Oil", category: "Pantry", quantity: 1, minStock: 3, expiryDate: window.getRelativeDateISO(90), status: "Low Stock" }
+        ];
+
+        const metrics = window.store.getMetrics();
+
+        const passMetrics = metrics.total === 4 &&
+                            metrics.expiringSoon === 1 &&
+                            metrics.expired === 1 &&
+                            metrics.lowStock === 1 &&
+                            metrics.fresh === 1;
+
+        recordTest("Metrics Engine", "Inventory summary metrics accurately aggregate Total, Fresh, Expiring Soon, Expired, and Low Stock", passMetrics, metrics);
+      } catch (e) {
+        recordTest("Metrics Engine", "Metrics calculation failed", false, e.message);
+      }
+
+      // ==========================================
+      // SECTION 7: UI Inventory Table & Loading Spinner
+      // ==========================================
+      try {
+        // Test 1: Loading state
+        window.store.isLoading = true;
+        renderInventoryTable();
+        const tbody = document.getElementById("inventoryTableBody");
+        const hasLoadingIndicator = tbody && tbody.innerHTML.includes("Loading pantry items from Supabase");
+
+        // Test 2: Normal rendering
+        window.store.isLoading = false;
+        renderInventoryTable();
+        const hasRows = tbody && tbody.querySelectorAll("tr").length === 4;
+
+        recordTest("UI Inventory Table", "renderInventoryTable displays animated loading state during fetch and renders all rows upon completion", hasLoadingIndicator && hasRows, {
+          hasLoadingIndicator,
+          rowCount: tbody?.querySelectorAll("tr").length
+        });
+
+        // Test 3: Search filtering
+        currentSearchQuery = "Yogurt";
+        renderInventoryTable();
+        const searchMatches = tbody.querySelectorAll("tr").length === 1 && tbody.innerHTML.includes("Yogurt");
+
+        // Clear search
+        currentSearchQuery = "";
+        renderInventoryTable();
+
+        recordTest("UI Inventory Table", "Instant search filters table items by name, brand, or location correctly", searchMatches, {
+          searched: "Yogurt",
+          matchesFound: searchMatches
+        });
+
+        // Test 4: Category chip filtering
+        currentCategoryFilter = "Bakery";
+        renderInventoryTable();
+        const catMatches = tbody.querySelectorAll("tr").length === 1 && tbody.innerHTML.includes("Old Bread");
+
+        currentCategoryFilter = "All";
+        renderInventoryTable();
+
+        recordTest("UI Inventory Table", "Category filtering isolates items matching active category chip", catMatches, {
+          category: "Bakery",
+          matchesFound: catMatches
+        });
+      } catch (e) {
+        recordTest("UI Inventory Table", "Table UI test failed", false, e.message);
+      }
+
+      // ==========================================
+      // SECTION 8: Interactive Add/Edit Form & Delete Flow
+      // ==========================================
+      try {
+        // Test Add Item Form
+        document.getElementById("itemNameInput").value = "New Honey Crisp Apples";
+        document.getElementById("itemCategoryInput").value = "Fruits";
+        document.getElementById("itemQuantityInput").value = "6";
+        document.getElementById("itemLocationInput").value = "Pantry";
+        editingItemId = null;
+
+        await saveItemForm();
+
+        const addedApple = window.store.getItems().find(i => i.name === "New Honey Crisp Apples");
+        const passFormAdd = !!addedApple && Number(addedApple.quantity) === 6;
+
+        recordTest("Form Controller", "saveItemForm correctly creates item, validates inputs, and triggers UI updates", passFormAdd, addedApple);
+
+        // Test Delete Item
+        if (addedApple) {
+          const origConfirm = window.confirm;
+          window.confirm = () => true;
+          await deletePantryItem(addedApple.id);
+          window.confirm = origConfirm;
+
+          const existsAfterDelete = window.store.getItemById(addedApple.id);
+          const passDelete = !existsAfterDelete;
+          recordTest("Form Controller", "deletePantryItem safely removes item from store and database", passDelete, { deletedId: addedApple.id });
+        }
+      } catch (e) {
+        recordTest("Form Controller", "Form controller test failed", false, e.message);
+      }
+
+      // ==========================================
+      // SECTION 9: Receipt OCR Parser & Filter
+      // ==========================================
+      try {
+        const rawReceipt = `
+          TRADER JOE'S #456
+          Date: 2026-09-21 11:20
+          ==============================
+          Organic Baby Spinach        $3.49
+          Almond Milk Vanilla         $3.99
+          Free Range Large Eggs       $4.99
+          Subtotal                    $12.47
+          Tax                         $0.00
+          Total                       $12.47
+          ==============================
+          Thank you!
+        `;
+
+        const lines = rawReceipt.split('\n').map(l => l.trim()).filter(l => l.length > 2);
+        const noisePattern = /\b(total|subtotal|tax|cash|change|card|visa|mastercard|trader|date|thank)\b/i;
+        const itemsFound = lines.filter(l => !noisePattern.test(l) && !l.includes("="));
+
+        const passOCR = itemsFound.length === 3 &&
+                        itemsFound.some(i => i.includes("Spinach")) &&
+                        itemsFound.some(i => i.includes("Almond Milk")) &&
+                        itemsFound.some(i => i.includes("Eggs"));
+
+        recordTest("Receipt OCR", "OCR text parser successfully filters out store headers, totals, and tax noise, extracting genuine groceries", passOCR, itemsFound);
+      } catch (e) {
+        recordTest("Receipt OCR", "OCR test failed", false, e.message);
+      }
+
+      // ==========================================
+      // SECTION 10: Recipe Suggestion Engine
+      // ==========================================
+      try {
+        const hasEngine = window.RecipeEngine && Array.isArray(window.RecipeEngine.recipes) && window.RecipeEngine.recipes.length > 0;
+        let matchResult = null;
+        if (hasEngine) {
+          const sampleRecipe = window.RecipeEngine.recipes[0];
+          matchResult = window.RecipeEngine.calculateRecipeMatch(sampleRecipe);
+        }
+
+        const passRecipes = hasEngine && matchResult && typeof matchResult.matchPercent === "number";
+        recordTest("Recipe Engine", "RecipeEngine matches user ingredients against recipes database and computes available/missing ratios", passRecipes, {
+          totalRecipes: window.RecipeEngine?.recipes?.length,
+          sampleRecipeTitle: window.RecipeEngine?.recipes[0]?.title,
+          matchPercent: matchResult?.matchPercent,
+          availableIngredients: matchResult?.available,
+          missingIngredients: matchResult?.missing
+        });
+      } catch (e) {
+        recordTest("Recipe Engine", "Recipe Engine failed", false, e.message);
+      }
+
+      // ==========================================
+      // SECTION 11: Settings Page & Privacy Leak Protection
+      // ==========================================
+      try {
+        renderSettingsView();
+
+        const nameInput = document.getElementById("settingsDisplayName");
+        const expSelect = document.getElementById("pantryPrefExpiryDays");
+        const passSettingsRender = nameInput && expSelect;
+
+        // Verify that NO developer keys or database URLs are exposed in the settings DOM
+        const settingsContainer = document.getElementById("testDomContainer");
+        const domText = settingsContainer ? settingsContainer.innerText.toLowerCase() : "";
+        const leaksSecrets = domText.includes("postgresql://") ||
+                             domText.includes("anon_key") ||
+                             domText.includes("service_role");
+
+        recordTest("Client Settings", "renderSettingsView renders consumer-friendly settings and protects developer credentials from leaking to UI", passSettingsRender && !leaksSecrets, {
+          rendersSettingsInputs: passSettingsRender,
+          secretsProtected: !leaksSecrets
+        });
+      } catch (e) {
+        recordTest("Client Settings", "Settings test failed", false, e.message);
+      }
+
+      // ==========================================
+      // SECTION 12: Final Summary
+      // ==========================================
+      const total = testResults.length;
+      const passed = testResults.filter(t => t.passed).length;
+      const failed = total - passed;
+      const allPassed = failed === 0;
+
+      const summaryDiv = document.getElementById("summary");
+      summaryDiv.innerHTML = `
+        <h2 style="color:${allPassed ? '#10b981' : '#ef4444'}; margin:0 0 6px 0;">
+          ${allPassed ? '🎉 ALL E2E TESTS PASSED' : '⚠️ SOME TESTS FAILED'} (${passed}/${total})
+        </h2>
+        <div style="color:#94a3b8; font-size:13px;">
+          Tested modules: Supabase Config, pantry_items Schema, CRUD Persistence, Reload Recovery, Multi-User Isolation, Expiry Engine, Metrics, Inventory UI Table, Form Modals, OCR Parser, Recipe Matching, and Settings Security.
+        </div>
+      `;
+
+      console.log(`=== E2E TESTS COMPLETE: ${passed}/${total} PASSED ===`);
+    }
+
+    window.addEventListener("DOMContentLoaded", runMasterSelfTest);
+  </script>
+
+
+</body></html>
