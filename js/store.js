@@ -426,6 +426,21 @@ class PantryStore {
     this.userId = userId;
     if (!this.userId) return;
 
+    // Immediately restore cached items, activity, and alerts for this specific user
+    try {
+      const cached = localStorage.getItem(this.storageKey);
+      if (cached) this.items = JSON.parse(cached);
+    } catch(e) {}
+    try {
+      const cachedAct = localStorage.getItem(this.activityKey);
+      if (cachedAct) this.activity = JSON.parse(cachedAct);
+    } catch(e) {}
+    try {
+      const cachedAlerts = localStorage.getItem(this.alertsKey);
+      if (cachedAlerts) this.alerts = JSON.parse(cachedAlerts);
+    } catch(e) {}
+    this.notify();
+
     this.loadLocalFullSettings();
     await this.fetchFromSupabase();
     await this.fetchSettingsFromSupabase();
