@@ -56,11 +56,31 @@
     async getAuthenticatedUserId(fallbackId = null) {
       if (this.isReady()) {
         try {
+          const { data: { session } } = await this.client.auth.getSession();
+          if (session && session.user && session.user.id) {
+            return session.user.id;
+          }
+        } catch (e) {}
+
+        try {
           const { data: { user } } = await this.client.auth.getUser();
           if (user && user.id) return user.id;
         } catch (e) {}
       }
-      return fallbackId || null;
+
+      try {
+        const raw = localStorage.getItem('smartpantry_user');
+        if (raw) {
+          const u = JSON.parse(raw);
+          if (u && u.id) return u.id;
+        }
+      } catch (e) {}
+
+      if (fallbackId && typeof fallbackId === 'string' && fallbackId.length > 5) {
+        return fallbackId;
+      }
+
+      return null;
     }
 
     // ==========================================
