@@ -331,7 +331,7 @@
       }
     }
 
-    async signInWithOtp(email, isSignUp = false) {
+    async signInWithOtp(email, isSignUp = true) {
       if (!email || !email.includes('@')) {
         return { success: false, error: "Please enter a valid email address." };
       }
@@ -368,16 +368,19 @@
           type: type
         });
 
-        // 2. Dynamic fallback between signup and email/magiclink types
+        // 2. Comprehensive type fallback across signup, email, and magiclink
         if (res.error && (type === 'signup' || type === 'email' || type === 'magiclink')) {
-          const fallbackType = type === 'signup' ? 'email' : 'signup';
-          const retryRes = await this.client.auth.verifyOtp({
-            email: cleanEmail,
-            token: cleanToken,
-            type: fallbackType
-          });
-          if (!retryRes.error && retryRes.data && retryRes.data.user) {
-            res = retryRes;
+          const fallbackTypes = ['signup', 'email', 'magiclink'].filter(t => t !== type);
+          for (const fbType of fallbackTypes) {
+            const retryRes = await this.client.auth.verifyOtp({
+              email: cleanEmail,
+              token: cleanToken,
+              type: fbType
+            });
+            if (!retryRes.error && retryRes.data && retryRes.data.user) {
+              res = retryRes;
+              break;
+            }
           }
         }
 

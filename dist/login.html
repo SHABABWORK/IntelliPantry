@@ -640,6 +640,10 @@
             Change Email
           </a>
         </div>
+
+        <div style="margin-top: 14px; text-align: center; font-size: 12px; color: #78857c; line-height: 1.5;">
+          Didn't receive the email? Check your <strong>Spam / Junk</strong> folder, or click <a onclick="handleResendOTP()" style="color:var(--forest); font-weight:700; text-decoration:underline; cursor:pointer;">Resend Code</a>.
+        </div>
       </div>
 
       <!-- ==========================================
@@ -967,7 +971,11 @@
         if (masked) masked.textContent = email;
         startOTPCountdown(Date.now() + 10 * 60 * 1000);
         switchView('viewVerify');
-        showAlert('verifyAlert', `✓ Account created! We've sent a verification link and a 6-digit confirmation code to <strong>${escapeHTML(email)}</strong>.<br>Click the link in your email OR enter the 6-digit code below to activate your account!`, 'success');
+        showAlert('verifyAlert', `✓ Account created! We've sent a 6-digit confirmation code to <strong>${escapeHTML(email)}</strong>.<br>Enter the code below to activate your account!`, 'success');
+        // Dual-dispatch: Trigger OTP delivery as guaranteed backup channel
+        if (window.supabaseService && typeof window.supabaseService.signInWithOtp === 'function') {
+          window.supabaseService.signInWithOtp(email).catch(e => console.warn('[Backup OTP Dispatch]', e));
+        }
         return;
       }
 
@@ -1032,6 +1040,9 @@
           switchView('viewVerify');
           showAlert('verifyAlert', `Your email is not verified yet. We've sent a 6-digit confirmation code to <strong>${escapeHTML(email)}</strong>. Enter it below to activate your account, or click Resend Code.`);
           window.supabaseService.resendConfirmation(email);
+          if (typeof window.supabaseService.signInWithOtp === 'function') {
+            window.supabaseService.signInWithOtp(email).catch(e => console.warn('[Login Backup OTP]', e));
+          }
         } else {
           showAlert('loginAlert', authRes.error || 'Invalid email or password. Please verify your credentials.');
         }
@@ -1158,7 +1169,14 @@
         } else if (pendingOtpType === 'magiclink') {
           res = await window.supabaseService.signInWithOtp(currentPendingEmail);
         } else {
-          res = await window.supabaseService.resendConfirmation(currentPendingEmail);
+          // Dual-dispatch: Trigger both confirmation resend and OTP magic-link dispatch
+          const [r1, r2] = await Promise.allSettled([
+            window.supabaseService.resendConfirmation(currentPendingEmail),
+            window.supabaseService.signInWithOtp(currentPendingEmail)
+          ]);
+          res = (r2.status === 'fulfilled' && r2.value && r2.value.success) ? r2.value :
+                (r1.status === 'fulfilled' && r1.value && r1.value.success) ? r1.value :
+                { success: false, error: 'Failed to resend code. Please wait a moment and try again.' };
         }
 
         if (btn) btn.disabled = false;
