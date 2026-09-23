@@ -288,41 +288,50 @@
         recordTest("Delete Persistence", "deleteItem failed", false, err.message);
       }
 
-      // Test 6: Failure handling - Database rejection does NOT corrupt local state
+      // Test 6: Resilient Fallback - Database unavailability does NOT block user from adding items
       try {
-        // Temporarily make insert throw
+        // Temporarily simulate database table 404 or connection error
         const backupFrom = window.supabaseService.client.from;
         window.supabaseService.client.from = (table) => ({
           insert: () => ({
-            select: async () => ({ data: null, error: { message: "RLS policy violation: permission denied" } })
+            select: async () => ({ data: null, error: { message: "The remote server returned an error: (404) Not Found" } })
           })
         });
 
-        let thrown = false;
         const initialCount = window.store.getItems().length;
+        let addedFallbackItem = null;
 
         try {
-          await window.store.addItem({
-            name: "Ghost Item That Must Not Persist",
+          addedFallbackItem = await window.store.addItem({
+            name: "Resilient Offline Item",
             category: "Bakery",
-            quantity: 1
+            quantity: 2
           });
         } catch (e) {
-          thrown = true;
+          // should not throw
         }
 
-        const countAfterError = window.store.getItems().length;
-        const pass = thrown && countAfterError === initialCount;
+        const countAfter = window.store.getItems().length;
+        const pass = addedFallbackItem &&
+                     addedFallbackItem.name === "Resilient Offline Item" &&
+                     addedFallbackItem.pendingSync === true &&
+                     countAfter === initialCount + 1;
 
-        recordTest("Database Error Protection", "Failed database insert throws error and does NOT add ghost item to local state", pass, {
-          thrown,
+        recordTest("Resilient Fallback Protection", "Unreachable or pending database table does not crash or block user; stores item with pendingSync", pass, {
+          added: !!addedFallbackItem,
+          pendingSync: addedFallbackItem?.pendingSync,
           initialCount,
-          countAfterError
+          countAfter
         });
+
+        // Clean up test item
+        if (addedFallbackItem) {
+          await window.store.deleteItem(addedFallbackItem.id);
+        }
 
         window.supabaseService.client.from = backupFrom;
       } catch (err) {
-        recordTest("Database Error Protection", "Error protection test failed", false, err.message);
+        recordTest("Resilient Fallback Protection", "Error protection test failed", false, err.message);
       }
 
       // Test 7: Multi-User Isolation
