@@ -106,10 +106,12 @@
         const cleanEmail = email.trim().toLowerCase();
         const cleanName = (fullName || cleanEmail.split('@')[0]).trim();
 
+        const redirectUrl = `${window.location.origin}/login.html`;
         const { data, error } = await this.client.auth.signUp({
           email: cleanEmail,
           password,
           options: {
+            emailRedirectTo: redirectUrl,
             data: {
               full_name: cleanName
             }
@@ -279,12 +281,32 @@
       }
     }
 
+    async updateEmail(newEmail) {
+      if (!newEmail || !this.isReady()) return { success: false, error: "New email address required." };
+      try {
+        const redirectUrl = `${window.location.origin}/dashboard.html`;
+        const { data, error } = await this.client.auth.updateUser({
+          email: newEmail.trim().toLowerCase()
+        }, {
+          emailRedirectTo: redirectUrl
+        });
+        if (error) return { success: false, error: error.message };
+        return { success: true, data };
+      } catch (err) {
+        return { success: false, error: err.message || "Failed to update email address." };
+      }
+    }
+
     async resendConfirmation(email) {
       if (!email || !this.isReady()) return { success: false, error: "Email address required." };
       try {
+        const redirectUrl = `${window.location.origin}/login.html`;
         const { error } = await this.client.auth.resend({
           type: 'signup',
-          email: email.trim().toLowerCase()
+          email: email.trim().toLowerCase(),
+          options: {
+            emailRedirectTo: redirectUrl
+          }
         });
         if (error) throw error;
         return { success: true };
@@ -297,7 +319,7 @@
     async resetPasswordForEmail(email) {
       if (!email || !this.isReady()) return { success: false, error: "Email address required." };
       try {
-        const redirectUrl = `${window.location.origin}/login?reset=1`;
+        const redirectUrl = `${window.location.origin}/login.html?type=recovery`;
         const { error } = await this.client.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
           redirectTo: redirectUrl
         });
@@ -306,6 +328,134 @@
       } catch (err) {
         console.warn("[Supabase Auth] resetPassword error:", err.message);
         return { success: false, error: err.message || "Failed to send reset email." };
+      }
+    }
+
+    async signInWithOtp(email, isSignUp = false) {
+      if (!email || !email.includes('@')) {
+        return { success: false, error: "Please enter a valid email address." };
+      }
+      if (!this.isReady()) return { success: false, error: "Supabase connection required." };
+      try {
+        const redirectUrl = `${window.location.origin}/login.html`;
+        const { data, error } = await this.client.auth.signInWithOtp({
+          email: email.trim().toLowerCase(),
+          options: {
+            emailRedirectTo: redirectUrl,
+            shouldCreateUser: isSignUp
+          }
+        });
+        if (error) return { success: false, error: error.message };
+        return { success: true, data };
+      } catch (err) {
+        return { success: false, error: err.message || "Failed to send magic link or OTP." };
+      }
+    }
+
+    async verifyOtp({ email, token, type = 'signup' }) {
+      if (!email || !token) {
+        return { success: false, error: "Email and verification code are required." };
+      }
+      if (!this.isReady()) return { success: false, error: "Supabase connection required." };
+      try {
+        const cleanEmail = email.trim().toLowerCase();
+        const cleanToken = token.trim();
+
+        // 1. Primary verification attempt
+        let res = await this.client.auth.verifyOtp({
+          email: cleanEmail,
+          token: cleanToken,
+          type: type
+        });
+
+        // 2. Dynamic fallback between signup and email/magiclink types
+        if (res.error && (type === 'signup' || type === 'email' || type === 'magiclink')) {
+          const fallbackType = type === 'signup' ? 'email' : 'signup';
+          const retryRes = await this.client.auth.verifyOtp({
+            email: cleanEmail,
+            token: cleanToken,
+            type: fallbackType
+          });
+          if (!retryRes.error && retryRes.data && retryRes.data.user) {
+            res = retryRes;
+          }
+        }
+
+        if (res.error) {
+          return { success: false, error: res.error.message };
+        }
+
+        const user = res.data.user;
+        const session = res.data.session;
+        if (!user) {
+          return { success: false, error: "Verification succeeded but user session could not be established." };
+        }
+
+        const userObj = {
+          id: user.id,
+          email: user.email,
+          name: user.user_metadata?.full_name || cleanEmail.split('@')[0] || 'Pantry Chef',
+          emailVerified: true
+        };
+
+        await this.ensureProfile(userObj);
+
+        if (session && session.access_token) {
+          localStorage.setItem('smartpantry_token', session.access_token);
+          localStorage.setItem('smartpantry_user', JSON.stringify(userObj));
+        }
+
+        this.dispatchLoginNotification(userObj);
+
+        return {
+          success: true,
+          user: userObj,
+          session,
+          token: session ? session.access_token : null
+        };
+      } catch (err) {
+        return { success: false, error: err.message || "OTP verification failed." };
+      }
+    }
+
+    async exchangeCodeForSession(code) {
+      if (!code || !this.isReady()) return null;
+      try {
+        const { data, error } = await this.client.auth.exchangeCodeForSession(code);
+        if (error) {
+          console.warn("[Supabase Auth] exchangeCodeForSession error:", error.message);
+          return null;
+        }
+        if (data && data.session && data.user) {
+          const userObj = {
+            id: data.user.id,
+            email: data.user.email,
+            name: data.user.user_metadata?.full_name || data.user.email.split('@')[0] || 'Pantry Chef',
+            emailVerified: true
+          };
+          await this.ensureProfile(userObj);
+          if (data.session.access_token) {
+            localStorage.setItem('smartpantry_token', data.session.access_token);
+            localStorage.setItem('smartpantry_user', JSON.stringify(userObj));
+          }
+          this.dispatchLoginNotification(userObj);
+          return { user: userObj, session: data.session, token: data.session.access_token };
+        }
+        return null;
+      } catch (err) {
+        console.warn("[Supabase Auth] exchangeCodeForSession exception:", err);
+        return null;
+      }
+    }
+
+    async reauthenticate() {
+      if (!this.isReady()) return { success: false, error: "Supabase connection required." };
+      try {
+        const { data, error } = await this.client.auth.reauthenticate();
+        if (error) return { success: false, error: error.message };
+        return { success: true, data };
+      } catch (err) {
+        return { success: false, error: err.message || "Failed to trigger reauthentication." };
       }
     }
 
