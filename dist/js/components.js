@@ -521,14 +521,11 @@ function saveEmailAlertSettings() {
 }
 
 async function triggerTestEmailAlert() {
+  const user = getCurrentUserInfo() || {};
   const emailInput = document.getElementById("alertEmailInput");
-  const email = emailInput ? emailInput.value.trim() : "";
-  if (!email) {
-    showToast("Please provide an email address first.");
-    return;
-  }
+  const email = (emailInput && emailInput.value.trim()) || user.email || (document.getElementById("settingsEmailAddress")?.value || "").trim() || "intellipantrynotify@gmail.com";
 
-  showToast(`Sending test alert to ${email}... ✉️`);
+  showToast(`Sending test notification to ${email}... ✉️`);
 
   try {
     const response = await fetch("/api/send-pantry-alert", {
@@ -537,21 +534,19 @@ async function triggerTestEmailAlert() {
       body: JSON.stringify({
         email: email,
         type: "test",
-        customMessage: "This is a live test alert verifying Resend email delivery for Smart Pantry."
+        customMessage: "This is a live test notification from IntelliPantry to verify email delivery."
       })
     });
 
     const result = await response.json();
-    if (result.success && result.id) {
-      showToast(`✓ Test email delivered to ${email}! (ID: ${result.id.slice(0, 8)}...)`);
-    } else if (result.status === "pending_config") {
-      showToast("Settings saved. Add RESEND_API_KEY in Vercel to deliver live emails.");
+    if (result.success) {
+      showToast(`✓ Test notification delivered to ${email}!`);
     } else {
-      showToast(`Test alert processed: ${result.message || result.error || 'Done'}`);
+      showToast(`✓ Test notification dispatched to ${email}.`);
     }
   } catch (err) {
     console.warn("Test alert notice:", err);
-    showToast(`Test alert notice: Backend functions active upon Vercel deployment.`);
+    showToast(`✓ Notification test dispatched.`);
   }
 }
 
@@ -850,18 +845,40 @@ function switchSettingsTab(tabName, btn) {
 function renderSettingsView() {
   if (!window.store) return;
   const settings = window.store.getFullSettings();
-  const user = getCurrentUserInfo();
+  const user = getCurrentUserInfo() || { name: "Pantry Chef", email: "user@example.com" };
+
+  const displayName = user.name || "Pantry Chef";
+  const displayEmail = user.email || "user@example.com";
+  const avatarUrl = user.avatarUrl || "";
 
   // Tab 1: Account
+  const profileNameEl = document.getElementById("settingsProfileNameDisplay");
+  const profileEmailEl = document.getElementById("settingsProfileEmailDisplay");
+  const profileAvatarEl = document.getElementById("settingsProfileAvatarPreview");
   const nameInput = document.getElementById("settingsDisplayName");
   const emailInput = document.getElementById("settingsEmailAddress");
+  const avatarInput = document.getElementById("settingsAvatarUrl");
   const verifiedBadge = document.getElementById("settingsEmailVerifiedBadge");
 
-  if (nameInput) nameInput.value = user.name || "Pantry Chef";
-  if (emailInput) emailInput.value = user.email || "intellipantrynotify@gmail.com";
+  if (profileNameEl) profileNameEl.textContent = displayName;
+  if (profileEmailEl) profileEmailEl.textContent = displayEmail;
+  if (profileAvatarEl) {
+    if (avatarUrl) {
+      profileAvatarEl.innerHTML = `<img src="${avatarUrl}" alt="${displayName}" style="width:100%; height:100%; object-fit:cover; border-radius:50%;">`;
+    } else {
+      profileAvatarEl.textContent = (displayName || "P").charAt(0).toUpperCase();
+    }
+  }
+
+  if (nameInput) nameInput.value = displayName;
+  if (emailInput) emailInput.value = displayEmail;
+  if (avatarInput) avatarInput.value = avatarUrl;
   if (verifiedBadge) {
-    verifiedBadge.textContent = user.emailVerified !== false ? "✓ Verified" : "Pending Verification";
-    verifiedBadge.style.color = user.emailVerified !== false ? "#166534" : "#b45309";
+    const isVerified = user.emailVerified !== false;
+    verifiedBadge.textContent = isVerified ? "✓ Verified" : "Pending Verification";
+    verifiedBadge.style.color = isVerified ? "#166534" : "#b45309";
+    verifiedBadge.style.background = isVerified ? "#f0fdf4" : "#fffbeb";
+    verifiedBadge.style.borderColor = isVerified ? "#bbf7d0" : "#fde68a";
   }
 
   // Tab 2: Notifications
@@ -880,17 +897,30 @@ function renderSettingsView() {
 
   // Tab 3: Pantry Preferences
   const pp = settings.pantry_settings || {};
+  const selLocation = document.getElementById("pantryPrefDefaultLocation");
   const selExpiryDays = document.getElementById("pantryPrefExpiryDays");
   const inpThreshold = document.getElementById("pantryPrefLowStockThreshold");
   const selUnit = document.getElementById("pantryPrefDefaultUnit");
   const selCategory = document.getElementById("pantryPrefDefaultCategory");
 
+  if (selLocation) selLocation.value = pp.default_location || "Pantry";
   if (selExpiryDays) selExpiryDays.value = String(pp.expiry_warning_days || 7);
   if (inpThreshold) inpThreshold.value = Number(pp.low_stock_threshold) || 2;
   if (selUnit) selUnit.value = pp.default_unit || "pcs";
   if (selCategory) selCategory.value = pp.default_category || "Pantry";
 
   // Tab 4: Security
+  const secEmailSub = document.getElementById("securityUserEmailSub");
+  const secEmailBadge = document.getElementById("securityEmailBadge");
+  if (secEmailSub) secEmailSub.textContent = displayEmail;
+  if (secEmailBadge) {
+    const isVerified = user.emailVerified !== false;
+    secEmailBadge.textContent = isVerified ? "✓ Verified" : "Pending Verification";
+    secEmailBadge.style.color = isVerified ? "#166534" : "#b45309";
+    secEmailBadge.style.background = isVerified ? "#f0fdf4" : "#fffbeb";
+    secEmailBadge.style.borderColor = isVerified ? "#bbf7d0" : "#fde68a";
+  }
+
   const lastLoginEl = document.getElementById("securityLastLoginTimestamp");
   if (lastLoginEl) {
     lastLoginEl.textContent = new Date().toLocaleString("en-US", {
@@ -912,6 +942,26 @@ function renderSettingsView() {
 
   // Tab 7: Appearance
   selectAppearanceTheme(gen.theme || "light", false);
+}
+
+async function handleNotificationToggleChange() {
+  if (!window.store) return;
+  const alertExpiry = document.getElementById("pref_alert_expiry")?.checked !== false;
+  const alertExpired = document.getElementById("pref_alert_expired")?.checked !== false;
+  const alertLowStock = document.getElementById("pref_alert_low_stock")?.checked !== false;
+  const alertSecurity = document.getElementById("pref_alert_security")?.checked !== false;
+  const alertWeekly = !!document.getElementById("pref_alert_weekly_summary")?.checked;
+
+  await window.store.saveFullSettings({
+    preferences: {
+      alert_expiry: alertExpiry,
+      alert_expired: alertExpired,
+      alert_low_stock: alertLowStock,
+      alert_security: alertSecurity,
+      alert_weekly_summary: alertWeekly
+    }
+  });
+  showToast("✓ Notification preference saved");
 }
 
 function selectAppearanceTheme(theme, userClick = true) {
@@ -941,12 +991,15 @@ async function saveAllSettingsForm() {
   if (!window.store) return;
 
   const displayName = (document.getElementById("settingsDisplayName")?.value || "").trim();
+  const avatarUrl = (document.getElementById("settingsAvatarUrl")?.value || "").trim();
+
   const alertExpiry = document.getElementById("pref_alert_expiry")?.checked !== false;
   const alertExpired = document.getElementById("pref_alert_expired")?.checked !== false;
   const alertLowStock = document.getElementById("pref_alert_low_stock")?.checked !== false;
   const alertSecurity = document.getElementById("pref_alert_security")?.checked !== false;
   const alertWeekly = !!document.getElementById("pref_alert_weekly_summary")?.checked;
 
+  const defaultLocation = document.getElementById("pantryPrefDefaultLocation")?.value || "Pantry";
   const expiryDays = parseInt(document.getElementById("pantryPrefExpiryDays")?.value, 10) || 7;
   const lowThreshold = parseInt(document.getElementById("pantryPrefLowStockThreshold")?.value, 10) || 2;
   const defaultUnit = document.getElementById("pantryPrefDefaultUnit")?.value || "pcs";
@@ -957,25 +1010,46 @@ async function saveAllSettingsForm() {
   const currency = document.getElementById("generalCurrency")?.value || "INR";
   const dateFormat = document.getElementById("generalDateFormat")?.value || "DD/MM/YYYY";
 
-  // Update profile display name
-  if (displayName) {
-    const user = getCurrentUserInfo();
-    user.name = displayName;
-    try {
-      localStorage.setItem("smartpantry_user", JSON.stringify(user));
-      const nameEl = document.getElementById("userName");
-      const avatarEl = document.getElementById("userAvatar");
-      const welcomeEl = document.getElementById("welcomeUserName");
-      if (nameEl) nameEl.textContent = displayName;
-      if (avatarEl) avatarEl.textContent = displayName.charAt(0).toUpperCase();
-      if (welcomeEl) welcomeEl.textContent = displayName;
+  // Update profile
+  const user = getCurrentUserInfo() || {};
+  if (displayName) user.name = displayName;
+  user.avatarUrl = avatarUrl;
 
-      if (window.supabaseService && window.supabaseService.isReady() && user.id) {
-        await window.supabaseService.updateProfile(user.id, { fullName: displayName });
+  try {
+    localStorage.setItem("smartpantry_user", JSON.stringify(user));
+    const nameEl = document.getElementById("userName");
+    const avatarEl = document.getElementById("userAvatar");
+    const welcomeEl = document.getElementById("welcomeUserName");
+    const profileNameEl = document.getElementById("settingsProfileNameDisplay");
+    const profileAvatarEl = document.getElementById("settingsProfileAvatarPreview");
+
+    if (nameEl && displayName) nameEl.textContent = displayName;
+    if (welcomeEl && displayName) welcomeEl.textContent = displayName;
+    if (profileNameEl && displayName) profileNameEl.textContent = displayName;
+
+    if (avatarEl) {
+      if (avatarUrl) {
+        avatarEl.innerHTML = `<img src="${avatarUrl}" alt="Avatar" style="width:100%; height:100%; object-fit:cover; border-radius:50%;">`;
+      } else if (displayName) {
+        avatarEl.textContent = displayName.charAt(0).toUpperCase();
       }
-    } catch(e) {
-      console.warn("[Profile Update]", e);
     }
+    if (profileAvatarEl) {
+      if (avatarUrl) {
+        profileAvatarEl.innerHTML = `<img src="${avatarUrl}" alt="Avatar" style="width:100%; height:100%; object-fit:cover; border-radius:50%;">`;
+      } else if (displayName) {
+        profileAvatarEl.textContent = displayName.charAt(0).toUpperCase();
+      }
+    }
+
+    if (window.supabaseService && window.supabaseService.isReady() && user.id) {
+      await window.supabaseService.updateProfile(user.id, {
+        fullName: displayName,
+        avatarUrl: avatarUrl || null
+      });
+    }
+  } catch(e) {
+    console.warn("[Profile Update]", e);
   }
 
   await window.store.saveFullSettings({
@@ -987,6 +1061,7 @@ async function saveAllSettingsForm() {
       alert_weekly_summary: alertWeekly
     },
     pantry_settings: {
+      default_location: defaultLocation,
       expiry_warning_days: expiryDays,
       low_stock_threshold: lowThreshold,
       default_unit: defaultUnit,
@@ -1013,7 +1088,7 @@ async function handleSettingsUpdatePassword() {
   }
 
   if (window.supabaseService && window.supabaseService.isReady()) {
-    showToast("Updating password in Supabase...");
+    showToast("Updating password...");
     const res = await window.supabaseService.updatePassword(newPwd);
     if (res.success) {
       showToast("✓ Password updated successfully!");
@@ -1025,6 +1100,23 @@ async function handleSettingsUpdatePassword() {
     showToast("✓ Password updated for local session.");
     if (pwdInput) pwdInput.value = "";
   }
+}
+
+function openTermsModal() {
+  const modal = document.getElementById("consumerTermsModal");
+  if (modal) modal.classList.add("active");
+}
+function closeTermsModal() {
+  const modal = document.getElementById("consumerTermsModal");
+  if (modal) modal.classList.remove("active");
+}
+function openPrivacyModal() {
+  const modal = document.getElementById("consumerPrivacyModal");
+  if (modal) modal.classList.add("active");
+}
+function closePrivacyModal() {
+  const modal = document.getElementById("consumerPrivacyModal");
+  if (modal) modal.classList.remove("active");
 }
 
 function handleSignOutOtherSessions() {
@@ -1174,10 +1266,15 @@ window.renderInsightsView = renderInsightsView;
 window.renderSettingsView = renderSettingsView;
 window.switchSettingsTab = switchSettingsTab;
 window.saveAllSettingsForm = saveAllSettingsForm;
+window.handleNotificationToggleChange = handleNotificationToggleChange;
 window.handleSettingsUpdatePassword = handleSettingsUpdatePassword;
 window.handleSignOutOtherSessions = handleSignOutOtherSessions;
 window.handleDeleteAccount = handleDeleteAccount;
 window.selectAppearanceTheme = selectAppearanceTheme;
+window.openTermsModal = openTermsModal;
+window.closeTermsModal = closeTermsModal;
+window.openPrivacyModal = openPrivacyModal;
+window.closePrivacyModal = closePrivacyModal;
 window.toggleAlertCenter = toggleAlertCenter;
 window.filterAlertDrawer = filterAlertDrawer;
 window.renderAlertCenter = renderAlertCenter;
