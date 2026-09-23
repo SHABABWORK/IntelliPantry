@@ -17,9 +17,14 @@
 
   <!-- Chart.js for Real-Time Pantry Analytics & Category Distribution -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+  <!-- Supabase Production JS Client SDK & Services -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/supabase-config.js"></script>
+  <script src="js/supabase.js"></script>
+
   <script>
-    // Authentication Guard: Protect dashboard routes & preserve Supabase confirmation callbacks
-    (function() {
+    // Authentication Guard: Protect dashboard routes & verify Supabase Auth Session
+    (async function() {
       try {
         const hash = window.location.hash || '';
         const search = window.location.search || '';
@@ -27,16 +32,55 @@
         if (hash.includes('access_token') || hash.includes('refresh_token') || search.includes('code=')) {
           return;
         }
-        const rawUser = localStorage.getItem('smartpantry_user');
-        const token = localStorage.getItem('smartpantry_token');
-        if (!rawUser || !token || token.startsWith('direct_token_')) {
+
+        function redirectToLogin() {
           localStorage.removeItem('smartpantry_token');
+          localStorage.removeItem('smartpantry_user');
           const target = window.location.pathname.endsWith('.html') ? 'login.html' : 'login';
           window.location.replace(target);
         }
+
+        if (window.SupabaseConfig && window.SupabaseConfig.readyPromise) {
+          await window.SupabaseConfig.readyPromise;
+        }
+
+        if (window.supabaseService && window.supabaseService.isReady()) {
+          const session = await window.supabaseService.getSession();
+          if (!session || !session.user) {
+            const rawUser = localStorage.getItem('smartpantry_user');
+            const token = localStorage.getItem('smartpantry_token');
+            if (!rawUser || !token || token.startsWith('direct_token_')) {
+              redirectToLogin();
+              return;
+            }
+          } else {
+            // Keep localStorage in sync with live Supabase session
+            const userObj = {
+              id: session.user.id,
+              email: session.user.email,
+              name: session.user.user_metadata?.full_name || session.user.email.split('@')[0] || 'Pantry Chef',
+              emailVerified: Boolean(session.user.email_confirmed_at || session.user.confirmed_at)
+            };
+            localStorage.setItem('smartpantry_token', session.access_token);
+            localStorage.setItem('smartpantry_user', JSON.stringify(userObj));
+          }
+
+          // Active session listener: If logged out elsewhere or session revoked, redirect to login
+          window.supabaseService.onAuthStateChange((event, newSession) => {
+            if (event === 'SIGNED_OUT' || (!newSession && event !== 'INITIAL_SESSION')) {
+              redirectToLogin();
+            }
+          });
+        } else {
+          // Fallback check if offline or local preview
+          const rawUser = localStorage.getItem('smartpantry_user');
+          const token = localStorage.getItem('smartpantry_token');
+          if (!rawUser || !token || token.startsWith('direct_token_')) {
+            redirectToLogin();
+          }
+        }
       } catch (e) {
-        const target = window.location.pathname.endsWith('.html') ? 'login.html' : 'login';
-        window.location.replace(target);
+        console.warn("Auth guard exception:", e);
       }
     })();
   </script>
@@ -2944,10 +2988,7 @@ window.addEventListener("beforeunload", () => stopCamera());
     </div>
   </div>
 
-<!-- Supabase Production JS Client SDK & Services -->
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="js/supabase-config.js"></script>
-<script src="js/supabase.js"></script>
+<!-- Central State, Components & Application Engine -->
 <script src="js/store.js"></script>
 <script src="js/components.js"></script>
 <script src="js/recipes-data.js"></script>

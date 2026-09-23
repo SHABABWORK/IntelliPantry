@@ -24,6 +24,25 @@
         if (hash.includes('access_token') || hash.includes('refresh_token') || search.includes('code=')) {
           return;
         }
+        if (window.SupabaseConfig && window.SupabaseConfig.readyPromise) {
+          await window.SupabaseConfig.readyPromise;
+        }
+        if (window.supabaseService && window.supabaseService.isReady()) {
+          const session = await window.supabaseService.getSession();
+          if (session && session.user) {
+            const userObj = {
+              id: session.user.id,
+              email: session.user.email,
+              name: session.user.user_metadata?.full_name || session.user.email.split('@')[0] || 'Pantry Chef',
+              emailVerified: Boolean(session.user.email_confirmed_at || session.user.confirmed_at)
+            };
+            localStorage.setItem('smartpantry_token', session.access_token);
+            localStorage.setItem('smartpantry_user', JSON.stringify(userObj));
+            const target = window.location.pathname.endsWith('.html') ? 'dashboard.html' : 'dashboard';
+            window.location.replace(target);
+            return;
+          }
+        }
         const rawUser = localStorage.getItem('smartpantry_user');
         const token = localStorage.getItem('smartpantry_token');
         if (rawUser && token && !token.startsWith('direct_token_')) {
@@ -821,15 +840,34 @@
       if (emailParam) {
         const loginEmail = document.getElementById('loginEmail');
         if (loginEmail) loginEmail.value = emailParam;
+        currentPendingEmail = emailParam;
       }
 
       if (isRegistered) {
         switchView('viewLogin');
-        showAlert('loginAlert', 'Your account has been created. Please check your email and confirm your account before logging in.', 'success');
+        const emailVal = emailParam || (document.getElementById('loginEmail') ? document.getElementById('loginEmail').value : '');
+        showAlert('loginAlert', `Your account has been created. Please check your email and verify your address before logging in.<div style="margin-top:8px; display:flex; gap:12px; align-items:center; flex-wrap:wrap; font-size:12.5px;"><a onclick="handleResendConfirmation('${escapeHTML(emailVal)}', 'loginAlert')" style="color:var(--forest); font-weight:700; text-decoration:underline; cursor:pointer;">Resend verification email</a><span style="color:#a4aca6;">•</span><a onclick="goToVerificationCode('${escapeHTML(emailVal)}')" style="color:var(--forest); font-weight:700; text-decoration:underline; cursor:pointer;">Enter verification code</a></div>`, 'success');
+
+        // Clean URL query parameters immediately so refreshing shows standard login
+        try {
+          window.history.replaceState({}, document.title, window.location.pathname);
+        } catch (e) {}
       } else if (params.get('signup') === '1' || params.get('tab') === 'signup' || params.get('register') === '1') {
         switchView('viewSignup');
       }
     });
+
+    function goToVerificationCode(email) {
+      const targetEmail = email || (document.getElementById('loginEmail') ? document.getElementById('loginEmail').value.trim() : '') || currentPendingEmail;
+      if (targetEmail) {
+        currentPendingEmail = targetEmail;
+        const masked = document.getElementById('maskedEmailDisplay');
+        if (masked) masked.textContent = targetEmail;
+      }
+      pendingOtpType = 'signup';
+      startOTPCountdown(Date.now() + 10 * 60 * 1000);
+      switchView('viewVerify');
+    }
 
     // Toggle Password Visibility
     function togglePasswordVisibility(inputId, btn) {
@@ -996,40 +1034,30 @@
         return;
       }
 
-      // 1) After successful signUp: Do NOT auto-login if session is null
-      if (authRes.needsEmailConfirmation || !authRes.session) {
-        currentPendingEmail = email;
-        pendingOtpType = 'signup';
+      // 1) After successful signUp:
+      // - Do NOT auto-login.
+      // - Redirect the user to the Sign In page.
+      // - Keep / pre-fill the email they just used for signup in the Sign In form.
+      currentPendingEmail = email;
+      pendingOtpType = 'signup';
 
-        // Keep / pre-fill the email used during signup in the Sign In form
-        const loginEmailInput = document.getElementById('loginEmail');
-        if (loginEmailInput) loginEmailInput.value = email;
+      // Keep / pre-fill the email used during signup in the Sign In form
+      const loginEmailInput = document.getElementById('loginEmail');
+      if (loginEmailInput) loginEmailInput.value = email;
 
-        // Redirect to Sign In view
-        switchView('viewLogin');
+      // Redirect to Sign In view
+      switchView('viewLogin');
 
-        // Show clear success message above the form
-        showAlert('loginAlert', 'Your account has been created. Please check your email and confirm your account before logging in.<br><small style="margin-top:6px; display:inline-block;">Have a 6-digit code? <a onclick="switchView(\'viewVerify\')" style="color:var(--forest); font-weight:700; text-decoration:underline; cursor:pointer;">Enter verification code here</a>.</small>', 'success');
+      // Show clear success message above the form
+      showAlert('loginAlert', `Your account has been created. Please check your email and verify your address before logging in.<div style="margin-top:8px; display:flex; gap:12px; align-items:center; flex-wrap:wrap; font-size:12.5px;"><a onclick="handleResendConfirmation('${escapeHTML(email)}', 'loginAlert')" style="color:var(--forest); font-weight:700; text-decoration:underline; cursor:pointer;">Resend verification email</a><span style="color:#a4aca6;">•</span><a onclick="goToVerificationCode('${escapeHTML(email)}')" style="color:var(--forest); font-weight:700; text-decoration:underline; cursor:pointer;">Enter verification code</a></div>`, 'success');
 
-        // Dual-dispatch: Trigger OTP delivery as guaranteed backup channel
-        if (window.supabaseService && typeof window.supabaseService.signInWithOtp === 'function') {
-          window.supabaseService.signInWithOtp(email).catch(e => console.warn('[Backup OTP Dispatch]', e));
-        }
-        return;
-      }
+      try {
+        window.history.replaceState({}, document.title, window.location.pathname);
+      } catch (e) {}
 
-      // Only redirect when a real session exists
-      if (authRes.session && authRes.user) {
-        if (authRes.token) localStorage.setItem('smartpantry_token', authRes.token);
-        localStorage.setItem('smartpantry_user', JSON.stringify(authRes.user));
-        if (window.store) {
-          window.store.items = [];
-          window.store.userId = authRes.user.id;
-        }
-        showAlert('signupAlert', `Welcome, ${escapeHTML(authRes.user.name)}! Opening your pantry...`, 'success');
-        setTimeout(() => {
-          window.location.href = '/';
-        }, 150);
+      // Dual-dispatch: Trigger OTP delivery as guaranteed backup channel
+      if (window.supabaseService && typeof window.supabaseService.signInWithOtp === 'function') {
+        window.supabaseService.signInWithOtp(email).catch(e => console.warn('[Backup OTP Dispatch]', e));
       }
     }
 
@@ -1069,19 +1097,11 @@
       btn.textContent = 'Login';
 
       if (!authRes.success) {
-        const errLower = (authRes.error || '').toLowerCase();
+        const errLower = ((authRes.error || '') + ' ' + (authRes.rawError || '')).toLowerCase();
         if (errLower.includes('email not confirmed') || errLower.includes('confirm')) {
           currentPendingEmail = email;
           pendingOtpType = 'signup';
-          const masked = document.getElementById('maskedEmailDisplay');
-          if (masked) masked.textContent = email;
-          startOTPCountdown(Date.now() + 10 * 60 * 1000);
-          switchView('viewVerify');
-          showAlert('verifyAlert', `Your email is not verified yet. We've sent a 6-digit confirmation code to <strong>${escapeHTML(email)}</strong>. Enter it below to activate your account, or click Resend Code.`);
-          window.supabaseService.resendConfirmation(email);
-          if (typeof window.supabaseService.signInWithOtp === 'function') {
-            window.supabaseService.signInWithOtp(email).catch(e => console.warn('[Login Backup OTP]', e));
-          }
+          showAlert('loginAlert', `Your email address has not been verified yet.<div style="margin-top:8px; display:flex; gap:12px; align-items:center; flex-wrap:wrap; font-size:12.5px;"><a onclick="handleResendConfirmation('${escapeHTML(email)}', 'loginAlert')" style="color:var(--forest); font-weight:700; text-decoration:underline; cursor:pointer;">Resend verification email</a><span style="color:#a4aca6;">•</span><a onclick="goToVerificationCode('${escapeHTML(email)}')" style="color:var(--forest); font-weight:700; text-decoration:underline; cursor:pointer;">Enter verification code</a></div>`, 'error');
         } else {
           showAlert('loginAlert', authRes.error || 'Invalid email or password. Please verify your credentials.');
         }
@@ -1094,7 +1114,7 @@
         localStorage.setItem('smartpantry_user', JSON.stringify(authRes.user));
         showAlert('loginAlert', `Welcome back, ${escapeHTML(authRes.user.name)}! Opening your pantry...`, 'success');
         setTimeout(() => {
-          window.location.href = '/';
+          navigateToDashboard();
         }, 300);
       } else {
         showAlert('loginAlert', 'Check your email and confirm your account before logging in.');
@@ -1116,10 +1136,11 @@
         }
 
         const client = window.supabaseService.client;
+        const redirectUrl = `${window.location.origin}/dashboard.html`;
         const { data, error } = await client.auth.signInWithOAuth({
           provider: 'google',
           options: {
-            redirectTo: `${window.location.origin}/`
+            redirectTo: redirectUrl
           }
         });
 
