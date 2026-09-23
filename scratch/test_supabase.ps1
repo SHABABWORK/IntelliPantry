@@ -12,6 +12,7 @@ Write-Host "1. TESTING SUPABASE REST API & TABLES"
 Write-Host "=========================================="
 
 $tables = @(
+    "pantry_items",
     "profiles",
     "pantry_products",
     "products",
