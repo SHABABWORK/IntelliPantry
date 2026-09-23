@@ -713,6 +713,9 @@
                 <label class="block text-xs font-bold text-slate-700 mb-1">Email Address</label>
                 <div style="display:flex; gap:10px; align-items:center;">
                   <input type="email" id="settingsEmailAddress" class="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl bg-slate-100 text-slate-600 outline-none" readonly>
+                  <button type="button" onclick="handleChangeEmailPrompt()" style="padding:7px 14px; border-radius:10px; font-size:12px; font-weight:700; background:#ffffff; color:#1e392a; border:1px solid #cbd5e1; white-space:nowrap; cursor:pointer;" title="Change your registered email address">
+                    ✏️ Change
+                  </button>
                   <span id="settingsEmailVerifiedBadge" style="padding:6px 12px; border-radius:10px; font-size:12px; font-weight:700; background:#f0fdf4; color:#166534; border:1px solid #bbf7d0; white-space:nowrap;">
                     ✓ Verified
                   </span>
@@ -3110,6 +3113,12 @@ async function initDashboardAuthAndUser() {
     }
 
     if (window.supabaseService && window.supabaseService.isReady()) {
+      const params = new URLSearchParams(window.location.search);
+      const code = params.get('code');
+      if (code) {
+        await window.supabaseService.exchangeCodeForSession(code);
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
       const session = await window.supabaseService.getSession();
       if (session && session.user) {
         const userId = session.user.id;

@@ -1316,4 +1316,31 @@ window.toggleAlertCenter = toggleAlertCenter;
 window.filterAlertDrawer = filterAlertDrawer;
 window.renderAlertCenter = renderAlertCenter;
 
+async function handleChangeEmailPrompt() {
+  const currentEmail = document.getElementById("settingsEmailAddress")?.value || "";
+  const newEmail = prompt("Enter your new email address:", currentEmail);
+  if (!newEmail || newEmail.trim() === "" || newEmail.trim().toLowerCase() === currentEmail.toLowerCase()) {
+    return;
+  }
+  const cleanEmail = newEmail.trim().toLowerCase();
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(cleanEmail)) {
+    showToast("Please enter a valid email address.");
+    return;
+  }
+  if (!window.supabaseService || !window.supabaseService.isReady()) {
+    showToast("Authentication service unavailable.");
+    return;
+  }
+  showToast("Sending confirmation email... ✉️");
+  const res = await window.supabaseService.updateEmail(cleanEmail);
+  if (res.success) {
+    showToast(`✓ Confirmation link sent to ${cleanEmail}! Please check your inbox to confirm the change.`, 6000);
+  } else {
+    showToast(`Error: ${res.error || "Failed to update email address"}`);
+  }
+}
+window.handleChangeEmailPrompt = handleChangeEmailPrompt;
+
+
 
