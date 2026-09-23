@@ -540,14 +540,33 @@ class PantryStore {
     try {
       const dbItems = await window.supabaseService.getProducts(this.userId);
       if (Array.isArray(dbItems)) {
-        this.items = dbItems;
+        // Merge items that are marked as pendingSync or not in dbItems yet
+        const currentItems = Array.isArray(this.items) ? this.items : [];
+        const pendingItems = currentItems.filter(item => item && item.pendingSync);
+        const merged = [...dbItems];
+
+        for (const p of pendingItems) {
+          if (!merged.some(m => String(m.id) === String(p.id))) {
+            merged.push(p);
+          }
+        }
+
+        this.items = merged;
         try {
-          localStorage.setItem(this.storageKey, JSON.stringify(dbItems));
+          localStorage.setItem(this.storageKey, JSON.stringify(merged));
           if (this.userId) {
-            localStorage.setItem(`smartpantry_user_pantry_${this.userId}`, JSON.stringify(dbItems));
+            localStorage.setItem(`smartpantry_user_pantry_${this.userId}`, JSON.stringify(merged));
           }
         } catch(e) {}
         this.syncAlertsFromPantry();
+
+        // If there were pending items and remote table is online, background sync them
+        if (pendingItems.length > 0) {
+          this.syncPendingItemsToSupabase();
+        }
+      } else {
+        // dbItems is null (table 404 or offline) - preserve local pantry items!
+        console.log("[PantryStore] Remote table returned null/offline. Preserving existing local pantry items.");
       }
     } catch (err) {
       console.warn("[PantryStore] Supabase fetch warning:", err.message);
@@ -555,6 +574,26 @@ class PantryStore {
       this.isLoading = false;
       this.notify();
     }
+  }
+
+  async syncPendingItemsToSupabase() {
+    if (!this.userId || !window.supabaseService || !window.supabaseService.isReady()) return;
+    const pending = (this.items || []).filter(i => i && i.pendingSync);
+    if (!pending.length) return;
+
+    for (const item of pending) {
+      try {
+        const saved = await window.supabaseService.insertProduct(item, this.userId);
+        if (saved && saved.id) {
+          item.id = saved.id;
+          item.pendingSync = false;
+          item.synced = true;
+        }
+      } catch (e) {
+        break; // Stop loop if remote table remains offline/404
+      }
+    }
+    this.saveItems(this.items);
   }
 
   async fetchSettingsFromSupabase() {
