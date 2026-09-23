@@ -3139,6 +3139,11 @@ async function initDashboardAuthAndUser() {
             await window.store.fetchFromSupabase();
           }
         }
+      } else if (!localStorage.getItem('smartpantry_user')) {
+        // Protect private pages with supabase.auth.getSession() — if no session, redirect to /login
+        const target = window.location.pathname.endsWith('.html') ? 'login.html' : 'login';
+        window.location.replace(target);
+        return;
       }
 
       window.supabaseService.onAuthStateChange(async (event, session) => {
