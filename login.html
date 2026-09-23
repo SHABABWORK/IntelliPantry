@@ -884,6 +884,9 @@
       };
     }
 
+    let currentPendingEmail = "";
+    let pendingOtpType = "signup"; // 'signup', 'magiclink', 'recovery'
+
     function navigateToDashboard() {
       const isHtml = window.location.pathname.endsWith('.html');
       const target = isHtml ? 'dashboard.html' : 'dashboard';
@@ -915,7 +918,7 @@
     }
 
     // ==========================================
-    // REAL SIGNUP HANDLER (Ultra Fast)
+    // REAL SIGNUP HANDLER (Confirm Sign Up Flow)
     // ==========================================
     async function handleRealSignup(e) {
       e.preventDefault();
@@ -958,7 +961,13 @@
 
       // If email confirmation is required by Supabase project settings
       if (authRes.needsEmailConfirmation) {
-        showAlert('signupAlert', `Account created! We've sent a verification link to <strong>${escapeHTML(email)}</strong>.<br>Please check your inbox or spam folder to activate your account.<div style="margin-top:12px;"><button type="button" onclick="handleResendConfirmation('${escapeHTML(email)}', 'signupAlert')" style="background:#1e392a; color:#ffffff; border:none; padding:8px 18px; border-radius:10px; font-weight:700; font-size:12.5px; cursor:pointer;">✉️ Resend Verification Link</button></div>`, 'success');
+        currentPendingEmail = email;
+        pendingOtpType = 'signup';
+        const masked = document.getElementById('maskedEmailDisplay');
+        if (masked) masked.textContent = email;
+        startOTPCountdown(Date.now() + 10 * 60 * 1000);
+        switchView('viewVerify');
+        showAlert('verifyAlert', `✓ Account created! We've sent a verification link and a 6-digit confirmation code to <strong>${escapeHTML(email)}</strong>.<br>Click the link in your email OR enter the 6-digit code below to activate your account!`, 'success');
         return;
       }
 
@@ -966,7 +975,6 @@
       if (authRes.user) {
         if (authRes.token) localStorage.setItem('smartpantry_token', authRes.token);
         localStorage.setItem('smartpantry_user', JSON.stringify(authRes.user));
-        // Ensure fresh account starts with completely EMPTY pantry
         if (window.store) {
           window.store.items = [];
           window.store.userId = authRes.user.id;
@@ -1016,7 +1024,14 @@
       if (!authRes.success) {
         const errLower = (authRes.error || '').toLowerCase();
         if (errLower.includes('email not confirmed') || errLower.includes('confirm')) {
-          showAlert('loginAlert', `Your email address is not verified yet.<br>Please check your inbox or spam folder for the confirmation link.<div style="margin-top:12px;"><button type="button" onclick="handleResendConfirmation('${escapeHTML(email)}', 'loginAlert')" style="background:#1e392a; color:#ffffff; border:none; padding:8px 18px; border-radius:10px; font-weight:700; font-size:12.5px; cursor:pointer;">✉️ Resend Verification Link</button></div>`);
+          currentPendingEmail = email;
+          pendingOtpType = 'signup';
+          const masked = document.getElementById('maskedEmailDisplay');
+          if (masked) masked.textContent = email;
+          startOTPCountdown(Date.now() + 10 * 60 * 1000);
+          switchView('viewVerify');
+          showAlert('verifyAlert', `Your email is not verified yet. We've sent a 6-digit confirmation code to <strong>${escapeHTML(email)}</strong>. Enter it below to activate your account, or click Resend Code.`);
+          window.supabaseService.resendConfirmation(email);
         } else {
           showAlert('loginAlert', authRes.error || 'Invalid email or password. Please verify your credentials.');
         }
@@ -1030,6 +1045,133 @@
         setTimeout(() => {
           navigateToDashboard();
         }, 100);
+      }
+    }
+
+    // ==========================================
+    // MAGIC LINK & OTP LOGIN (Passwordless)
+    // ==========================================
+    async function sendMagicLinkFromLogin() {
+      clearAlert('loginAlert');
+      const emailInput = document.getElementById('loginEmail');
+      const email = emailInput ? emailInput.value.trim() : '';
+
+      if (!email || !email.includes('@')) {
+        showAlert('loginAlert', 'Please enter your email address in the field above first, then click here.');
+        if (emailInput) emailInput.focus();
+        return;
+      }
+
+      showAlert('loginAlert', 'Sending sign-in link and 6-digit code... ✉️', 'success');
+
+      try {
+        const res = await window.supabaseService.signInWithOtp(email);
+        if (res.success) {
+          currentPendingEmail = email;
+          pendingOtpType = 'magiclink';
+          const masked = document.getElementById('maskedEmailDisplay');
+          if (masked) masked.textContent = email;
+          startOTPCountdown(Date.now() + 10 * 60 * 1000);
+          switchView('viewVerify');
+          showAlert('verifyAlert', `✓ We've sent a magic sign-in link and 6-digit OTP code to <strong>${escapeHTML(email)}</strong>.<br>Click the link in your email OR enter the 6-digit code below to log in!`, 'success');
+        } else {
+          showAlert('loginAlert', res.error || 'Could not send sign-in link. Please check your email address.');
+        }
+      } catch (err) {
+        showAlert('loginAlert', err.message || 'Connection error. Please try again.');
+      }
+    }
+
+    // ==========================================
+    // 6-DIGIT OTP VERIFICATION HANDLER
+    // ==========================================
+    async function handleRealOTPVerify(e) {
+      e.preventDefault();
+      clearAlert('verifyAlert');
+
+      const token = getOTPValue();
+      if (!token || token.length < 6) {
+        showAlert('verifyAlert', 'Please enter the complete 6-digit verification code.');
+        return;
+      }
+
+      if (!currentPendingEmail) {
+        showAlert('verifyAlert', 'Verification session expired. Please return to login.');
+        return;
+      }
+
+      const btn = document.getElementById('btnVerifySubmit');
+      btn.disabled = true;
+      btn.textContent = 'Verifying Code...';
+
+      try {
+        const res = await window.supabaseService.verifyOtp({
+          email: currentPendingEmail,
+          token: token,
+          type: pendingOtpType || 'signup'
+        });
+
+        btn.disabled = false;
+        btn.textContent = 'Verify Email';
+
+        if (!res.success) {
+          showAlert('verifyAlert', res.error || 'Invalid or expired verification code. Please check your email or click Resend Code.');
+          return;
+        }
+
+        if (pendingOtpType === 'recovery') {
+          showAlert('verifyAlert', '✓ Code verified! Please enter your new password.', 'success');
+          setTimeout(() => {
+            switchView('viewForgot');
+            document.getElementById('formForgotRequest').style.display = 'none';
+            document.getElementById('formForgotReset').style.display = 'block';
+            document.getElementById('resetCodeInput').value = token;
+          }, 600);
+          return;
+        }
+
+        showAlert('verifyAlert', `✓ Email verified! Welcome to IntelliPantry, ${escapeHTML(res.user.name)}. Opening your pantry...`, 'success');
+        setTimeout(() => {
+          navigateToDashboard();
+        }, 800);
+      } catch (err) {
+        btn.disabled = false;
+        btn.textContent = 'Verify Email';
+        showAlert('verifyAlert', err.message || 'Verification failed. Please try again.');
+      }
+    }
+
+    async function handleResendOTP() {
+      if (!currentPendingEmail) {
+        showAlert('verifyAlert', 'Please enter your email on the login or signup screen.');
+        return;
+      }
+
+      const btn = document.getElementById('btnResendOtp');
+      if (btn) btn.disabled = true;
+      showAlert('verifyAlert', 'Sending new verification code... ✉️', 'success');
+
+      try {
+        let res;
+        if (pendingOtpType === 'recovery') {
+          res = await window.supabaseService.resetPasswordForEmail(currentPendingEmail);
+        } else if (pendingOtpType === 'magiclink') {
+          res = await window.supabaseService.signInWithOtp(currentPendingEmail);
+        } else {
+          res = await window.supabaseService.resendConfirmation(currentPendingEmail);
+        }
+
+        if (btn) btn.disabled = false;
+
+        if (res.success) {
+          startOTPCountdown(Date.now() + 10 * 60 * 1000);
+          showAlert('verifyAlert', `✓ A new 6-digit code has been sent to <strong>${escapeHTML(currentPendingEmail)}</strong>! Please check your inbox or spam folder.`, 'success');
+        } else {
+          showAlert('verifyAlert', res.error || 'Failed to resend code. Please wait a moment and try again.');
+        }
+      } catch (err) {
+        if (btn) btn.disabled = false;
+        showAlert('verifyAlert', 'Network error. Please try again.');
       }
     }
 
@@ -1051,37 +1193,26 @@
       }
 
       btn.disabled = true;
-      btn.textContent = 'Sending Link...';
+      btn.textContent = 'Sending Reset Link & Code...';
 
-      // 1. Try Supabase Auth password reset
-      if (window.supabaseService && window.supabaseService.isReady()) {
-        const resetRes = await window.supabaseService.resetPasswordForEmail(email);
-        if (resetRes.success) {
-          btn.disabled = false;
-          btn.textContent = 'Send Reset Link';
-          showAlert('forgotAlert', `✓ Password reset link sent to <strong>${escapeHTML(email)}</strong>! Please check your inbox.`, 'success');
-          return;
-        }
-      }
-
-      // 2. Fallback to serverless auth route
       try {
-        const res = await fetch('/api/auth', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'forgot-password', email })
-        });
-        const data = await res.json();
+        const resetRes = await window.supabaseService.resetPasswordForEmail(email);
         btn.disabled = false;
-        btn.textContent = 'Send Reset Code';
+        btn.textContent = 'Send Reset Code & Link';
 
-        forgotUserEmail = email;
-        showAlert('forgotAlert', 'Check your email for a password reset code.', 'success');
-        document.getElementById('formForgotRequest').style.display = 'none';
-        document.getElementById('formForgotReset').style.display = 'block';
+        if (resetRes.success) {
+          forgotUserEmail = email;
+          currentPendingEmail = email;
+          pendingOtpType = 'recovery';
+          showAlert('forgotAlert', `✓ Password reset link & 6-digit code sent to <strong>${escapeHTML(email)}</strong>! Click the link in your email or enter the 6-digit code below to set a new password.`, 'success');
+          document.getElementById('formForgotRequest').style.display = 'none';
+          document.getElementById('formForgotReset').style.display = 'block';
+        } else {
+          showAlert('forgotAlert', resetRes.error || 'Failed to send reset email. Please try again.');
+        }
       } catch (err) {
         btn.disabled = false;
-        btn.textContent = 'Send Reset Code';
+        btn.textContent = 'Send Reset Code & Link';
         showAlert('forgotAlert', 'Connection problem. Please try again.');
       }
     }
@@ -1095,6 +1226,11 @@
       const confirmPassword = document.getElementById('resetConfirmPassword').value;
       const btn = document.getElementById('btnResetFinal');
 
+      if (!newPassword || newPassword.length < 6) {
+        showAlert('forgotAlert', 'Password must be at least 6 characters long.');
+        return;
+      }
+
       if (newPassword !== confirmPassword) {
         showAlert('forgotAlert', 'Passwords do not match.');
         return;
@@ -1104,34 +1240,45 @@
       btn.textContent = 'Updating Password...';
 
       try {
-        const res = await fetch('/api/auth', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            action: 'reset-password',
-            email: forgotUserEmail,
-            resetCode,
-            newPassword,
-            confirmPassword
-          })
-        });
-        const data = await res.json();
+        // If not already in an active authenticated session, verify the 6-digit reset code first
+        const session = await window.supabaseService.getSession();
+        if (!session || !session.user) {
+          if (!resetCode) {
+            btn.disabled = false;
+            btn.textContent = 'Update Password & Login';
+            showAlert('forgotAlert', 'Please enter the 6-digit reset code sent to your email.');
+            return;
+          }
+          const otpRes = await window.supabaseService.verifyOtp({
+            email: forgotUserEmail || currentPendingEmail,
+            token: resetCode,
+            type: 'recovery'
+          });
+          if (!otpRes.success) {
+            btn.disabled = false;
+            btn.textContent = 'Update Password & Login';
+            showAlert('forgotAlert', otpRes.error || 'Invalid or expired 6-digit reset code. Please check your email.');
+            return;
+          }
+        }
+
+        const updateRes = await window.supabaseService.updatePassword(newPassword);
         btn.disabled = false;
         btn.textContent = 'Update Password & Login';
 
-        if (!data.success) {
-          showAlert('forgotAlert', data.message || 'Password reset failed.');
+        if (!updateRes.success) {
+          showAlert('forgotAlert', updateRes.error || 'Failed to update password.');
           return;
         }
 
-        showAlert('forgotAlert', 'Password reset successful! Please log in with your new password.', 'success');
+        showAlert('forgotAlert', '✓ Password updated successfully! Opening your pantry...', 'success');
         setTimeout(() => {
-          switchView('viewLogin');
-        }, 1200);
+          navigateToDashboard();
+        }, 800);
       } catch (err) {
         btn.disabled = false;
         btn.textContent = 'Update Password & Login';
-        showAlert('forgotAlert', 'Connection problem. Please try again.');
+        showAlert('forgotAlert', 'Connection error. Please try again.');
       }
     }
 
@@ -1141,25 +1288,60 @@
       const params = new URLSearchParams(window.location.search);
 
       if (params.get('signup') === '1') switchView('viewSignup');
-      if (params.get('forgot') === '1') switchView('viewForgot');
+      if (params.get('forgot') === '1' || params.get('reset') === '1' || hash.includes('type=recovery')) {
+        switchView('viewForgot');
+      }
 
-      // If returning from Supabase confirmation link
-      if (hash.includes('access_token') || hash.includes('refresh_token') || params.get('code')) {
+      // 1. Handle PKCE code exchange (?code=...)
+      const code = params.get('code');
+      if (code) {
+        showAlert('loginAlert', 'Verifying your email authorization code... ✉️', 'success');
+        if (window.supabaseService && window.supabaseService.isReady()) {
+          const res = await window.supabaseService.exchangeCodeForSession(code);
+          if (res && res.user) {
+            if (params.get('type') === 'recovery' || hash.includes('type=recovery') || params.get('reset') === '1') {
+              switchView('viewForgot');
+              document.getElementById('formForgotRequest').style.display = 'none';
+              document.getElementById('formForgotReset').style.display = 'block';
+              showAlert('forgotAlert', '✓ Recovery link verified! Please enter your new password below.', 'success');
+              return;
+            }
+            showAlert('loginAlert', `✓ Email verified! Welcome, ${escapeHTML(res.user.name)}. Opening your pantry...`, 'success');
+            setTimeout(() => navigateToDashboard(), 700);
+            return;
+          }
+        }
+      }
+
+      // 2. Handle Hash access_token (#access_token=...&type=...)
+      if (hash.includes('access_token')) {
         showAlert('loginAlert', 'Verifying email confirmation... ✉️', 'success');
         if (window.supabaseService && window.supabaseService.isReady()) {
-          const session = await window.supabaseService.getSession();
-          if (session && session.user) {
-            const userObj = {
-              id: session.user.id,
-              email: session.user.email,
-              name: session.user.user_metadata?.full_name || session.user.email.split('@')[0] || 'Pantry Chef',
-              emailVerified: true
-            };
-            localStorage.setItem('smartpantry_token', session.access_token);
-            localStorage.setItem('smartpantry_user', JSON.stringify(userObj));
-            showAlert('loginAlert', `✓ Email verified! Welcome, ${escapeHTML(userObj.name)}. Opening your pantry...`, 'success');
-            setTimeout(() => navigateToDashboard(), 900);
-          }
+          setTimeout(async () => {
+            const session = await window.supabaseService.getSession();
+            if (session && session.user) {
+              const userObj = {
+                id: session.user.id,
+                email: session.user.email,
+                name: session.user.user_metadata?.full_name || session.user.email.split('@')[0] || 'Pantry Chef',
+                emailVerified: true
+              };
+              localStorage.setItem('smartpantry_token', session.access_token);
+              localStorage.setItem('smartpantry_user', JSON.stringify(userObj));
+              window.supabaseService.dispatchLoginNotification(userObj);
+
+              if (hash.includes('type=recovery')) {
+                switchView('viewForgot');
+                document.getElementById('formForgotRequest').style.display = 'none';
+                document.getElementById('formForgotReset').style.display = 'block';
+                showAlert('forgotAlert', '✓ Recovery link verified! Please enter your new password below.', 'success');
+                return;
+              }
+
+              showAlert('loginAlert', `✓ Email verified! Welcome, ${escapeHTML(userObj.name)}. Opening your pantry...`, 'success');
+              setTimeout(() => navigateToDashboard(), 700);
+            }
+          }, 300);
         }
       }
     })();
