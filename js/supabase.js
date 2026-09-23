@@ -348,7 +348,7 @@
     }
 
     // ==========================================
-    // 3. PANTRY PRODUCTS CRUD (pantry_products)
+    // 3. PANTRY ITEMS CRUD (pantry_items as Primary)
     // ==========================================
 
     async getProducts(userId) {
@@ -359,79 +359,132 @@
       }
 
       try {
-        // Try pantry_products table first
-        const { data, error } = await this.client
+        // 1. Query pantry_items table first (Permanent Source of Truth)
+        const itemsRes = await this.client
+          .from('pantry_items')
+          .select('*')
+          .eq('user_id', userId)
+          .order('created_at', { ascending: false });
+
+        if (!itemsRes.error && Array.isArray(itemsRes.data) && itemsRes.data.length > 0) {
+          return itemsRes.data.map(r => this.mapFromDB(r));
+        }
+
+        // 2. Graceful fallback to pantry_products if pantry_items is empty/migrating
+        const prodRes = await this.client
           .from('pantry_products')
           .select('*')
           .eq('user_id', userId)
           .order('created_at', { ascending: false });
 
-        if (!error && Array.isArray(data)) {
-          return data.map(this.mapFromDB);
+        if (!prodRes.error && Array.isArray(prodRes.data) && prodRes.data.length > 0) {
+          return prodRes.data.map(r => this.mapFromDB(r));
         }
 
-        // Graceful fallback to products table if pantry_products is not yet created
+        // 3. Fallback to legacy products table
         const fallbackRes = await this.client
           .from('products')
           .select('*')
           .eq('user_id', userId)
           .order('created_at', { ascending: false });
 
-        if (!fallbackRes.error && Array.isArray(fallbackRes.data)) {
-          return fallbackRes.data.map(this.mapFromDB);
+        if (!fallbackRes.error && Array.isArray(fallbackRes.data) && fallbackRes.data.length > 0) {
+          return fallbackRes.data.map(r => this.mapFromDB(r));
+        }
+
+        // If pantry_items query succeeded with empty array, return []
+        if (!itemsRes.error && Array.isArray(itemsRes.data)) {
+          return [];
         }
 
         return [];
       } catch (err) {
         console.error("[Supabase DB] getProducts failed:", err.message);
-        return [];
+        throw err;
       }
     }
 
     async insertProduct(productData, userId) {
-      if (!this.isReady()) throw new Error("Supabase is not configured");
+      if (!this.isReady()) throw new Error("Supabase database is not configured");
       const effectiveUserId = await this.getAuthenticatedUserId(userId);
-      if (!effectiveUserId) throw new Error("Authenticated session is required to save products");
+      if (!effectiveUserId) throw new Error("Authenticated session is required to save products. Please log in.");
 
-      const dbRecord = {
+      const qty = Number(productData.quantity) || 1;
+      const unitVal = productData.unit || productData.quantity_unit || 'pcs';
+      const minStockVal = productData.minStock !== undefined ? Number(productData.minStock) : (productData.lowStockThreshold !== undefined ? Number(productData.lowStockThreshold) : 2);
+      const notesVal = productData.notes || productData.description || null;
+
+      // Primary Record: pantry_items
+      const pantryItemRecord = {
         user_id: effectiveUserId,
         product_name: productData.name,
         brand: productData.brand || null,
         category: productData.category || 'Pantry',
         barcode: productData.barcode || null,
         product_image: productData.imageUrl || productData.image || null,
-        description: productData.description || null,
-        ingredients: productData.ingredients || null,
-        nutrition: productData.nutrition || null,
-        quantity: Number(productData.quantity) || 1,
-        unit: productData.unit || 'pcs',
+        quantity: qty,
+        quantity_unit: unitVal,
+        unit: unitVal,
         purchase_date: productData.purchaseDate || null,
         expiry_date: productData.expiryDate || null,
-        minimum_stock: productData.minStock !== undefined ? Number(productData.minStock) : 2,
+        low_stock_threshold: minStockVal,
+        minimum_stock: minStockVal,
+        notes: notesVal,
+        description: notesVal,
         storage_location: productData.storageLocation || productData.location || 'Pantry'
       };
 
       try {
-        // Insert into pantry_products
+        // 1. Try pantry_items table
         const { data, error } = await this.client
-          .from('pantry_products')
-          .insert([dbRecord])
+          .from('pantry_items')
+          .insert([pantryItemRecord])
           .select();
 
         if (!error && data && data[0]) {
           return this.mapFromDB(data[0]);
         }
 
-        // Fallback to legacy products table if pantry_products doesn't exist
+        if (error) {
+          console.warn("[Supabase DB] pantry_items insert error, attempting fallback:", error.message);
+        }
+
+        // 2. Fallback to pantry_products table
+        const prodRecord = {
+          user_id: effectiveUserId,
+          product_name: productData.name,
+          brand: productData.brand || null,
+          category: productData.category || 'Pantry',
+          barcode: productData.barcode || null,
+          product_image: productData.imageUrl || productData.image || null,
+          description: notesVal,
+          quantity: qty,
+          unit: unitVal,
+          purchase_date: productData.purchaseDate || null,
+          expiry_date: productData.expiryDate || null,
+          minimum_stock: minStockVal,
+          storage_location: productData.storageLocation || productData.location || 'Pantry'
+        };
+
+        const prodRes = await this.client
+          .from('pantry_products')
+          .insert([prodRecord])
+          .select();
+
+        if (!prodRes.error && prodRes.data && prodRes.data[0]) {
+          return this.mapFromDB(prodRes.data[0]);
+        }
+
+        // 3. Fallback to legacy products table
         const legacyRecord = {
           user_id: effectiveUserId,
           name: productData.name,
           brand: productData.brand || null,
           image_url: productData.imageUrl || productData.image || null,
-          min_stock: productData.minStock !== undefined ? Number(productData.minStock) : 2,
+          min_stock: minStockVal,
           category: productData.category || 'Pantry',
-          quantity: Number(productData.quantity) || 1,
-          unit: productData.unit || 'pcs',
+          quantity: qty,
+          unit: unitVal,
           expiry_date: productData.expiryDate || null,
           purchase_date: productData.purchaseDate || null,
           barcode: productData.barcode || null,
@@ -445,12 +498,12 @@
           .insert([legacyRecord])
           .select();
 
-        if (legRes.error) throw legRes.error;
-        if (legRes.data && legRes.data[0]) {
+        if (!legRes.error && legRes.data && legRes.data[0]) {
           return this.mapFromDB(legRes.data[0]);
         }
 
-        throw new Error("Failed to insert product");
+        const finalErr = error || prodRes.error || legRes.error;
+        throw new Error(finalErr ? finalErr.message : "Failed to insert product into database");
       } catch (err) {
         console.error("[Supabase DB] insertProduct error:", err.message);
         throw err;
@@ -469,23 +522,33 @@
       if (updates.name !== undefined) dbPayload.product_name = updates.name;
       if (updates.brand !== undefined) dbPayload.brand = updates.brand;
       if (updates.imageUrl !== undefined || updates.image !== undefined) dbPayload.product_image = updates.imageUrl || updates.image;
-      if (updates.minStock !== undefined) dbPayload.minimum_stock = Number(updates.minStock);
+      if (updates.minStock !== undefined) {
+        dbPayload.low_stock_threshold = Number(updates.minStock);
+        dbPayload.minimum_stock = Number(updates.minStock);
+      }
       if (updates.category !== undefined) dbPayload.category = updates.category;
       if (updates.quantity !== undefined) dbPayload.quantity = Number(updates.quantity);
-      if (updates.unit !== undefined) dbPayload.unit = updates.unit;
+      if (updates.unit !== undefined) {
+        dbPayload.quantity_unit = updates.unit;
+        dbPayload.unit = updates.unit;
+      }
       if (updates.expiryDate !== undefined) dbPayload.expiry_date = updates.expiryDate || null;
       if (updates.purchaseDate !== undefined) dbPayload.purchase_date = updates.purchaseDate || null;
       if (updates.barcode !== undefined) dbPayload.barcode = updates.barcode;
       if (updates.storageLocation !== undefined || updates.location !== undefined) {
         dbPayload.storage_location = updates.storageLocation || updates.location;
       }
-      if (updates.description !== undefined) dbPayload.description = updates.description;
+      if (updates.notes !== undefined || updates.description !== undefined) {
+        dbPayload.notes = updates.notes || updates.description;
+        dbPayload.description = updates.notes || updates.description;
+      }
       if (updates.ingredients !== undefined) dbPayload.ingredients = updates.ingredients;
       if (updates.nutrition !== undefined) dbPayload.nutrition = updates.nutrition;
 
       try {
+        // 1. Try pantry_items first
         const { data, error } = await this.client
-          .from('pantry_products')
+          .from('pantry_items')
           .update(dbPayload)
           .eq('id', id)
           .eq('user_id', effectiveUserId)
@@ -495,7 +558,19 @@
           return this.mapFromDB(data[0]);
         }
 
-        // Fallback to legacy products table
+        // 2. Try pantry_products
+        const prodRes = await this.client
+          .from('pantry_products')
+          .update(dbPayload)
+          .eq('id', id)
+          .eq('user_id', effectiveUserId)
+          .select();
+
+        if (!prodRes.error && prodRes.data && prodRes.data[0]) {
+          return this.mapFromDB(prodRes.data[0]);
+        }
+
+        // 3. Fallback to legacy products table
         const legacyPayload = { updated_at: new Date().toISOString() };
         if (updates.name !== undefined) legacyPayload.name = updates.name;
         if (updates.brand !== undefined) legacyPayload.brand = updates.brand;
@@ -523,6 +598,9 @@
           return this.mapFromDB(legRes.data[0]);
         }
 
+        const finalErr = error || prodRes.error || legRes.error;
+        if (finalErr) throw finalErr;
+
         return { id, ...updates };
       } catch (err) {
         console.error("[Supabase DB] updateProduct error:", err.message);
@@ -534,26 +612,47 @@
       if (!id) return false;
       if (!this.isReady()) throw new Error("Supabase is not configured");
       const effectiveUserId = await this.getAuthenticatedUserId(userId);
-      if (!effectiveUserId) return false;
+      if (!effectiveUserId) throw new Error("Authenticated session is required");
 
       try {
-        const { error } = await this.client
+        let deleted = false;
+
+        // Delete from pantry_items
+        const resItems = await this.client
+          .from('pantry_items')
+          .delete()
+          .eq('id', id)
+          .eq('user_id', effectiveUserId);
+
+        if (!resItems.error) deleted = true;
+
+        // Delete from pantry_products
+        const resProd = await this.client
           .from('pantry_products')
           .delete()
           .eq('id', id)
           .eq('user_id', effectiveUserId);
 
-        // Also delete from legacy products table if present
-        await this.client
+        if (!resProd.error) deleted = true;
+
+        // Delete from legacy products
+        const resLeg = await this.client
           .from('products')
           .delete()
           .eq('id', id)
           .eq('user_id', effectiveUserId);
 
-        return !error;
+        if (!resLeg.error) deleted = true;
+
+        if (!deleted && (resItems.error || resProd.error || resLeg.error)) {
+          const err = resItems.error || resProd.error || resLeg.error;
+          throw new Error(err.message);
+        }
+
+        return true;
       } catch (err) {
         console.error("[Supabase DB] deleteProduct error:", err.message);
-        return false;
+        throw err;
       }
     }
 
@@ -791,6 +890,19 @@
             {
               event: '*',
               schema: 'public',
+              table: 'pantry_items',
+              filter: `user_id=eq.${userId}`
+            },
+            (payload) => {
+              console.log("[Supabase Realtime] pantry_items event:", payload.eventType);
+              if (typeof onDataChange === 'function') onDataChange(payload);
+            }
+          )
+          .on(
+            'postgres_changes',
+            {
+              event: '*',
+              schema: 'public',
               table: 'pantry_products',
               filter: `user_id=eq.${userId}`
             },
@@ -909,26 +1021,39 @@
 
     mapFromDB(row) {
       if (!row) return null;
+      const minStockVal = row.low_stock_threshold !== undefined && row.low_stock_threshold !== null
+        ? Number(row.low_stock_threshold)
+        : (row.minimum_stock !== undefined && row.minimum_stock !== null
+          ? Number(row.minimum_stock)
+          : (row.min_stock !== undefined && row.min_stock !== null ? Number(row.min_stock) : 2));
+      const qtyVal = Number(row.quantity) || 1;
+      const expDate = row.expiry_date || '';
+      const unitVal = row.quantity_unit || row.unit || 'pcs';
+      const notesVal = row.notes || row.description || '';
+
       return {
         id: row.id,
         name: row.product_name || row.name || 'Unnamed Product',
         brand: row.brand || '',
         imageUrl: row.product_image || row.image_url || '',
-        minStock: row.minimum_stock !== undefined ? Number(row.minimum_stock) : (row.min_stock !== undefined ? Number(row.min_stock) : 2),
+        minStock: minStockVal,
+        lowStockThreshold: minStockVal,
         category: row.category || 'Pantry',
-        quantity: Number(row.quantity) || 1,
-        unit: row.unit || 'pcs',
-        expiryDate: row.expiry_date || '',
+        quantity: qtyVal,
+        unit: unitVal,
+        quantityUnit: unitVal,
+        expiryDate: expDate,
         purchaseDate: row.purchase_date || '',
         barcode: row.barcode || '',
         price: Number(row.price) || 0,
         storageLocation: row.storage_location || row.location || 'Pantry',
-        description: row.description || '',
+        description: notesVal,
+        notes: notesVal,
         ingredients: row.ingredients || '',
         nutrition: row.nutrition || null,
         emoji: row.emoji || (window.store ? window.store.detectEmoji(row.product_name || row.name, row.category) : '📦'),
-        status: (window.store && row.expiry_date) 
-          ? window.store.calculateStatus(row.expiry_date, row.quantity, row.minimum_stock !== undefined ? row.minimum_stock : row.min_stock) 
+        status: (window.store && expDate) 
+          ? window.store.calculateStatus(expDate, qtyVal, minStockVal) 
           : (row.status || 'Fresh'),
         addedAt: row.created_at || new Date().toISOString(),
         updatedAt: row.updated_at || new Date().toISOString()

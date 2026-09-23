@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Pantry Items Persistence Test Suite</title>
+  <style>
+    body { font-family: monospace; background: #0f172a; color: #f8fafc; padding: 24px; }
+    h1 { color: #10b981; }
+    .test-card { background: #1e293b; border-radius: 8px; padding: 12px 16px; margin-bottom: 12px; border-left: 5px solid #64748b; }
+    .test-card.pass { border-left-color: #10b981; }
+    .test-card.fail { border-left-color: #ef4444; }
+    .badge-pass { background: #064e3b; color: #34d399; padding: 2px 8px; border-radius: 4px; font-weight: bold; }
+    .badge-fail { background: #7f1d1d; color: #f87171; padding: 2px 8px; border-radius: 4px; font-weight: bold; }
+    pre { margin: 8px 0 0; font-size: 12px; color: #cbd5e1; white-space: pre-wrap; }
+  </style>
+</head>
+<body>
+  <h1>🧪 IntelliPantry 'pantry_items' Persistence Test Suite</h1>
+  <div id="summary">Running persistence tests...</div>
+  <div id="results"></div>
+
+  <!-- Hidden DOM mocks required by store & components -->
+  <div style="display:none;">
+    <div id="toast-container"></div>
+    <div id="metricTotalItems">0</div>
+    <div id="metricExpiringSoon">0</div>
+    <div id="metricLowStock">0</div>
+    <div id="metricFreshItems">0</div>
+    <div id="metricShoppingList">0</div>
+    <table class="inv-table">
+      <tbody id="inventoryTableBody"></tbody>
+    </table>
+    <span id="topbarAlertBadge">0</span>
+    <span id="welcomeUserName"></span>
+    <div id="userName"></div>
+    <div id="userAvatar"></div>
+    <div id="userMenuEmail"></div>
+  </div>
+
+  <script src="../js/supabase-config.js"></script>
+  <script src="../js/supabase.js"></script>
+  <script src="../js/store.js"></script>
+  <script src="../js/components.js"></script>
+
+  <script>
+    const testResults = [];
+
+    function recordTest(suite, name, passed, details) {
+      testResults.push({ suite, name, passed, details });
+      const resultsDiv = document.getElementById("results");
+      const card = document.createElement("div");
+      card.className = "test-card " + (passed ? "pass" : "fail");
+      card.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <strong>[${suite}] ${name}</strong>
+          <span class="${passed ? 'badge-pass' : 'badge-fail'}">${passed ? 'PASS' : 'FAIL'}</span>
+        </div>
+        <pre>${typeof details === 'object' ? JSON.stringify(details, null, 2) : details}</pre>
+      `;
+      resultsDiv.appendChild(card);
+    }
+
+    async function runPersistenceSuite() {
+      console.log("=== STARTING PERSISTENCE TEST SUITE ===");
+
+      // Test 1: pantry_items field mapping bidirectional
+      try {
+        const dbRow = {
+          id: "item-uuid-12345",
+          user_id: "user-uuid-99999",
+          product_name: "Organic Whole Milk",
+          brand: "Horizon",
+          category: "Dairy",
+          barcode: "012345678901",
+          product_image: "https://example.com/milk.png",
+          quantity: 2,
+          quantity_unit: "liters",
+          purchase_date: "2026-09-20",
+          expiry_date: "2026-09-28",
+          low_stock_threshold: 1,
+          notes: "Keep refrigerated",
+          storage_location: "Fridge",
+          created_at: "2026-09-20T10:00:00Z",
+          updated_at: "2026-09-20T10:00:00Z"
+        };
+
+        const mapped = window.supabaseService.mapFromDB(dbRow);
+        const pass = mapped.id === "item-uuid-12345" &&
+                     mapped.name === "Organic Whole Milk" &&
+                     mapped.brand === "Horizon" &&
+                     mapped.category === "Dairy" &&
+                     mapped.quantity === 2 &&
+                     mapped.unit === "liters" &&
+                     mapped.minStock === 1 &&
+                     mapped.notes === "Keep refrigerated" &&
+                     mapped.storageLocation === "Fridge";
+
+        recordTest("Schema Mapping", "mapFromDB accurately parses pantry_items columns into application store model", pass, mapped);
+      } catch (err) {
+        recordTest("Schema Mapping", "mapFromDB error", false, err.message);
+      }
+
+      // Setup in-memory mock database for pantry_items to test CRUD & multi-user isolation
+      const mockDatabase = {
+        pantry_items: []
+      };
+
+      const originalClient = window.supabaseService.client;
+      const originalIsReady = window.supabaseService.isReady;
+      window.supabaseService.isReady = () => true;
+
+      // Mock Supabase client querying pantry_items
+      window.supabaseService.client = {
+        from: (table) => {
+          if (table !== 'pantry_items' && table !== 'pantry_products') {
+            return {
+              select: () => ({ eq: () => ({ order: async () => ({ data: [], error: null }) }) }),
+              insert: () => ({ select: async () => ({ data: [], error: null }) }),
+              update: () => ({ eq: () => ({ eq: () => ({ select: async () => ({ data: [], error: null }) }) }) }),
+              delete: () => ({ eq: () => ({ eq: async () => ({ error: null }) }) })
+            };
+          }
+
+          let queryUserId = null;
+          let queryId = null;
+
+          return {
+            select: (cols) => ({
+              eq: (col, val) => {
+                if (col === 'user_id') queryUserId = val;
+                if (col === 'id') queryId = val;
+                return {
+                  order: async (sortCol, opts) => {
+                    const rows = mockDatabase.pantry_items.filter(r => r.user_id === queryUserId);
+                    return { data: rows, error: null };
+                  },
+                  eq: (col2, val2) => {
+                    if (col2 === 'id') queryId = val2;
+                    return {
+                      select: async () => {
+                        const rows = mockDatabase.pantry_items.filter(r => r.user_id === queryUserId && r.id === queryId);
+                        return { data: rows, error: null };
+                      }
+                    };
+                  }
+                };
+              }
+            }),
+            insert: (records) => ({
+              select: async () => {
+                const inserted = records.map(rec => ({
+                  id: rec.id || ('uuid-' + Math.random().toString(36).substr(2, 8)),
+                  ...rec,
+                  created_at: new Date().toISOString(),
+                  updated_at: new Date().toISOString()
+                }));
+                mockDatabase.pantry_items.push(...inserted);
+                return { data: inserted, error: null };
+              }
+            }),
+            update: (updates) => ({
+              eq: (col1, val1) => ({
+                eq: (col2, val2) => ({
+                  select: async () => {
+                    const targetId = col1 === 'id' ? val1 : val2;
+                    const targetUser = col1 === 'user_id' ? val1 : val2;
+                    const idx = mockDatabase.pantry_items.findIndex(r => r.id === targetId && r.user_id === targetUser);
+                    if (idx !== -1) {
+                      mockDatabase.pantry_items[idx] = { ...mockDatabase.pantry_items[idx], ...updates, updated_at: new Date().toISOString() };
+                      return { data: [mockDatabase.pantry_items[idx]], error: null };
+                    }
+                    return { data: [], error: { message: "Item not found" } };
+                  }
+                })
+              })
+            }),
+            delete: () => ({
+              eq: (col1, val1) => ({
+                eq: async (col2, val2) => {
+                  const targetId = col1 === 'id' ? val1 : val2;
+                  const targetUser = col1 === 'user_id' ? val1 : val2;
+                  const idx = mockDatabase.pantry_items.findIndex(r => r.id === targetId && r.user_id === targetUser);
+                  if (idx !== -1) {
+                    mockDatabase.pantry_items.splice(idx, 1);
+                    return { error: null };
+                  }
+                  return { error: null };
+                }
+              })
+            })
+          };
+        }
+      };
+
+      // Test 2: Database Source of Truth - addItem creates persistent record in pantry_items
+      const userA = "user-a-1111";
+      const userB = "user-b-2222";
+      let addedItem = null;
+
+      try {
+        window.supabaseService.getAuthenticatedUserId = async () => userA;
+        window.store.clearUserSession();
+        await window.store.initUser(userA);
+
+        addedItem = await window.store.addItem({
+          name: "Fresh Avocados",
+          category: "Vegetables",
+          quantity: 4,
+          unit: "pcs",
+          expiryDate: "2026-09-30",
+          storageLocation: "Pantry",
+          minStock: 2,
+          notes: "Hass variety"
+        });
+
+        const inDb = mockDatabase.pantry_items.find(r => r.id === addedItem.id);
+        const pass = inDb &&
+                     inDb.user_id === userA &&
+                     inDb.product_name === "Fresh Avocados" &&
+                     inDb.quantity === 4 &&
+                     inDb.quantity_unit === "pcs" &&
+                     inDb.storage_location === "Pantry";
+
+        recordTest("Database Persistence", "addItem successfully creates permanent record in Supabase pantry_items table", pass, inDb);
+      } catch (err) {
+        recordTest("Database Persistence", "addItem failed", false, err.message);
+      }
+
+      // Test 3: Page Refresh simulation - fetchFromSupabase restores items from pantry_items
+      try {
+        // Clear local memory state to simulate a browser reload
+        window.store.items = [];
+        const preReloadCount = window.store.getItems().length;
+
+        // Perform fetchFromSupabase as done on page load
+        await window.store.fetchFromSupabase();
+        const postReloadCount = window.store.getItems().length;
+        const restored = window.store.getItemById(addedItem.id);
+
+        const pass = preReloadCount === 0 && postReloadCount === 1 && restored && restored.name === "Fresh Avocados";
+        recordTest("Page Refresh Recovery", "fetchFromSupabase restores pantry_items from Supabase into UI on page refresh", pass, {
+          preReloadCount,
+          postReloadCount,
+          restoredItemName: restored?.name
+        });
+      } catch (err) {
+        recordTest("Page Refresh Recovery", "Page refresh simulation failed", false, err.message);
+      }
+
+      // Test 4: Edit persistence in pantry_items
+      try {
+        await window.store.updateItem(addedItem.id, {
+          quantity: 8,
+          storageLocation: "Fridge"
+        });
+
+        // Clear local state again and re-fetch from database to verify persistence of update
+        window.store.items = [];
+        await window.store.fetchFromSupabase();
+        const reloaded = window.store.getItemById(addedItem.id);
+
+        const pass = reloaded && Number(reloaded.quantity) === 8 && reloaded.storageLocation === "Fridge";
+        recordTest("Update Persistence", "updateItem permanently updates pantry_items in Supabase and persists across reload", pass, {
+          reloadedQuantity: reloaded?.quantity,
+          reloadedLocation: reloaded?.storageLocation
+        });
+      } catch (err) {
+        recordTest("Update Persistence", "updateItem failed", false, err.message);
+      }
+
+      // Test 5: Delete persistence in pantry_items
+      try {
+        await window.store.deleteItem(addedItem.id);
+
+        // Clear local state and re-fetch to confirm deletion persisted in database
+        window.store.items = [];
+        await window.store.fetchFromSupabase();
+        const reloaded = window.store.getItemById(addedItem.id);
+
+        const inDb = mockDatabase.pantry_items.find(r => r.id === addedItem.id);
+        const pass = !reloaded && !inDb;
+
+        recordTest("Delete Persistence", "deleteItem removes item from pantry_items permanently and does not reappear on refresh", pass, {
+          inMemory: !!reloaded,
+          inDatabase: !!inDb
+        });
+      } catch (err) {
+        recordTest("Delete Persistence", "deleteItem failed", false, err.message);
+      }
+
+      // Test 6: Failure handling - Database rejection does NOT corrupt local state
+      try {
+        // Temporarily make insert throw
+        const backupFrom = window.supabaseService.client.from;
+        window.supabaseService.client.from = (table) => ({
+          insert: () => ({
+            select: async () => ({ data: null, error: { message: "RLS policy violation: permission denied" } })
+          })
+        });
+
+        let thrown = false;
+        const initialCount = window.store.getItems().length;
+
+        try {
+          await window.store.addItem({
+            name: "Ghost Item That Must Not Persist",
+            category: "Bakery",
+            quantity: 1
+          });
+        } catch (e) {
+          thrown = true;
+        }
+
+        const countAfterError = window.store.getItems().length;
+        const pass = thrown && countAfterError === initialCount;
+
+        recordTest("Database Error Protection", "Failed database insert throws error and does NOT add ghost item to local state", pass, {
+          thrown,
+          initialCount,
+          countAfterError
+        });
+
+        window.supabaseService.client.from = backupFrom;
+      } catch (err) {
+        recordTest("Database Error Protection", "Error protection test failed", false, err.message);
+      }
+
+      // Test 7: Multi-User Isolation
+      try {
+        // Add item as User A
+        window.supabaseService.getAuthenticatedUserId = async () => userA;
+        await window.store.initUser(userA);
+        const itemA = await window.store.addItem({
+          name: "User A's Secret Snack",
+          category: "Snacks",
+          quantity: 3
+        });
+
+        // Switch session to User B
+        window.supabaseService.getAuthenticatedUserId = async () => userB;
+        await window.store.initUser(userB);
+
+        const userBItems = window.store.getItems();
+        const seesUserAItem = userBItems.some(i => i.id === itemA.id || i.name === "User A's Secret Snack");
+
+        // Add item as User B
+        const itemB = await window.store.addItem({
+          name: "User B's Coffee Beans",
+          category: "Beverages",
+          quantity: 1
+        });
+
+        // Switch back to User A
+        window.supabaseService.getAuthenticatedUserId = async () => userA;
+        await window.store.initUser(userA);
+
+        const userAItems = window.store.getItems();
+        const seesUserBItem = userAItems.some(i => i.id === itemB.id || i.name === "User B's Coffee Beans");
+
+        const pass = !seesUserAItem && !seesUserBItem && userAItems.length === 1 && userAItems[0].name === "User A's Secret Snack";
+
+        recordTest("Multi-User Data Isolation", "Strict multi-user data isolation ensures User A and User B cannot access each other's pantry items", pass, {
+          userAItemCount: userAItems.length,
+          userAFirstItem: userAItems[0]?.name,
+          userBSeesUserA: seesUserAItem,
+          userASeesUserB: seesUserBItem
+        });
+      } catch (err) {
+        recordTest("Multi-User Data Isolation", "Multi-user test failed", false, err.message);
+      }
+
+      // Test 8: Loading State in renderInventoryTable
+      try {
+        window.store.isLoading = true;
+        renderInventoryTable();
+        const tbody = document.getElementById("inventoryTableBody");
+        const hasSpinner = tbody && tbody.innerHTML.includes("Loading pantry items from Supabase");
+
+        window.store.isLoading = false;
+        renderInventoryTable();
+        const spinnerCleared = tbody && !tbody.innerHTML.includes("Loading pantry items from Supabase");
+
+        recordTest("UI Loading State", "renderInventoryTable displays animated loading state during Supabase fetch", hasSpinner && spinnerCleared, {
+          hasSpinnerDuringLoad: hasSpinner,
+          spinnerClearedAfterLoad: spinnerCleared
+        });
+      } catch (err) {
+        recordTest("UI Loading State", "Loading state test failed", false, err.message);
+      }
+
+      // Final Evaluation
+      const total = testResults.length;
+      const passed = testResults.filter(t => t.passed).length;
+      const allPassed = passed === total;
+
+      const summaryDiv = document.getElementById("summary");
+      if (allPassed) {
+        summaryDiv.innerHTML = `<h2 style="color:#10b981">🎉 ALL TESTS PASSED (${passed}/${total})</h2>`;
+      } else {
+        summaryDiv.innerHTML = `<h2 style="color:#ef4444">⚠️ SOME TESTS FAILED (${passed}/${total} passed)</h2>`;
+      }
+      console.log(`=== TEST FINISHED: ${passed}/${total} PASSED ===`);
+    }
+
+    window.addEventListener("DOMContentLoaded", () => {
+      runPersistenceSuite();
+    });
+  </script>
+</body>
+</html>

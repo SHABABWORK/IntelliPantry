@@ -2233,11 +2233,16 @@ function dismissBarcodeDuplicateWarning() {
 async function handleBarcodeQuickUpdate() {
   if (!existingBarcodeItem) return;
   const newQty = (parseFloat(existingBarcodeItem.quantity) || 0) + 1;
-  await window.store.updateItem(existingBarcodeItem.id, { quantity: newQty });
-  showToast(`✓ Incremented "${existingBarcodeItem.name}" to ${newQty} ${existingBarcodeItem.unit || 'pcs'}!`);
-  closeBarcodeProductModal();
-  renderInventoryTable();
-  updateMetricsDisplay();
+  try {
+    await window.store.updateItem(existingBarcodeItem.id, { quantity: newQty });
+    showToast(`✓ Incremented "${existingBarcodeItem.name}" to ${newQty} ${existingBarcodeItem.unit || 'pcs'}!`);
+    closeBarcodeProductModal();
+    renderInventoryTable();
+    updateMetricsDisplay();
+  } catch (err) {
+    console.error("Failed to update barcode product quantity:", err);
+    showToast(`Error updating product: ${err.message || "Database error"}`);
+  }
 }
 
 async function handleSaveBarcodeProduct(e) {
@@ -2262,24 +2267,42 @@ async function handleSaveBarcodeProduct(e) {
     return;
   }
 
-  await window.store.addItem({
-    name,
-    category,
-    quantity,
-    unit,
-    expiryDate,
-    purchaseDate,
-    storageLocation,
-    barcode,
-    brand,
-    imageUrl,
-    minStock: 2
-  });
+  const saveBtn = document.querySelector("#barcodeProductModal button[type='submit']") || 
+                  document.querySelector("#barcodeProductModal .btn-forest-submit");
+  const origBtnText = saveBtn ? saveBtn.innerText : "Save Product";
+  if (saveBtn) {
+    saveBtn.disabled = true;
+    saveBtn.innerText = "Saving to database...";
+  }
 
-  showToast(`✓ Added "${name}" to your pantry!`);
-  closeBarcodeProductModal();
-  renderInventoryTable();
-  updateMetricsDisplay();
+  try {
+    await window.store.addItem({
+      name,
+      category,
+      quantity,
+      unit,
+      expiryDate,
+      purchaseDate,
+      storageLocation,
+      barcode,
+      brand,
+      imageUrl,
+      minStock: 2
+    });
+
+    showToast(`✓ Added "${name}" to your pantry!`);
+    closeBarcodeProductModal();
+    renderInventoryTable();
+    updateMetricsDisplay();
+  } catch (err) {
+    console.error("Failed to save barcode product:", err);
+    showToast(`Error saving product: ${err.message || "Database error"}`);
+  } finally {
+    if (saveBtn) {
+      saveBtn.disabled = false;
+      saveBtn.innerText = origBtnText;
+    }
+  }
 }
 
 // Receipt OCR Execution
@@ -2660,29 +2683,48 @@ async function addSelectedDetectedItemsToPantry() {
     return;
   }
 
-  for (const item of selected) {
-    await window.store.addItem({
-      name: item.name,
-      category: item.category,
-      quantity: item.quantity,
-      unit: item.unit,
-      expiryDate: item.expiryDate,
-      purchaseDate: item.purchaseDate || scannedPurchaseDate,
-      storageLocation: item.category === "Dairy" || item.category === "Meat" ? "Fridge" : (item.category === "Frozen" ? "Freezer" : "Pantry"),
-      minStock: 2
-    });
+  const btn = document.getElementById("ocrAddBtn") || document.querySelector("#ocrResultModal .btn-forest-submit");
+  const origText = btn ? btn.innerText : "Add to Pantry";
+  if (btn) {
+    btn.disabled = true;
+    btn.innerText = "Saving items to database...";
   }
 
-  closeOCRResult();
-  closeBillScannerModal();
+  let addedCount = 0;
+  try {
+    for (const item of selected) {
+      await window.store.addItem({
+        name: item.name,
+        category: item.category,
+        quantity: item.quantity,
+        unit: item.unit,
+        expiryDate: item.expiryDate,
+        purchaseDate: item.purchaseDate || scannedPurchaseDate,
+        storageLocation: item.category === "Dairy" || item.category === "Meat" ? "Fridge" : (item.category === "Frozen" ? "Freezer" : "Pantry"),
+        minStock: 2
+      });
+      addedCount++;
+    }
 
-  if (window.store && typeof window.store.logActivity === 'function') {
-    await window.store.logActivity('added', null, 'Receipt Scan', `Scanned receipt: Added ${selected.length} items`);
+    closeOCRResult();
+    closeBillScannerModal();
+
+    if (window.store && typeof window.store.logActivity === 'function') {
+      await window.store.logActivity('added', null, 'Receipt Scan', `Scanned receipt: Added ${addedCount} items`);
+    }
+
+    showToast(`✓ Added ${addedCount} item(s) to your pantry!`);
+    renderInventoryTable();
+    updateMetricsDisplay();
+  } catch (err) {
+    console.error("Failed to add detected items to pantry:", err);
+    showToast(`Error saving items: ${err.message || "Database error"}. (${addedCount} added)`);
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerText = origText;
+    }
   }
-
-  showToast(`✓ Added ${selected.length} item(s) to your pantry!`);
-  renderInventoryTable();
-  updateMetricsDisplay();
 }
 
 function closeOCRResult() {
@@ -3081,8 +3123,12 @@ async function initDashboardAuthAndUser() {
         localStorage.setItem('smartpantry_user', JSON.stringify(mergedUser));
         updateDashboardUserUI(mergedUser);
 
-        if (window.store && window.store.userId !== userId) {
-          await window.store.initUser(userId);
+        if (window.store) {
+          if (window.store.userId !== userId) {
+            await window.store.initUser(userId);
+          } else {
+            await window.store.fetchFromSupabase();
+          }
         }
       }
 
@@ -3107,8 +3153,12 @@ async function initDashboardAuthAndUser() {
             localStorage.setItem('smartpantry_token', session.access_token);
           }
           updateDashboardUserUI(activeUser);
-          if (window.store && window.store.userId !== userId) {
-            await window.store.initUser(userId);
+          if (window.store) {
+            if (window.store.userId !== userId) {
+              await window.store.initUser(userId);
+            } else {
+              await window.store.fetchFromSupabase();
+            }
           }
         }
       });

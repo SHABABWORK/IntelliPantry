@@ -51,6 +51,18 @@ function renderInventoryTable() {
   const tbody = document.getElementById("inventoryTableBody");
   if (!tbody) return;
 
+  if (window.store && window.store.isLoading) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="6" style="text-align:center; padding: 48px 16px; color: #64748b;">
+          <div style="display:inline-block; width: 32px; height: 32px; border: 3px solid rgba(16,185,129,0.2); border-top-color: #10b981; border-radius: 50%; animation: spin 0.8s linear infinite; margin-bottom: 12px;"></div>
+          <p style="font-size: 14.5px; font-weight: 600; color: #1e392a; margin: 0;">Loading pantry items from Supabase...</p>
+        </td>
+      </tr>
+    `;
+    return;
+  }
+
   const allItems = window.store.getItems();
   const warnDays = window.store?.fullSettings?.pantry_settings?.expiry_warning_days || 7;
   const filtered = allItems.filter(item => {
@@ -207,10 +219,15 @@ async function deletePantryItem(id) {
   const item = window.store.getItemById(id);
   if (!item) return;
   if (confirm(`Remove "${item.name}" from your pantry?`)) {
-    await window.store.deleteItem(id);
-    showToast(`Removed "${item.name}"`);
-    renderInventoryTable();
-    updateMetricsDisplay();
+    try {
+      await window.store.deleteItem(id);
+      showToast(`Removed "${item.name}"`);
+      renderInventoryTable();
+      updateMetricsDisplay();
+    } catch (err) {
+      console.error("Failed to delete pantry item:", err);
+      showToast(`Error deleting item: ${err.message || "Database error"}`);
+    }
   }
 }
 
@@ -314,39 +331,57 @@ async function saveItemForm(e) {
     return;
   }
 
-  if (editingItemId) {
-    await window.store.updateItem(editingItemId, {
-      name,
-      category,
-      quantity,
-      unit,
-      expiryDate,
-      purchaseDate,
-      brand,
-      barcode,
-      storageLocation,
-      minStock
-    });
-    showToast(`Updated "${name}"`);
-  } else {
-    await window.store.addItem({
-      name,
-      category,
-      quantity,
-      unit,
-      expiryDate,
-      purchaseDate,
-      brand,
-      barcode,
-      storageLocation,
-      minStock
-    });
-    showToast(`Added "${name}" to pantry!`);
+  const submitBtn = document.querySelector("#itemFormModal button[type='submit']") || 
+                    document.querySelector("#itemFormModal .btn-forest-submit");
+  const origBtnText = submitBtn ? submitBtn.innerText : "Save Product";
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.innerText = editingItemId ? "Updating..." : "Saving to database...";
   }
 
-  closeAddEditModal();
-  renderInventoryTable();
-  updateMetricsDisplay();
+  try {
+    if (editingItemId) {
+      await window.store.updateItem(editingItemId, {
+        name,
+        category,
+        quantity,
+        unit,
+        expiryDate,
+        purchaseDate,
+        brand,
+        barcode,
+        storageLocation,
+        minStock
+      });
+      showToast(`Updated "${name}"`);
+    } else {
+      await window.store.addItem({
+        name,
+        category,
+        quantity,
+        unit,
+        expiryDate,
+        purchaseDate,
+        brand,
+        barcode,
+        storageLocation,
+        minStock
+      });
+      showToast(`Added "${name}" to pantry!`);
+    }
+
+    closeAddEditModal();
+    renderInventoryTable();
+    updateMetricsDisplay();
+  } catch (err) {
+    console.error("Failed to save pantry item:", err);
+    showToast(`Error saving product: ${err.message || "Database error"}`);
+  } finally {
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.innerText = origBtnText;
+    }
+  }
 }
 
 /* ==========================================================

@@ -83,8 +83,98 @@ CREATE TRIGGER trigger_profiles_updated_at
 
 
 -- ==============================================================================
--- 2. PANTRY PRODUCTS TABLE (User-Isolated Inventory)
+-- 2. PANTRY ITEMS TABLE (Master User-Isolated Inventory: pantry_items)
 -- ==============================================================================
+CREATE TABLE IF NOT EXISTS public.pantry_items (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  product_name TEXT NOT NULL,
+  brand TEXT,
+  category TEXT NOT NULL DEFAULT 'Pantry',
+  barcode TEXT,
+  product_image TEXT,
+  quantity NUMERIC NOT NULL DEFAULT 1,
+  quantity_unit TEXT NOT NULL DEFAULT 'pcs',
+  purchase_date DATE,
+  expiry_date DATE,
+  low_stock_threshold NUMERIC DEFAULT 2,
+  notes TEXT,
+  storage_location TEXT DEFAULT 'Pantry',
+  unit TEXT DEFAULT 'pcs',                 -- Compatibility alias column
+  minimum_stock NUMERIC DEFAULT 2,          -- Compatibility alias column
+  description TEXT,                         -- Compatibility alias column
+  created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now()),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
+);
+
+-- Performance Indexes for Pantry Items
+CREATE INDEX IF NOT EXISTS idx_pantry_items_user_id ON public.pantry_items (user_id);
+CREATE INDEX IF NOT EXISTS idx_pantry_items_expiry ON public.pantry_items (user_id, expiry_date);
+CREATE INDEX IF NOT EXISTS idx_pantry_items_barcode ON public.pantry_items (user_id, barcode);
+CREATE INDEX IF NOT EXISTS idx_pantry_items_created ON public.pantry_items (user_id, created_at DESC);
+
+-- Enable Row Level Security (RLS) on pantry_items
+ALTER TABLE public.pantry_items ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users can only view their own pantry items" ON public.pantry_items;
+DROP POLICY IF EXISTS "Users can only insert their own pantry items" ON public.pantry_items;
+DROP POLICY IF EXISTS "Users can only update their own pantry items" ON public.pantry_items;
+DROP POLICY IF EXISTS "Users can only delete their own pantry items" ON public.pantry_items;
+
+CREATE POLICY "Users can only view their own pantry items"
+  ON public.pantry_items FOR SELECT TO authenticated
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can only insert their own pantry items"
+  ON public.pantry_items FOR INSERT TO authenticated
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can only update their own pantry items"
+  ON public.pantry_items FOR UPDATE TO authenticated
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can only delete their own pantry items"
+  ON public.pantry_items FOR DELETE TO authenticated
+  USING (auth.uid() = user_id);
+
+DROP TRIGGER IF EXISTS trigger_pantry_items_updated_at ON public.pantry_items;
+CREATE TRIGGER trigger_pantry_items_updated_at
+  BEFORE UPDATE ON public.pantry_items
+  FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
+
+-- Synchronize alias columns on insert/update in pantry_items
+CREATE OR REPLACE FUNCTION public.sync_pantry_items_aliases()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF NEW.quantity_unit IS NULL AND NEW.unit IS NOT NULL THEN
+    NEW.quantity_unit := NEW.unit;
+  END IF;
+  IF NEW.unit IS NULL AND NEW.quantity_unit IS NOT NULL THEN
+    NEW.unit := NEW.quantity_unit;
+  END IF;
+  IF NEW.low_stock_threshold IS NULL AND NEW.minimum_stock IS NOT NULL THEN
+    NEW.low_stock_threshold := NEW.minimum_stock;
+  END IF;
+  IF NEW.minimum_stock IS NULL AND NEW.low_stock_threshold IS NOT NULL THEN
+    NEW.minimum_stock := NEW.low_stock_threshold;
+  END IF;
+  IF NEW.notes IS NULL AND NEW.description IS NOT NULL THEN
+    NEW.notes := NEW.description;
+  END IF;
+  IF NEW.description IS NULL AND NEW.notes IS NOT NULL THEN
+    NEW.description := NEW.notes;
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trigger_sync_pantry_items_aliases ON public.pantry_items;
+CREATE TRIGGER trigger_sync_pantry_items_aliases
+  BEFORE INSERT OR UPDATE ON public.pantry_items
+  FOR EACH ROW EXECUTE FUNCTION public.sync_pantry_items_aliases();
+
+-- Backward compatibility table: pantry_products (mirrors pantry_items if already used)
 CREATE TABLE IF NOT EXISTS public.pantry_products (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -106,13 +196,6 @@ CREATE TABLE IF NOT EXISTS public.pantry_products (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
 );
 
--- Performance Indexes for Pantry Products
-CREATE INDEX IF NOT EXISTS idx_pantry_products_user_id ON public.pantry_products (user_id);
-CREATE INDEX IF NOT EXISTS idx_pantry_products_expiry ON public.pantry_products (user_id, expiry_date);
-CREATE INDEX IF NOT EXISTS idx_pantry_products_barcode ON public.pantry_products (user_id, barcode);
-CREATE INDEX IF NOT EXISTS idx_pantry_products_created ON public.pantry_products (user_id, created_at DESC);
-
--- Enable Row Level Security (RLS)
 ALTER TABLE public.pantry_products ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Users can only view their own pantry products" ON public.pantry_products;
@@ -137,22 +220,29 @@ CREATE POLICY "Users can only delete their own pantry products"
   ON public.pantry_products FOR DELETE TO authenticated
   USING (auth.uid() = user_id);
 
-DROP TRIGGER IF EXISTS trigger_pantry_products_updated_at ON public.pantry_products;
-CREATE TRIGGER trigger_pantry_products_updated_at
-  BEFORE UPDATE ON public.pantry_products
-  FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
-
--- Backward compatibility: If public.products already existed, migrate any rows to pantry_products
+-- Backward compatibility migration: Migrate existing data from pantry_products and products to pantry_items
 DO $$
 BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'pantry_products') THEN
+    INSERT INTO public.pantry_items (
+      id, user_id, product_name, brand, category, barcode, product_image,
+      quantity, quantity_unit, unit, purchase_date, expiry_date, low_stock_threshold, minimum_stock, notes, description, storage_location, created_at, updated_at
+    )
+    SELECT 
+      id, user_id, product_name, brand, category, barcode, product_image,
+      quantity, unit, unit, purchase_date, expiry_date, COALESCE(minimum_stock, 2), COALESCE(minimum_stock, 2), description, description, COALESCE(storage_location, 'Pantry'), created_at, updated_at
+    FROM public.pantry_products
+    ON CONFLICT (id) DO NOTHING;
+  END IF;
+
   IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'products') THEN
-    INSERT INTO public.pantry_products (
-      id, user_id, product_name, brand, category, barcode, product_image, 
-      quantity, unit, purchase_date, expiry_date, minimum_stock, storage_location, created_at, updated_at
+    INSERT INTO public.pantry_items (
+      id, user_id, product_name, brand, category, barcode, product_image,
+      quantity, quantity_unit, unit, purchase_date, expiry_date, low_stock_threshold, minimum_stock, notes, description, storage_location, created_at, updated_at
     )
     SELECT 
       id, user_id, name, brand, category, barcode, image_url,
-      quantity, unit, purchase_date, expiry_date, COALESCE(min_stock, 2), COALESCE(storage_location, 'Pantry'), created_at, updated_at
+      quantity, unit, unit, purchase_date, expiry_date, COALESCE(min_stock, 2), COALESCE(min_stock, 2), NULL, NULL, COALESCE(storage_location, 'Pantry'), created_at, updated_at
     FROM public.products
     ON CONFLICT (id) DO NOTHING;
   END IF;
@@ -334,7 +424,17 @@ CREATE POLICY "Users can view their own email audit"
 -- ==============================================================================
 DO $$
 BEGIN
-  -- Add pantry_products to realtime publication
+  -- Add pantry_items to realtime publication
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables 
+    WHERE pubname = 'supabase_realtime' 
+    AND schemaname = 'public' 
+    AND tablename = 'pantry_items'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.pantry_items;
+  END IF;
+
+  -- Add pantry_products to realtime publication (compatibility)
   IF NOT EXISTS (
     SELECT 1 FROM pg_publication_tables 
     WHERE pubname = 'supabase_realtime' 

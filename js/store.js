@@ -325,6 +325,7 @@ class PantryStore {
     this.alerts = [];
     this.fullSettings = null;
     this.userId = null;
+    this.isLoading = false;
     this.init();
   }
 
@@ -519,15 +520,25 @@ class PantryStore {
 
   async fetchFromSupabase() {
     if (!this.userId || !window.supabaseService) return;
+    this.isLoading = true;
+    this.notify();
     try {
       const dbItems = await window.supabaseService.getProducts(this.userId);
       if (Array.isArray(dbItems)) {
         this.items = dbItems;
+        try {
+          localStorage.setItem(this.storageKey, JSON.stringify(dbItems));
+          if (this.userId) {
+            localStorage.setItem(`smartpantry_user_pantry_${this.userId}`, JSON.stringify(dbItems));
+          }
+        } catch(e) {}
         this.syncAlertsFromPantry();
-        this.notify();
       }
     } catch (err) {
-      console.warn("[PantryStore] Supabase fetch warning:", err);
+      console.warn("[PantryStore] Supabase fetch warning:", err.message);
+    } finally {
+      this.isLoading = false;
+      this.notify();
     }
   }
 
@@ -615,39 +626,46 @@ class PantryStore {
     const warnDays = this.fullSettings?.pantry_settings?.expiry_warning_days || 7;
     const computedStatus = this.calculateStatus(item.expiryDate, item.quantity, item.minStock, warnDays);
 
+    const effectiveUserId = window.supabaseService ? await window.supabaseService.getAuthenticatedUserId(this.userId) : this.userId;
+    if (effectiveUserId) this.userId = effectiveUserId;
+
+    const unitVal = item.unit || item.quantityUnit || "pcs";
+    const minStockVal = item.minStock !== undefined ? Number(item.minStock) : (item.lowStockThreshold !== undefined ? Number(item.lowStockThreshold) : 2);
+    const notesVal = item.notes || item.description || "";
+
     const newItem = {
       name: item.name,
       brand: item.brand || "",
       imageUrl: item.imageUrl || item.image || "",
-      minStock: item.minStock !== undefined ? Number(item.minStock) : 2,
+      minStock: minStockVal,
+      lowStockThreshold: minStockVal,
       category: item.category || "Pantry",
       quantity: Number(item.quantity) || 1,
-      unit: item.unit || "pcs",
+      unit: unitVal,
+      quantityUnit: unitVal,
       expiryDate: item.expiryDate || "",
       purchaseDate: item.purchaseDate || (window.getTodayISO ? window.getTodayISO() : new Date().toISOString().split('T')[0]),
       barcode: item.barcode || "",
       price: Number(item.price) || 0,
+      notes: notesVal,
+      description: notesVal,
       location: item.location || item.storageLocation || "Pantry",
       storageLocation: item.location || item.storageLocation || "Pantry",
       status: computedStatus,
       emoji: resolvedEmoji
     };
 
-    newItem.id = item.id || ('prod_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6));
-    newItem.addedAt = new Date().toISOString();
-
-    const effectiveUserId = window.supabaseService ? await window.supabaseService.getAuthenticatedUserId(this.userId) : this.userId;
-    if (effectiveUserId) this.userId = effectiveUserId;
-
+    // If Supabase is configured and ready, the database insert MUST succeed!
     if (effectiveUserId && window.supabaseService && window.supabaseService.isReady()) {
-      try {
-        const saved = await window.supabaseService.insertProduct(newItem, effectiveUserId);
-        if (saved && saved.id) {
-          newItem.id = saved.id;
-        }
-      } catch (err) {
-        console.warn("[Supabase DB] insertProduct error:", err.message);
+      const saved = await window.supabaseService.insertProduct(newItem, effectiveUserId);
+      if (!saved || !saved.id) {
+        throw new Error("Failed to save item to database");
       }
+      newItem.id = saved.id;
+      if (saved.addedAt) newItem.addedAt = saved.addedAt;
+    } else {
+      newItem.id = item.id || ('prod_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6));
+      newItem.addedAt = new Date().toISOString();
     }
 
     this.items = [newItem, ...this.items.filter(i => String(i.id) !== String(newItem.id))];
@@ -679,15 +697,12 @@ class PantryStore {
     const effectiveUserId = window.supabaseService ? await window.supabaseService.getAuthenticatedUserId(this.userId) : this.userId;
     if (effectiveUserId) this.userId = effectiveUserId;
 
+    let saved = null;
     if (effectiveUserId && window.supabaseService && window.supabaseService.isReady()) {
-      try {
-        await window.supabaseService.updateProduct(id, updates, effectiveUserId);
-      } catch (err) {
-        console.warn("[Supabase DB] updateProduct error:", err.message);
-      }
+      saved = await window.supabaseService.updateProduct(id, updates, effectiveUserId);
     }
 
-    this.items = this.items.map(item => String(item.id) === String(id) ? { ...item, ...updates } : item);
+    this.items = this.items.map(item => String(item.id) === String(id) ? { ...item, ...updates, ...(saved || {}) } : item);
     this.saveItems(this.items);
 
     // Log Activity (Distinguish quantity changes from info edits)
@@ -715,11 +730,7 @@ class PantryStore {
     if (effectiveUserId) this.userId = effectiveUserId;
 
     if (effectiveUserId && window.supabaseService && window.supabaseService.isReady()) {
-      try {
-        await window.supabaseService.deleteProduct(id, effectiveUserId);
-      } catch (err) {
-        console.warn("[Supabase DB] deleteProduct error:", err.message);
-      }
+      await window.supabaseService.deleteProduct(id, effectiveUserId);
     }
 
     this.items = this.items.filter(item => String(item.id) !== String(id));
