@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html><head>
+  <meta charset="utf-8">
+  <title>Auth UI &amp; Supabase Integration Verification Test</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="../js/supabase-config.js"></script>
+  <script src="../js/supabase.js"></script>
+</head>
+<body style="font-family:sans-serif; padding:20px;">
+  <h1>IntelliPantry Supabase Auth Integration Test</h1>
+  <div id="results"><p style="color: rgb(16, 185, 129);">✅ PASS: window.supabaseClient is defined</p><p style="color: rgb(16, 185, 129);">✅ PASS: window.supabaseService is defined</p><p style="color: rgb(16, 185, 129);">✅ PASS: window.supabaseClient matches window.supabaseService.client</p><p style="color: rgb(16, 185, 129);">✅ PASS: Weak password rejected with friendly error</p><p style="color: rgb(16, 185, 129);">✅ PASS: Invalid email rejected with friendly error</p><p style="color: rgb(16, 185, 129);">✅ PASS: Invalid login credentials returned friendly message</p><p style="color: rgb(16, 185, 129);">✅ PASS: Invalid OTP code returns friendly error</p><p style="color: rgb(16, 185, 129);">✅ PASS: resendConfirmation method exists</p><p style="color: rgb(16, 185, 129);">✅ PASS: getSession method exists</p><p style="color: rgb(16, 185, 129);">✅ PASS: onAuthStateChange method exists</p><p style="color: rgb(16, 185, 129);">✅ PASS: signOut clears smartpantry_token</p><p style="color: rgb(16, 185, 129);">✅ PASS: signOut clears smartpantry_user</p></div>
+  <div id="summary"><h2 style="color:#10b981">ALL AUTH TESTS PASSED (12/12)</h2></div>
+
+  <script>
+    const results = [];
+    function assert(name, condition, details = "") {
+      results.push({ name, pass: Boolean(condition), details });
+      console.log((condition ? "PASS: " : "FAIL: ") + name + (details ? " - " + details : ""));
+    }
+
+    async function runTests() {
+      // 1. window.supabaseClient exposure
+      assert("window.supabaseClient is defined", Boolean(window.supabaseClient));
+      assert("window.supabaseService is defined", Boolean(window.supabaseService));
+      assert("window.supabaseClient matches window.supabaseService.client", window.supabaseClient === window.supabaseService.client);
+
+      // 2. signUp contract: needsEmailConfirmation: true, session: null
+      const fakeEmail = "test_" + Date.now() + "@example.com";
+      const fakePassword = "TestPassword123!";
+      
+      // Clear any prior storage
+      localStorage.removeItem('smartpantry_token');
+      localStorage.removeItem('smartpantry_user');
+
+      // Test error mapping on short password
+      const weakRes = await window.supabaseService.signUp("weak@example.com", "123", "Weak User");
+      assert("Weak password rejected with friendly error", !weakRes.success && weakRes.error.includes("6 characters"));
+
+      // Test error mapping on invalid email
+      const invalidEmailRes = await window.supabaseService.signUp("notanemail", "ValidPass123", "User");
+      assert("Invalid email rejected with friendly error", !invalidEmailRes.success && invalidEmailRes.error.includes("valid email"));
+
+      // Test signIn error mapping on bad credentials
+      const badLogin = await window.supabaseService.signIn("bad_" + Date.now() + "@example.com", "WrongPassword123!");
+      assert("Invalid login credentials returned friendly message", !badLogin.success && (badLogin.error.includes("Incorrect email") || badLogin.error.includes("No account found") || badLogin.error.includes("credentials")));
+
+      // 3. Verify OTP error mapping
+      const badOtp = await window.supabaseService.verifyOtp({ email: "test@example.com", token: "000000" });
+      assert("Invalid OTP code returns friendly error", !badOtp.success && (badOtp.error.includes("invalid") || badOtp.error.includes("expired") || badOtp.error.includes("code")));
+
+      // 4. Verify resendConfirmation method exists and returns a promise
+      assert("resendConfirmation method exists", typeof window.supabaseService.resendConfirmation === 'function');
+
+      // 5. Verify getSession and onAuthStateChange methods exist
+      assert("getSession method exists", typeof window.supabaseService.getSession === 'function');
+      assert("onAuthStateChange method exists", typeof window.supabaseService.onAuthStateChange === 'function');
+
+      // 6. Test logout cleanup
+      localStorage.setItem('smartpantry_token', 'temp_token');
+      localStorage.setItem('smartpantry_user', JSON.stringify({ email: 'temp@example.com' }));
+      await window.supabaseService.signOut();
+      assert("signOut clears smartpantry_token", localStorage.getItem('smartpantry_token') === null);
+      assert("signOut clears smartpantry_user", localStorage.getItem('smartpantry_user') === null);
+
+      // Render results to DOM
+      const resultsDiv = document.getElementById("results");
+      let allPass = true;
+      results.forEach(r => {
+        if (!r.pass) allPass = false;
+        const p = document.createElement("p");
+        p.textContent = (r.pass ? "✅ PASS: " : "❌ FAIL: ") + r.name + (r.details ? " (" + r.details + ")" : "");
+        p.style.color = r.pass ? "#10b981" : "#ef4444";
+        resultsDiv.appendChild(p);
+      });
+
+      const summaryDiv = document.getElementById("summary");
+      if (allPass) {
+        summaryDiv.innerHTML = `<h2 style="color:#10b981">ALL AUTH TESTS PASSED (${results.length}/${results.length})</h2>`;
+      } else {
+        summaryDiv.innerHTML = `<h2 style="color:#ef4444">SOME TESTS FAILED</h2>`;
+      }
+    }
+
+    runTests();
+  </script>
+
+
+</body></html>
