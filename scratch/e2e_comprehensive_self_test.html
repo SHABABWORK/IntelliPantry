@@ -182,11 +182,20 @@
       // SECTION 2: Database Schema & pantry_items Mock Persistence
       // ==========================================
       const mockDB = {
-        pantry_items: []
+        pantry_items: [],
+        pantry_products: [],
+        pantry_activity: [],
+        user_settings: [],
+        alerts: []
       };
 
       const user1 = "00000000-0000-0000-0000-000000000001";
       const user2 = "00000000-0000-0000-0000-000000000002";
+
+      function getTableRows(t) {
+        if (!mockDB[t]) mockDB[t] = [];
+        return mockDB[t];
+      }
 
       // Mock database driver to test real CRUD and RLS isolation
       window.supabaseService.isReady = () => true;
@@ -202,14 +211,14 @@
                 if (col === 'id') currentId = val;
                 return {
                   order: async () => {
-                    const rows = mockDB.pantry_items.filter(r => r.user_id === currentUserId);
+                    const rows = getTableRows(table).filter(r => r.user_id === currentUserId);
                     return { data: rows, error: null };
                   },
                   eq: (col2, val2) => {
                     if (col2 === 'id') currentId = val2;
                     return {
                       select: async () => {
-                        const row = mockDB.pantry_items.find(r => r.user_id === currentUserId && r.id === currentId);
+                        const row = getTableRows(table).find(r => r.user_id === currentUserId && r.id === currentId);
                         return { data: row ? [row] : [], error: null };
                       }
                     };
@@ -225,7 +234,7 @@
                   created_at: new Date().toISOString(),
                   updated_at: new Date().toISOString()
                 }));
-                mockDB.pantry_items.push(...inserted);
+                getTableRows(table).push(...inserted);
                 return { data: inserted, error: null };
               }
             }),
@@ -235,10 +244,11 @@
                   select: async () => {
                     const targetId = col1 === 'id' ? val1 : val2;
                     const targetUser = col1 === 'user_id' ? val1 : val2;
-                    const idx = mockDB.pantry_items.findIndex(r => r.id === targetId && r.user_id === targetUser);
+                    const rows = getTableRows(table);
+                    const idx = rows.findIndex(r => r.id === targetId && r.user_id === targetUser);
                     if (idx !== -1) {
-                      mockDB.pantry_items[idx] = { ...mockDB.pantry_items[idx], ...updates, updated_at: new Date().toISOString() };
-                      return { data: [mockDB.pantry_items[idx]], error: null };
+                      rows[idx] = { ...rows[idx], ...updates, updated_at: new Date().toISOString() };
+                      return { data: [rows[idx]], error: null };
                     }
                     return { data: [], error: { message: "Item not found" } };
                   }
@@ -250,9 +260,10 @@
                 eq: async (col2, val2) => {
                   const targetId = col1 === 'id' ? val1 : val2;
                   const targetUser = col1 === 'user_id' ? val1 : val2;
-                  const idx = mockDB.pantry_items.findIndex(r => r.id === targetId && r.user_id === targetUser);
+                  const rows = getTableRows(table);
+                  const idx = rows.findIndex(r => r.id === targetId && r.user_id === targetUser);
                   if (idx !== -1) {
-                    mockDB.pantry_items.splice(idx, 1);
+                    rows.splice(idx, 1);
                     return { error: null };
                   }
                   return { error: null };

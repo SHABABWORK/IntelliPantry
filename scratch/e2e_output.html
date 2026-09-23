@@ -22,8 +22,8 @@
   <div class="subtitle">Validating Full Application Workflows: Auth, pantry_items DB, Expiry Engine, UI, Scanners, Recipes, Settings</div>
   
   <div id="summary" class="summary-card">
-        <h2 style="color:#ef4444; margin:0 0 6px 0;">
-          ⚠️ SOME TESTS FAILED (15/17)
+        <h2 style="color:#10b981; margin:0 0 6px 0;">
+          🎉 ALL E2E TESTS PASSED (17/17)
         </h2>
         <div style="color:#94a3b8; font-size:13px;">
           Tested modules: Supabase Config, pantry_items Schema, CRUD Persistence, Reload Recovery, Multi-User Isolation, Expiry Engine, Metrics, Inventory UI Table, Form Modals, OCR Parser, Recipe Matching, and Settings Security.
@@ -70,7 +70,7 @@
           <span class="badge-pass">PASS</span>
         </div>
         <pre>{
-  "id": "uuid_5sxpwxnic",
+  "id": "uuid_afpiop0zi",
   "user_id": "00000000-0000-0000-0000-000000000001",
   "product_name": "Organic Whole Milk",
   "brand": "Organic Valley",
@@ -87,19 +87,19 @@
   "notes": "Store on top shelf",
   "description": "Store on top shelf",
   "storage_location": "Fridge",
-  "created_at": "2026-09-23T10:34:19.960Z",
-  "updated_at": "2026-09-23T10:34:19.960Z"
+  "created_at": "2026-09-23T10:35:59.224Z",
+  "updated_at": "2026-09-23T10:35:59.224Z"
 }</pre>
-      </div><div class="test-card fail">
+      </div><div class="test-card pass">
         <div style="display:flex; justify-content:space-between; align-items:center;">
           <div>
             <span style="color:#10b981; font-weight:700; margin-right:8px;">[Pantry Persistence]</span>
             <strong>Page refresh / re-login successfully restores items from pantry_items</strong>
           </div>
-          <span class="badge-fail">FAIL</span>
+          <span class="badge-pass">PASS</span>
         </div>
         <pre>{
-  "loadedCount": 2,
+  "loadedCount": 1,
   "restoredName": "Organic Whole Milk"
 }</pre>
       </div><div class="test-card pass">
@@ -111,7 +111,7 @@
           <span class="badge-pass">PASS</span>
         </div>
         <pre>{
-  "id": "uuid_5sxpwxnic",
+  "id": "uuid_afpiop0zi",
   "user_id": "00000000-0000-0000-0000-000000000001",
   "product_name": "Organic Whole Milk",
   "brand": "Organic Valley",
@@ -128,19 +128,19 @@
   "notes": "Store on top shelf",
   "description": "Store on top shelf",
   "storage_location": "Pantry",
-  "created_at": "2026-09-23T10:34:19.960Z",
-  "updated_at": "2026-09-23T10:34:19.963Z"
+  "created_at": "2026-09-23T10:35:59.224Z",
+  "updated_at": "2026-09-23T10:35:59.228Z"
 }</pre>
-      </div><div class="test-card fail">
+      </div><div class="test-card pass">
         <div style="display:flex; justify-content:space-between; align-items:center;">
           <div>
             <span style="color:#10b981; font-weight:700; margin-right:8px;">[Multi-User Isolation]</span>
             <strong>Strict multi-user separation ensures User A and User B never cross-contaminate pantry items</strong>
           </div>
-          <span class="badge-fail">FAIL</span>
+          <span class="badge-pass">PASS</span>
         </div>
         <pre>{
-  "user1ItemCount": 3,
+  "user1ItemCount": 1,
   "user2ItemCount": 1,
   "user2SeesUser1": false,
   "user1SeesUser2": false
@@ -252,8 +252,8 @@
   "storageLocation": "Pantry",
   "status": "Fresh",
   "emoji": "🍎",
-  "id": "uuid_gykp93etk",
-  "addedAt": "2026-09-23T10:34:20.004Z"
+  "id": "uuid_21ush11zn",
+  "addedAt": "2026-09-23T10:35:59.300Z"
 }</pre>
       </div><div class="test-card pass">
         <div style="display:flex; justify-content:space-between; align-items:center;">
@@ -264,7 +264,7 @@
           <span class="badge-pass">PASS</span>
         </div>
         <pre>{
-  "deletedId": "uuid_gykp93etk"
+  "deletedId": "uuid_21ush11zn"
 }</pre>
       </div><div class="test-card pass">
         <div style="display:flex; justify-content:space-between; align-items:center;">
@@ -656,11 +656,20 @@
       // SECTION 2: Database Schema & pantry_items Mock Persistence
       // ==========================================
       const mockDB = {
-        pantry_items: []
+        pantry_items: [],
+        pantry_products: [],
+        pantry_activity: [],
+        user_settings: [],
+        alerts: []
       };
 
       const user1 = "00000000-0000-0000-0000-000000000001";
       const user2 = "00000000-0000-0000-0000-000000000002";
+
+      function getTableRows(t) {
+        if (!mockDB[t]) mockDB[t] = [];
+        return mockDB[t];
+      }
 
       // Mock database driver to test real CRUD and RLS isolation
       window.supabaseService.isReady = () => true;
@@ -676,14 +685,14 @@
                 if (col === 'id') currentId = val;
                 return {
                   order: async () => {
-                    const rows = mockDB.pantry_items.filter(r => r.user_id === currentUserId);
+                    const rows = getTableRows(table).filter(r => r.user_id === currentUserId);
                     return { data: rows, error: null };
                   },
                   eq: (col2, val2) => {
                     if (col2 === 'id') currentId = val2;
                     return {
                       select: async () => {
-                        const row = mockDB.pantry_items.find(r => r.user_id === currentUserId && r.id === currentId);
+                        const row = getTableRows(table).find(r => r.user_id === currentUserId && r.id === currentId);
                         return { data: row ? [row] : [], error: null };
                       }
                     };
@@ -699,7 +708,7 @@
                   created_at: new Date().toISOString(),
                   updated_at: new Date().toISOString()
                 }));
-                mockDB.pantry_items.push(...inserted);
+                getTableRows(table).push(...inserted);
                 return { data: inserted, error: null };
               }
             }),
@@ -709,10 +718,11 @@
                   select: async () => {
                     const targetId = col1 === 'id' ? val1 : val2;
                     const targetUser = col1 === 'user_id' ? val1 : val2;
-                    const idx = mockDB.pantry_items.findIndex(r => r.id === targetId && r.user_id === targetUser);
+                    const rows = getTableRows(table);
+                    const idx = rows.findIndex(r => r.id === targetId && r.user_id === targetUser);
                     if (idx !== -1) {
-                      mockDB.pantry_items[idx] = { ...mockDB.pantry_items[idx], ...updates, updated_at: new Date().toISOString() };
-                      return { data: [mockDB.pantry_items[idx]], error: null };
+                      rows[idx] = { ...rows[idx], ...updates, updated_at: new Date().toISOString() };
+                      return { data: [rows[idx]], error: null };
                     }
                     return { data: [], error: { message: "Item not found" } };
                   }
@@ -724,9 +734,10 @@
                 eq: async (col2, val2) => {
                   const targetId = col1 === 'id' ? val1 : val2;
                   const targetUser = col1 === 'user_id' ? val1 : val2;
-                  const idx = mockDB.pantry_items.findIndex(r => r.id === targetId && r.user_id === targetUser);
+                  const rows = getTableRows(table);
+                  const idx = rows.findIndex(r => r.id === targetId && r.user_id === targetUser);
                   if (idx !== -1) {
-                    mockDB.pantry_items.splice(idx, 1);
+                    rows.splice(idx, 1);
                     return { error: null };
                   }
                   return { error: null };
