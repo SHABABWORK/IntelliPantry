@@ -825,14 +825,14 @@
                 <div style="margin-bottom:12px;">
                   <label style="display:block; font-size:11.5px; font-weight:700; color:#475569; margin-bottom:4px;">Supabase Project URL</label>
                   <div style="background:#f8fafc; border:1px solid #cbd5e1; border-radius:8px; padding:8px 12px; font-family:monospace; font-size:12.5px; color:#1e293b; word-break:break-all;">
-                    https://oubfjolxhvkujjjnzvol.supabase.co
+                    https://ivskkcmzzrhzhofwjtrt.supabase.co
                   </div>
                 </div>
 
                 <div style="margin-bottom:16px;">
                   <label style="display:block; font-size:11.5px; font-weight:700; color:#475569; margin-bottom:4px;">Project Reference ID</label>
                   <div style="background:#f8fafc; border:1px solid #cbd5e1; border-radius:8px; padding:8px 12px; font-family:monospace; font-size:12.5px; color:#1e293b;">
-                    oubfjolxhvkujjjnzvol
+                    ivskkcmzzrhzhofwjtrt
                   </div>
                 </div>
 
@@ -3063,7 +3063,7 @@ window.addEventListener("beforeunload", () => stopCamera());
           <input 
             type="url" 
             id="supabaseUrlInput" 
-            value="https://oubfjolxhvkujjjnzvol.supabase.co" 
+            value="https://ivskkcmzzrhzhofwjtrt.supabase.co" 
             class="form-input" 
             style="width:100%; padding:10px 12px; border:1px solid #cbd5e1; border-radius:8px; font-size:13.5px; font-family:monospace;"
             required
@@ -3080,7 +3080,7 @@ window.addEventListener("beforeunload", () => stopCamera());
           <input 
             type="text" 
             id="supabaseKeyInput" 
-            value="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im91YmZqb2x4aHZrdWpqam56dm9sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAwMDk1NzMsImV4cCI6MjEwNTU4NTU3M30.v637P_FSQIKQq4PrfujlXGa2ciGR9UD68UY9vH_cqN4" 
+            value="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml2c2trY216enJoemhvZndqdHJ0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAyNjA2NDcsImV4cCI6MjEwNTgzNjY0N30.Vywsz4cOEWnrOMOIseXckuvLT80K0_rjxSNxOfkad1w" 
             class="form-input" 
             style="width:100%; padding:10px 12px; border:1px solid #cbd5e1; border-radius:8px; font-size:13.5px; font-family:monospace;"
             required
@@ -3169,14 +3169,14 @@ async function testLiveDatabaseConnection(btn) {
 
   try {
     const config = window.SupabaseConfig ? window.SupabaseConfig.get() : null;
-    const url = (config && config.url && !config.url.includes('xyzcompany')) 
+    const url = (config && config.url && !config.url.includes('xyzcompany') && !config.url.includes('oubfjolxhvkujjjnzvol')) 
       ? config.url 
-      : 'https://oubfjolxhvkujjjnzvol.supabase.co';
-    const key = (config && config.key && !config.key.includes('your-anon-key')) 
+      : 'https://ivskkcmzzrhzhofwjtrt.supabase.co';
+    const key = (config && config.key && !config.key.includes('your-anon-key') && !config.key.includes('v637P_FSQIKQq4PrfujlXGa2ciGR9UD68UY9vH_cqN4')) 
       ? config.key 
-      : 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im91YmZqb2x4aHZrdWpqam56dm9sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAwMDk1NzMsImV4cCI6MjEwNTU4NTU3M30.v637P_FSQIKQq4PrfujlXGa2ciGR9UD68UY9vH_cqN4';
+      : 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml2c2trY216enJoemhvZndqdHJ0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAyNjA2NDcsImV4cCI6MjEwNTgzNjY0N30.Vywsz4cOEWnrOMOIseXckuvLT80K0_rjxSNxOfkad1w';
 
-    const res = await fetch(`${url}/rest/v1/pantry_items?limit=1`, {
+    const res = await fetch(`${url}/auth/v1/settings`, {
       headers: {
         'apikey': key,
         'Authorization': `Bearer ${key}`
@@ -3188,7 +3188,7 @@ async function testLiveDatabaseConnection(btn) {
         statusBadge.style.background = '#f0fdf4';
         statusBadge.style.color = '#166534';
         statusBadge.style.borderColor = '#bbf7d0';
-        statusText.textContent = '🟢 Connected to Live PostgreSQL Database (oubfjolxhvkujjjnzvol)';
+        statusText.textContent = '🟢 Connected to Live PostgreSQL Database (ivskkcmzzrhzhofwjtrt)';
       }
       if (title) title.textContent = '🟢 Connected to Live PostgreSQL Database';
       if (btn && typeof showToast === 'function') showToast('✓ Live PostgreSQL Connection Verified!');
@@ -3221,8 +3221,8 @@ function openDatabaseSettingsModal() {
   const modal = document.getElementById('databaseSettingsModal');
   if (!modal) return;
   const config = window.SupabaseConfig ? window.SupabaseConfig.get() : { 
-    url: 'https://oubfjolxhvkujjjnzvol.supabase.co', 
-    key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im91YmZqb2x4aHZrdWpqam56dm9sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAwMDk1NzMsImV4cCI6MjEwNTU4NTU3M30.v637P_FSQIKQq4PrfujlXGa2ciGR9UD68UY9vH_cqN4', 
+    url: 'https://ivskkcmzzrhzhofwjtrt.supabase.co', 
+    key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml2c2trY216enJoemhvZndqdHJ0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAyNjA2NDcsImV4cCI6MjEwNTgzNjY0N30.Vywsz4cOEWnrOMOIseXckuvLT80K0_rjxSNxOfkad1w', 
     isConfigured: true 
   };
   const urlInput = document.getElementById('supabaseUrlInput');
@@ -3231,12 +3231,12 @@ function openDatabaseSettingsModal() {
   const statusText = document.getElementById('supabaseStatusText');
 
   let cleanUrl = (config && config.url) || '';
-  if (!cleanUrl || cleanUrl.includes('xyzcompany') || cleanUrl.includes('your-project')) {
-    cleanUrl = 'https://oubfjolxhvkujjjnzvol.supabase.co';
+  if (!cleanUrl || cleanUrl.includes('xyzcompany') || cleanUrl.includes('your-project') || cleanUrl.includes('oubfjolxhvkujjjnzvol')) {
+    cleanUrl = 'https://ivskkcmzzrhzhofwjtrt.supabase.co';
   }
   let cleanKey = (config && config.key) || '';
-  if (!cleanKey || cleanKey.includes('your-anon-key') || cleanKey.length < 20) {
-    cleanKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im91YmZqb2x4aHZrdWpqam56dm9sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAwMDk1NzMsImV4cCI6MjEwNTU4NTU3M30.v637P_FSQIKQq4PrfujlXGa2ciGR9UD68UY9vH_cqN4';
+  if (!cleanKey || cleanKey.includes('your-anon-key') || cleanKey.length < 20 || cleanKey.includes('v637P_FSQIKQq4PrfujlXGa2ciGR9UD68UY9vH_cqN4')) {
+    cleanKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml2c2trY216enJoemhvZndqdHJ0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAyNjA2NDcsImV4cCI6MjEwNTgzNjY0N30.Vywsz4cOEWnrOMOIseXckuvLT80K0_rjxSNxOfkad1w';
   }
 
   if (urlInput) urlInput.value = cleanUrl;
@@ -3246,7 +3246,7 @@ function openDatabaseSettingsModal() {
     statusBadge.style.background = '#f0fdf4';
     statusBadge.style.color = '#166534';
     statusBadge.style.borderColor = '#bbf7d0';
-    statusText.textContent = '🟢 Connected to Live PostgreSQL Database (oubfjolxhvkujjjnzvol)';
+    statusText.textContent = '🟢 Connected to Live PostgreSQL Database (ivskkcmzzrhzhofwjtrt)';
   }
 
   modal.classList.add('active');
@@ -3266,8 +3266,8 @@ function handleSaveDatabaseSettings(e) {
   if (e) e.preventDefault();
   let url = document.getElementById('supabaseUrlInput').value.trim();
   let key = document.getElementById('supabaseKeyInput').value.trim();
-  if (url.includes('xyzcompany') || !url) url = 'https://oubfjolxhvkujjjnzvol.supabase.co';
-  if (key.includes('your-anon-key') || !key) key = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im91YmZqb2x4aHZrdWpqam56dm9sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAwMDk1NzMsImV4cCI6MjEwNTU4NTU3M30.v637P_FSQIKQq4PrfujlXGa2ciGR9UD68UY9vH_cqN4';
+  if (url.includes('xyzcompany') || url.includes('oubfjolxhvkujjjnzvol') || !url) url = 'https://ivskkcmzzrhzhofwjtrt.supabase.co';
+  if (key.includes('your-anon-key') || key.includes('v637P_FSQIKQq4PrfujlXGa2ciGR9UD68UY9vH_cqN4') || !key) key = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml2c2trY216enJoemhvZndqdHJ0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAyNjA2NDcsImV4cCI6MjEwNTgzNjY0N30.Vywsz4cOEWnrOMOIseXckuvLT80K0_rjxSNxOfkad1w';
 
   if (window.SupabaseConfig) {
     window.SupabaseConfig.save(url, key);

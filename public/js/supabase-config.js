@@ -22,8 +22,8 @@
       key = localStorage.getItem("smartpantry_supabase_key") || "";
     } catch (e) {}
 
-    // Automatically purge old placeholders (e.g. xyzcompany, your-project)
-    if (url.includes("xyzcompany") || url.includes("your-project") || url.includes("placeholder")) {
+    // Automatically purge old placeholders and previous dead project
+    if (url.includes("xyzcompany") || url.includes("your-project") || url.includes("placeholder") || url.includes("oubfjolxhvkujjjnzvol")) {
       try {
         localStorage.removeItem("smartpantry_supabase_url");
         localStorage.removeItem("smartpantry_supabase_key");
@@ -32,16 +32,16 @@
       key = "";
     }
 
-    if (!url || url.includes("your-project") || url.includes("xyzcompany")) {
+    if (!url || url.includes("your-project") || url.includes("xyzcompany") || url.includes("oubfjolxhvkujjjnzvol")) {
       url = (typeof window.ENV !== "undefined" && (window.ENV.NEXT_PUBLIC_SUPABASE_URL || window.ENV.SUPABASE_URL)) 
         ? (window.ENV.NEXT_PUBLIC_SUPABASE_URL || window.ENV.SUPABASE_URL) 
-        : "https://oubfjolxhvkujjjnzvol.supabase.co";
+        : "https://ivskkcmzzrhzhofwjtrt.supabase.co";
     }
 
-    if (!key || key.includes("your-anon-key") || key.includes("placeholder") || key.length < 20) {
+    if (!key || key.includes("your-anon-key") || key.includes("placeholder") || key.length < 20 || key.includes("v637P_FSQIKQq4PrfujlXGa2ciGR9UD68UY9vH_cqN4")) {
       key = (typeof window.ENV !== "undefined" && (window.ENV.NEXT_PUBLIC_SUPABASE_ANON_KEY || window.ENV.SUPABASE_ANON_KEY)) 
         ? (window.ENV.NEXT_PUBLIC_SUPABASE_ANON_KEY || window.ENV.SUPABASE_ANON_KEY) 
-        : "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im91YmZqb2x4aHZrdWpqam56dm9sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAwMDk1NzMsImV4cCI6MjEwNTU4NTU3M30.v637P_FSQIKQq4PrfujlXGa2ciGR9UD68UY9vH_cqN4";
+        : "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml2c2trY216enJoemhvZndqdHJ0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAyNjA2NDcsImV4cCI6MjEwNTgzNjY0N30.Vywsz4cOEWnrOMOIseXckuvLT80K0_rjxSNxOfkad1w";
     }
 
     const isValid = Boolean(
