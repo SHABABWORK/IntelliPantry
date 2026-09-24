@@ -1048,15 +1048,19 @@
       // Redirect to Sign In view
       switchView('viewLogin');
 
-      // Show clear success message above the form
-      showAlert('loginAlert', `Your account has been created. Please check your email and verify your address before logging in.<div style="margin-top:8px; display:flex; gap:12px; align-items:center; flex-wrap:wrap; font-size:12.5px;"><a onclick="handleResendConfirmation('${escapeHTML(email)}', 'loginAlert')" style="color:var(--forest); font-weight:700; text-decoration:underline; cursor:pointer;">Resend verification email</a><span style="color:#a4aca6;">•</span><a onclick="goToVerificationCode('${escapeHTML(email)}')" style="color:var(--forest); font-weight:700; text-decoration:underline; cursor:pointer;">Enter verification code</a></div>`, 'success');
+      // Show appropriate success message above the form
+      if (authRes.needsEmailConfirmation) {
+        showAlert('loginAlert', `Your account has been created. Please check your email and verify your address before logging in.<div style="margin-top:8px; display:flex; gap:12px; align-items:center; flex-wrap:wrap; font-size:12.5px;"><a onclick="handleResendConfirmation('${escapeHTML(email)}', 'loginAlert')" style="color:var(--forest); font-weight:700; text-decoration:underline; cursor:pointer;">Resend verification email</a><span style="color:#a4aca6;">•</span><a onclick="goToVerificationCode('${escapeHTML(email)}')" style="color:var(--forest); font-weight:700; text-decoration:underline; cursor:pointer;">Enter verification code</a></div>`, 'success');
+      } else {
+        showAlert('loginAlert', `✓ Account created successfully! Please enter your password to sign in.`, 'success');
+      }
 
       try {
         window.history.replaceState({}, document.title, window.location.pathname);
       } catch (e) {}
 
-      // Dual-dispatch: Trigger OTP delivery as guaranteed backup channel
-      if (window.supabaseService && typeof window.supabaseService.signInWithOtp === 'function') {
+      // Dual-dispatch: Trigger OTP delivery as backup channel if confirmation required
+      if (authRes.needsEmailConfirmation && window.supabaseService && typeof window.supabaseService.signInWithOtp === 'function') {
         window.supabaseService.signInWithOtp(email).catch(e => console.warn('[Backup OTP Dispatch]', e));
       }
     }
