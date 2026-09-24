@@ -124,12 +124,14 @@
           const msg = (error.message || '').toLowerCase();
           if (msg.includes('user already registered') || msg.includes('already exists')) {
             friendlyError = "An account with this email already exists. Please log in.";
+          } else if (msg.includes('sending confirmation email') || msg.includes('confirmation email')) {
+            friendlyError = "Supabase email delivery error: Supabase cannot send confirmation emails right now. To enable instant signup, turn OFF 'Confirm email' in Supabase Dashboard (Authentication > Providers > Email), or configure Custom SMTP.";
           } else if (msg.includes('password') && (msg.includes('short') || msg.includes('least') || msg.includes('weak'))) {
             friendlyError = "Password must be at least 6 characters long.";
           } else if (msg.includes('rate limit')) {
             friendlyError = "Too many requests. Please wait a few moments before trying again.";
           }
-          return { success: false, error: friendlyError };
+          return { success: false, error: friendlyError, rawError: error.message };
         }
 
         const user = data.user;
@@ -140,24 +142,25 @@
           return { success: false, error: "An account with this email already exists. Please log in." };
         }
 
+        const isConfirmed = Boolean(user.email_confirmed_at || user.confirmed_at || (session && session.access_token));
         const userObj = {
           id: user.id,
           email: user.email,
           name: cleanName,
-          emailVerified: Boolean(user.email_confirmed_at || user.confirmed_at)
+          emailVerified: isConfirmed
         };
 
         // Create or update profile in profiles table
         await this.ensureProfile(userObj);
 
         // DO NOT auto-login user upon signup.
-        // User must verify email before logging in, or explicitly log in with password
+        // User logs in via the Sign In form
         return {
           success: true,
           user: userObj,
-          session: null,
-          token: null,
-          needsEmailConfirmation: true
+          session: session,
+          token: session ? session.access_token : null,
+          needsEmailConfirmation: !isConfirmed
         };
       } catch (err) {
         let msg = err.message || "Signup failed on Supabase server.";
@@ -353,11 +356,21 @@
         const { error } = await this.client.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
           redirectTo: redirectUrl
         });
-        if (error) throw error;
+        if (error) {
+          let msg = error.message;
+          if (msg.toLowerCase().includes('sending recovery email') || msg.toLowerCase().includes('recovery email')) {
+            msg = "Supabase could not send recovery email. To resolve this, configure Custom SMTP in your Supabase Dashboard (Project Settings > Authentication > SMTP Settings).";
+          }
+          return { success: false, error: msg };
+        }
         return { success: true };
       } catch (err) {
-        console.warn("[Supabase Auth] resetPassword error:", err.message);
-        return { success: false, error: err.message || "Failed to send reset email." };
+        let msg = err.message || "Failed to send reset email.";
+        if (msg.toLowerCase().includes('sending recovery email') || msg.toLowerCase().includes('recovery email')) {
+          msg = "Supabase could not send recovery email. To resolve this, configure Custom SMTP in your Supabase Dashboard (Project Settings > Authentication > SMTP Settings).";
+        }
+        console.warn("[Supabase Auth] resetPassword error:", msg);
+        return { success: false, error: msg };
       }
     }
 
@@ -375,7 +388,13 @@
             shouldCreateUser: isSignUp
           }
         });
-        if (error) return { success: false, error: error.message };
+        if (error) {
+          let msg = error.message;
+          if (msg.toLowerCase().includes('magic link email') || msg.toLowerCase().includes('sending magic link')) {
+            msg = "Supabase could not send magic link email. Configure Custom SMTP in your Supabase Dashboard (Project Settings > Authentication > SMTP Settings).";
+          }
+          return { success: false, error: msg };
+        }
         return { success: true, data };
       } catch (err) {
         return { success: false, error: err.message || "Failed to send magic link or OTP." };
