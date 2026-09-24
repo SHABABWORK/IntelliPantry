@@ -22,13 +22,23 @@
       key = localStorage.getItem("smartpantry_supabase_key") || "";
     } catch (e) {}
 
-    if (!url || url.includes("your-project")) {
+    // Automatically purge old placeholders (e.g. xyzcompany, your-project)
+    if (url.includes("xyzcompany") || url.includes("your-project") || url.includes("placeholder")) {
+      try {
+        localStorage.removeItem("smartpantry_supabase_url");
+        localStorage.removeItem("smartpantry_supabase_key");
+      } catch (e) {}
+      url = "";
+      key = "";
+    }
+
+    if (!url || url.includes("your-project") || url.includes("xyzcompany")) {
       url = (typeof window.ENV !== "undefined" && (window.ENV.NEXT_PUBLIC_SUPABASE_URL || window.ENV.SUPABASE_URL)) 
         ? (window.ENV.NEXT_PUBLIC_SUPABASE_URL || window.ENV.SUPABASE_URL) 
         : "https://oubfjolxhvkujjjnzvol.supabase.co";
     }
 
-    if (!key || key.includes("your-anon-key")) {
+    if (!key || key.includes("your-anon-key") || key.includes("placeholder") || key.length < 20) {
       key = (typeof window.ENV !== "undefined" && (window.ENV.NEXT_PUBLIC_SUPABASE_ANON_KEY || window.ENV.SUPABASE_ANON_KEY)) 
         ? (window.ENV.NEXT_PUBLIC_SUPABASE_ANON_KEY || window.ENV.SUPABASE_ANON_KEY) 
         : "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im91YmZqb2x4aHZrdWpqam56dm9sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAwMDk1NzMsImV4cCI6MjEwNTU4NTU3M30.v637P_FSQIKQq4PrfujlXGa2ciGR9UD68UY9vH_cqN4";
@@ -38,6 +48,7 @@
       url && 
       key && 
       !url.includes("your-project") && 
+      !url.includes("xyzcompany") &&
       !key.includes("your-anon-key") &&
       url.startsWith("https://")
     );
@@ -56,8 +67,9 @@
       if (res.ok) {
         const data = await res.json();
         if (data && data.supabaseUrl && data.supabaseAnonKey) {
-          // If local override doesn't already exist, use serverless env config
-          if (!localStorage.getItem("smartpantry_supabase_url")) {
+          const currentUrl = localStorage.getItem("smartpantry_supabase_url") || "";
+          // If local override doesn't exist or was a placeholder, use serverless env config
+          if (!currentUrl || currentUrl.includes("xyzcompany") || currentUrl.includes("your-project")) {
             cachedConfig = {
               url: data.supabaseUrl.trim(),
               key: data.supabaseAnonKey.trim(),

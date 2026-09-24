@@ -1325,7 +1325,11 @@
           document.getElementById('formForgotRequest').style.display = 'none';
           document.getElementById('formForgotReset').style.display = 'block';
         } else {
-          showAlert('forgotAlert', resetRes.error || 'Failed to send reset email. Please try again.');
+          let errText = resetRes.error || 'Failed to send reset email. Please try again.';
+          if (errText.includes('SMTP') || errText.includes('recovery email') || errText.includes('send')) {
+            errText = `<strong>Supabase Email Notice:</strong> Supabase free email rate limit reached or Custom SMTP not yet saved.<div style="margin-top:8px; font-size:12px; line-height:1.4; color:#334155;">To enable instant recovery emails directly from <strong>intellipantrynotify@gmail.com</strong>, open your Supabase Dashboard &rarr; <em>Project Settings &rarr; Authentication &rarr; SMTP Settings</em> and enter your Gmail & 16-character Google App Password.</div>`;
+          }
+          showAlert('forgotAlert', errText);
         }
       } catch (err) {
         btn.disabled = false;
